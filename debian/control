@@ -1,12 +1,12 @@
-Source: libvmod-example
+Source: varnish-vmod-example
 Section: web
 Priority: extra
 Maintainer: Lasse Karstensen <lasse@varnish-software.com>
-Build-Depends: debhelper (>= 7)
+Build-Depends: debhelper (>= 7), build-essential, python-docutils
 Standards-Version: 3.8.1
+Vcs-Git: git://github.com/varnish/libvmod-example.git
 
 Package: varnish-vmod-example
 Architecture: all
-Depends: varnish
-#libproc-daemon-perl, libfile-pid-perl, liblog-dispatch-perl, libio-socket-ssl-perl, liblog-log4perl-perl, libdigest-sha-perl, libwww-perl, libconfig-simple-perl, ${perl:Depends}, ${misc:Depends}
+Depends: varnish, ${misc:Depends}
 Description: Example vmod for Varnish

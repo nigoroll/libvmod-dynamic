@@ -1,4 +1,16 @@
 #!/usr/bin/make -f
+export DH_VERBOSE=1
+
+VARNISHSRC=/home/lkarsten/work/varnish-cache-3.0
+
+override_dh_auto_configure:
+	dh_testdir
+	aclocal -I m4
+	libtoolize --copy --force
+	autoheader
+	automake --add-missing --copy --foreign
+	autoconf
+	./configure VARNISHSRC=$(VARNISHSRC) --prefix=/usr
 
 %:
 	dh $@
