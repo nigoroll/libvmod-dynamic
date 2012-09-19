@@ -1,0 +1,5 @@
+varnish-vmod-example (0.1) unstable; urgency=low
+
+  * First version
+
+ -- Lasse Karstensen <lasse@varnish-software.com>  Wed, 19 Sep 2012 15:03:00 +0200
