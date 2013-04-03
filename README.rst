@@ -19,7 +19,8 @@ import example;
 DESCRIPTION
 ===========
 
-Example Varnish vmod demonstrating how to write an out-of-tree Varnish vmod.
+Example Varnish vmod demonstrating how to write an out-of-tree Varnish vmod
+for Varnish 3.0 and later.
 
 Implements the traditional Hello World as a vmod.
 
@@ -46,9 +47,9 @@ INSTALLATION
 ============
 
 This is an example skeleton for developing out-of-tree Varnish
-vmods. It implements the "Hello, World!" as a vmod callback. Not
-particularly useful in good hello world tradition, but demonstrates how
-to get the glue around a vmod working.
+vmods available from the 3.0 release. It implements the "Hello, World!" 
+as a vmod callback. Not particularly useful in good hello world 
+tradition,but demonstrates how to get the glue around a vmod working.
 
 The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
