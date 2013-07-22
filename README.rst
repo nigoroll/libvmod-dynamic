@@ -86,7 +86,9 @@ HISTORY
 =======
 
 This manual page was released as part of the libvmod-example package,
-demonstrating how to create an out-of-tree Varnish vmod.
+demonstrating how to create an out-of-tree Varnish vmod. For further
+examples and inspiration check the vmod directory:
+ https://www.varnish-cache.org/vmods
 
 COPYRIGHT
 =========
