@@ -7,6 +7,6 @@ Standards-Version: 3.8.1
 Vcs-Git: git://github.com/varnish/libvmod-example.git
 
 Package: libvmod-example
-Architecture: all
+Architecture: any
 Depends: varnish, ${misc:Depends}
 Description: Example vmod for Varnish
