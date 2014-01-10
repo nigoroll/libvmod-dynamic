@@ -38,7 +38,6 @@ VARNISH_VMOD_INCLUDES
 VARNISH_VMOD_DIR
 VARNISH_VMODTOOL
 
-# Check that varnishtest is built in the varnish source directory
 AC_PATH_PROG([VARNISHTEST], [varnishtest])
 AC_PATH_PROG([VARNISHD], [varnishd])
 
