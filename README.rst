@@ -96,4 +96,4 @@ COPYRIGHT
 This document is licensed under the same license as the
 libvmod-example project. See LICENSE for details.
 
-* Copyright (c) 2011 Varnish Software
+* Copyright (c) 2011-2014 Varnish Software
