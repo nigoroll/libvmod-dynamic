@@ -8,5 +8,5 @@ Vcs-Git: git://github.com/varnish/libvmod-example.git
 
 Package: libvmod-example
 Architecture: any
-Depends: varnish, ${misc:Depends}
+Depends: varnish (>= 4.0.0), ${misc:Depends}
 Description: Example vmod for Varnish
