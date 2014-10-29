@@ -33,6 +33,9 @@ AM_CONDITIONAL(HAVE_RST2MAN, [test "x$RST2MAN" != "xno"])
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/stdlib.h])
 
+
+PKG_CHECK_MODULES([libvarnishapi], [varnishapi])
+
 # Varnish include files tree
 VARNISH_VMOD_INCLUDES
 VARNISH_VMOD_DIR
