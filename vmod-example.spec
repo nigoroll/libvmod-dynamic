@@ -1,15 +1,15 @@
 Summary: Example VMOD for Varnish
-Name: vmod-varnish-%{VARNISHVER}-example
+Name: vmod-example
 Version: 0.1
 Release: 1%{?dist}
 License: BSD
 Group: System Environment/Daemons
 Source0: libvmod-example.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-Requires: varnish > 4.0
+Requires: varnish >= 4.0.2
 BuildRequires: make
 BuildRequires: python-docutils
-BuildRequires: varnish-libs-devel
+BuildRequires: varnish-libs-devel >= 4.0.2
 
 %description
 Example VMOD
@@ -18,9 +18,7 @@ Example VMOD
 %setup -n libvmod-example
 
 %build
-# this assumes that VARNISHSRC is defined on the rpmbuild command line, like this:
-# rpmbuild -bb --define 'VARNISHSRC /home/user/rpmbuild/BUILD/varnish-3.0.3' redhat/*spec
-./configure VARNISHSRC=%{VARNISHSRC} VMODDIR="$(PKG_CONFIG_PATH=%{VARNISHSRC} pkg-config --variable=vmoddir varnishapi)" --prefix=/usr/
+%configure --prefix=/usr/
 make
 make check
 
@@ -35,7 +33,7 @@ rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root,-)
-%{_libdir}/varnish/vmods/
+%{_libdir}/varnis*/vmods/
 %doc /usr/share/doc/%{name}/*
 %{_mandir}/man?/*
 

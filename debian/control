@@ -1,12 +1,12 @@
 Source: libvmod-example
 Section: web
 Priority: extra
-Maintainer: Lasse Karstensen <lasse@varnish-software.com>
-Build-Depends: debhelper (>= 7), build-essential, python-docutils
+Maintainer: Lasse Karstensen <lkarsten@varnish-software.com>
+Build-Depends: debhelper (>= 7), build-essential, python-docutils, libvarnishapi-dev
 Standards-Version: 3.8.1
 Vcs-Git: git://github.com/varnish/libvmod-example.git
 
 Package: libvmod-example
 Architecture: any
-Depends: varnish (>= 4.0.0), ${misc:Depends}
+Depends: varnish (>= 4.0.2), ${misc:Depends}
 Description: Example vmod for Varnish
