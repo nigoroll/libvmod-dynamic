@@ -9,6 +9,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Requires: varnish >= 4.0.2
 BuildRequires: make
 BuildRequires: python-docutils
+BuildRequires: varnish >= 4.0.2
 BuildRequires: varnish-libs-devel >= 4.0.2
 
 %description
