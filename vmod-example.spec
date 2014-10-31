@@ -15,7 +15,7 @@ BuildRequires: varnish-libs-devel >= 4.0.2
 Example VMOD
 
 %prep
-%setup -n libvmod-example
+%setup -n libvmod-example-trunk
 
 %build
 %configure --prefix=/usr/
