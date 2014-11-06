@@ -1,18 +1,23 @@
 language: c
 
 before_install:
- - sudo apt-get install -qq python-docutils
+  - sudo apt-get update -q
+  - sudo apt-get install -qq apt-transport-https python-docutils
+  - curl https://repo.varnish-cache.org/debian/GPG-key.txt | sudo apt-key add -
+  - echo "deb https://repo.varnish-cache.org/ubuntu/ precise varnish-4.0" | sudo tee /etc/apt/sources.list.d/varnish-cache.list
+  - sudo apt-get -q update
+  - sudo apt-get install varnish libvarnishapi-dev
+
 
 before_script:
-  - apt-get source -q varnish
-  - cd varnish*
-  - ./configure
-  - make
-  - cd ..
   - ./autogen.sh
-  - ./configure VARNISHSRC=varnish* VMODDIR=`pwd`
-  - make
+  - ./configure --prefix=/usr
+  - make -j4
 
 script:
-  - make check
+  - make check -j4
+
+compiler:
+  - clang
+  - gcc
 

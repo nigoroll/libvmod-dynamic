@@ -1,4 +1,4 @@
-AC_PREREQ(2.59)
+AC_PREREQ(2.64)
 AC_COPYRIGHT([Copyright (c) 2011-2014 Varnish Software AS])
 AC_INIT([libvmod-example], [trunk])
 AC_CONFIG_MACRO_DIR([m4])
@@ -33,13 +33,17 @@ AM_CONDITIONAL(HAVE_RST2MAN, [test "x$RST2MAN" != "xno"])
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/stdlib.h])
 
+
+PKG_CHECK_MODULES([libvarnishapi], [varnishapi])
+
 # Varnish include files tree
 VARNISH_VMOD_INCLUDES
 VARNISH_VMOD_DIR
 VARNISH_VMODTOOL
 
 AC_PATH_PROG([VARNISHTEST], [varnishtest])
-AC_PATH_PROG([VARNISHD], [varnishd])
+AC_PATH_PROG([VARNISHD], [varnishd], [],
+    [$PATH:$PATH:`pkg-config varnishapi --variable=sbindir`])
 
 AC_CONFIG_FILES([
 	Makefile

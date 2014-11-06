@@ -6,8 +6,7 @@ vmod_example
 Varnish Example Module
 ----------------------
 
-:Author: Martin Blix Grydeland
-:Date: 2011-05-26
+:Date: 2014-11-05
 :Version: 1.0
 :Manual section: 3
 
@@ -19,8 +18,7 @@ import example;
 DESCRIPTION
 ===========
 
-Example Varnish vmod demonstrating how to write an out-of-tree Varnish vmod
-for Varnish 3.0 and later.
+Example Varnish vmod demonstrating how to write an out-of-tree Varnish vmod.
 
 Implements the traditional Hello World as a vmod.
 
@@ -46,32 +44,28 @@ Example
 INSTALLATION
 ============
 
-This is an example skeleton for developing out-of-tree Varnish
-vmods available from the 3.0 release. It implements the "Hello, World!" 
-as a vmod callback. Not particularly useful in good hello world 
-tradition,but demonstrates how to get the glue around a vmod working.
-
 The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
-using the varnishtest tool.
+using the ``varnishtest`` tool.
+
+Building requires the Varnish header files and uses pkg-config to find
+the necessary paths.
+
+If you have installed Varnish to a non-standard directory, you may need to
+override PKG_CONFIG_PATH so configure can find varnishapi.pc.
 
 Usage::
 
- ./configure VARNISHSRC=DIR [VMODDIR=DIR]
+ ./autogen.sh
+ ./configure
 
-`VARNISHSRC` is the directory of the Varnish source tree for which to
-compile your vmod. Both the `VARNISHSRC` and `VARNISHSRC/include`
-will be added to the include search paths for your module.
-
-Optionally you can also set the vmod install directory by adding
-`VMODDIR=DIR` (defaults to the pkg-config discovered directory from your
-Varnish installation).
 
 Make targets:
 
-* make - builds the vmod
-* make install - installs your vmod in `VMODDIR`
+* make - builds the vmod.
+* make install - installs your vmod.
 * make check - runs the unit tests in ``src/tests/*.vtc``
+* make distcheck - run check and prepare a tarball of the vmod.
 
 In your VCL you could then use this vmod along the following lines::
         
@@ -81,16 +75,6 @@ In your VCL you could then use this vmod along the following lines::
                 # This sets resp.http.hello to "Hello, World"
                 set resp.http.hello = example.hello("World");
         }
-
-HISTORY
-=======
-
-This manual page was released as part of the libvmod-example package,
-demonstrating how to create an out-of-tree Varnish vmod.
-
-For further examples and inspiration check out the vmod directory:
-
-    https://www.varnish-cache.org/vmods
 
 COPYRIGHT
 =========
