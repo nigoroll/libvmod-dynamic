@@ -21,6 +21,8 @@ $(top_srcdir)/src/tests/*.vtc:
 
 check: $(VMOD_TESTS)
 
-EXTRA_DIST = vmod_example.vcc $(VMOD_TESTS)
+EXTRA_DIST = \
+	vmod_example.vcc \
+	$(VMOD_TESTS)
 
 CLEANFILES = $(builddir)/vcc_if.c $(builddir)/vcc_if.h
