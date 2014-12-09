@@ -13,5 +13,5 @@ Vcs-Git: git://github.com/varnish/libvmod-example.git
 
 Package: libvmod-example
 Architecture: any
-Depends: varnish (>= 4.0.2), ${misc:Depends}
+Depends: varnish (>= 4.0.2), ${misc:Depends}, ${Varnish:ABI}
 Description: Example vmod for Varnish
