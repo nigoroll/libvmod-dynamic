@@ -20,14 +20,15 @@ Example VMOD
 
 %build
 %configure --prefix=/usr/
-make
-make check
+%{__make} %{?_smp_mflags}
+%{__make} %{?_smp_mflags} check
 
 %install
-make install DESTDIR=%{buildroot}
+[ %{buildroot} != "/" ] && %{__rm} -rf %{buildroot}
+%{__make} install DESTDIR=%{buildroot}
 
 %clean
-rm -rf %{buildroot}
+[ %{buildroot} != "/" ] && %{__rm} -rf %{buildroot}
 
 %files
 %defattr(-,root,root,-)
