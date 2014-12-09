@@ -1,4 +1,4 @@
-AM_CPPFLAGS = @VMOD_INCLUDES@
+AM_CPPFLAGS = @VMOD_INCLUDES@ -Wall -Werror
 
 vmoddir = @VMOD_DIR@
 vmod_LTLIBRARIES = libvmod_example.la
