@@ -20,22 +20,20 @@ Example VMOD
 
 %build
 %configure --prefix=/usr/
-make
-make check
+%{__make} %{?_smp_mflags}
+%{__make} %{?_smp_mflags} check
 
 %install
-make install DESTDIR=%{buildroot}
-mkdir -p %{buildroot}/usr/share/doc/%{name}/
-cp README.rst %{buildroot}/usr/share/doc/%{name}/
-cp LICENSE %{buildroot}/usr/share/doc/%{name}/
+[ %{buildroot} != "/" ] && %{__rm} -rf %{buildroot}
+%{__make} install DESTDIR=%{buildroot}
 
 %clean
-rm -rf %{buildroot}
+[ %{buildroot} != "/" ] && %{__rm} -rf %{buildroot}
 
 %files
 %defattr(-,root,root,-)
 %{_libdir}/varnis*/vmods/
-%doc /usr/share/doc/%{name}/*
+%doc /usr/share/doc/lib%{name}/*
 %{_mandir}/man?/*
 
 %changelog
