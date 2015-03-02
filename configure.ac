@@ -2,6 +2,7 @@ AC_PREREQ(2.64)
 AC_COPYRIGHT([Copyright (c) 2011-2015 Varnish Software AS])
 AC_INIT([libvmod-example], [trunk])
 AC_CONFIG_MACRO_DIR([m4])
+m4_ifndef([VARNISH_VMOD_INCLUDES], AC_MSG_ERROR([Need varnish.m4 -- see README.rst]))
 AC_CONFIG_SRCDIR(src/vmod_example.vcc)
 AM_CONFIG_HEADER(config.h)
 
@@ -33,8 +34,9 @@ AM_CONDITIONAL(HAVE_RST2MAN, [test "x$RST2MAN" != "xno"])
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/stdlib.h])
 
-
 PKG_CHECK_MODULES([libvarnishapi], [varnishapi])
+PKG_CHECK_VAR([LIBVARNISHAPI_DATAROOTDIR], [varnishapi], [datarootdir])
+AC_SUBST([LIBVARNISHAPI_DATAROOTDIR])
 
 # Varnish include files tree
 VARNISH_VMOD_INCLUDES
