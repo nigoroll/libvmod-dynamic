@@ -76,9 +76,3 @@ In your VCL you could then use this vmod along the following lines::
                 set resp.http.hello = example.hello("World");
         }
 
-COPYRIGHT
-=========
-
-See the LICENSE file for information on licensing.
-
-* Copyright (c) 2011-2015 Varnish Software
