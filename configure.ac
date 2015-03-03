@@ -36,6 +36,8 @@ AC_CHECK_HEADERS([sys/stdlib.h])
 
 PKG_CHECK_MODULES([libvarnishapi], [varnishapi])
 PKG_CHECK_VAR([LIBVARNISHAPI_DATAROOTDIR], [varnishapi], [datarootdir])
+PKG_CHECK_VAR([LIBVARNISHAPI_BINDIR], [varnishapi], [bindir])
+PKG_CHECK_VAR([LIBVARNISHAPI_SBINDIR], [varnishapi], [sbindir])
 AC_SUBST([LIBVARNISHAPI_DATAROOTDIR])
 
 # Varnish include files tree
@@ -43,9 +45,10 @@ VARNISH_VMOD_INCLUDES
 VARNISH_VMOD_DIR
 VARNISH_VMODTOOL
 
-AC_PATH_PROG([VARNISHTEST], [varnishtest])
+AC_PATH_PROG([VARNISHTEST], [varnishtest], [],
+    [$LIBVARNISHAPI_BINDIR:$LIBVARNISHAPI_SBINDIR:$PATH])
 AC_PATH_PROG([VARNISHD], [varnishd], [],
-    [$PATH:$PATH:`pkg-config varnishapi --variable=sbindir`])
+    [$LIBVARNISHAPI_SBINDIR:$LIBVARNISHAPI_BINDIR:$PATH])
 
 AC_CONFIG_FILES([
 	Makefile
