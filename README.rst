@@ -6,7 +6,7 @@ vmod_example
 Varnish Example Module
 ----------------------
 
-:Date: 2014-11-05
+:Date: 2015-03-03
 :Version: 1.0
 :Manual section: 3
 
@@ -79,7 +79,6 @@ In your VCL you could then use this vmod along the following lines::
 COPYRIGHT
 =========
 
-This document is licensed under the same license as the
-libvmod-example project. See LICENSE for details.
+See the LICENSE file for information on licensing.
 
-* Copyright (c) 2011-2014 Varnish Software
+* Copyright (c) 2011-2015 Varnish Software
