@@ -51,14 +51,18 @@ using the ``varnishtest`` tool.
 Building requires the Varnish header files and uses pkg-config to find
 the necessary paths.
 
-If you have installed Varnish to a non-standard directory, you may need to
-override PKG_CONFIG_PATH so configure can find varnishapi.pc.
-
 Usage::
 
  ./autogen.sh
  ./configure
 
+If you have installed Varnish to a non-standard directory, call
+``autogen.sh`` and ``configure`` with ``PKG_CONFIG_PATH`` pointing to
+the appropriate path. For example, when varnishd configure was called
+with ``--prefix=$PREFIX``, use
+
+ PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig
+ export PKG_CONFIG_PATH
 
 Make targets:
 
@@ -68,7 +72,7 @@ Make targets:
 * make distcheck - run check and prepare a tarball of the vmod.
 
 In your VCL you could then use this vmod along the following lines::
-        
+
         import example;
 
         sub vcl_deliver {
@@ -76,3 +80,10 @@ In your VCL you could then use this vmod along the following lines::
                 set resp.http.hello = example.hello("World");
         }
 
+COMMON PROBLEMS
+===============
+
+* configure: error: Need varnish.m4 -- see README.rst
+
+  Check if ``PKG_CONFIG_PATH`` has been set correctly before calling
+  ``autogen.sh`` and ``configure``
