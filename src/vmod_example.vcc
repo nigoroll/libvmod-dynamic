@@ -1,8 +1,7 @@
 #
-# your
-# Copyright (c) 1900-1901 by no-one
+# Copyright YOU (c) 1900.
 #
-# goes here. vmodtool requires this format
+# (vmodtool requires this format.)
 #
 
 $Module example 3 Example VMOD
