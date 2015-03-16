@@ -1,4 +1,4 @@
-AC_PREREQ(2.64)
+AC_PREREQ(2.59)
 AC_COPYRIGHT([Copyright (c) 2011-2015 Varnish Software AS])
 AC_INIT([libvmod-example], [trunk])
 AC_CONFIG_MACRO_DIR([m4])
