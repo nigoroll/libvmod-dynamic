@@ -1,4 +1,15 @@
+#
+# your
+# Copyright (c) 1900-1901 by no-one
+#
+# goes here. vmodtool requires this format
+#
+
 $Module example 3 Example VMOD
+
+DESCRIPTION
+===========
+
 This is the embedded documentation for the example VMOD. It should
 mention what the vmod is intended to do.
 
