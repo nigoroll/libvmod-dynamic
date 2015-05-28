@@ -10,7 +10,9 @@ libvmod_example_la_SOURCES = \
 	vcc_if.h \
 	vmod_example.c
 
-vcc_if.c vcc_if.h: @VMODTOOL@ $(top_srcdir)/src/vmod_example.vcc
+vcc_if.c: vcc_if.h
+
+vcc_if.h: @VMODTOOL@ $(top_srcdir)/src/vmod_example.vcc
 	@VMODTOOL@ $(top_srcdir)/src/vmod_example.vcc
 
 VMOD_TESTS = $(top_srcdir)/src/tests/*.vtc
