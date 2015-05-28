@@ -6,9 +6,13 @@ vmod_LTLIBRARIES = libvmod_example.la
 libvmod_example_la_LDFLAGS = -module -export-dynamic -avoid-version -shared
 
 libvmod_example_la_SOURCES = \
-	vcc_if.c \
-	vcc_if.h \
 	vmod_example.c
+
+nodist_libvmod_example_la_SOURCES = \
+	vcc_if.c \
+	vcc_if.h
+
+vmod_example.lo: vcc_if.c vcc_if.h
 
 vcc_if.c: vcc_if.h
 
