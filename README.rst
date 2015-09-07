@@ -87,3 +87,8 @@ COMMON PROBLEMS
 
   Check if ``PKG_CONFIG_PATH`` has been set correctly before calling
   ``autogen.sh`` and ``configure``
+
+* Incompatibilities with different Varnish Cache versions
+
+  Make sure you build this vmod against its correspondent Varnish Cache version.
+  For example, to build against Varnish Cache 4.0, this vmod must be built from branch 4.0.
