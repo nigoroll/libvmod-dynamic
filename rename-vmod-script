@@ -29,7 +29,7 @@ git mv vmod-example.spec vmod-${NAME}.spec
 
 git grep -z -l example | xargs -0 sed -i -s -e "s/example/${NAME}/g"
 
-git rm rename-vmod-script
+git rm -f rename-vmod-script
 
 echo "All done."
 echo -e "For your cut&paste needs:\n  git commit -a -m \"Automatic rename of libvmod-example to libvmod-${NAME}.\""
