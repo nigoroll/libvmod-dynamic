@@ -26,6 +26,8 @@ Example VMOD
 %install
 [ %{buildroot} != "/" ] && %{__rm} -rf %{buildroot}
 %{__make} install DESTDIR=%{buildroot}
+mv %{buildroot}/usr/share/doc/lib%{name} %{buildroot}/usr/share/doc/%{name}
+
 
 %clean
 [ %{buildroot} != "/" ] && %{__rm} -rf %{buildroot}
@@ -33,7 +35,7 @@ Example VMOD
 %files
 %defattr(-,root,root,-)
 %{_libdir}/varnis*/vmods/
-%doc /usr/share/doc/lib%{name}/*
+%doc /usr/share/doc/%{name}/*
 %{_mandir}/man?/*
 
 %changelog
