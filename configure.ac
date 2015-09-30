@@ -1,9 +1,9 @@
 AC_PREREQ(2.59)
-AC_COPYRIGHT([Copyright (c) 2011-2015 Varnish Software AS])
-AC_INIT([libvmod-example], [trunk])
+AC_COPYRIGHT([Copyright (c) 2015 Varnish Software AS])
+AC_INIT([libvmod-named], [0.1])
 AC_CONFIG_MACRO_DIR([m4])
 m4_ifndef([VARNISH_VMOD_INCLUDES], AC_MSG_ERROR([Need varnish.m4 -- see README.rst]))
-AC_CONFIG_SRCDIR(src/vmod_example.vcc)
+AC_CONFIG_SRCDIR(src/vmod_named.vcc)
 AM_CONFIG_HEADER(config.h)
 
 AC_CANONICAL_SYSTEM

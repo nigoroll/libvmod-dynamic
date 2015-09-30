@@ -1,17 +1,17 @@
-Source: libvmod-example
+Source: libvmod-named
 Section: web
 Priority: extra
-Maintainer: Varnish Software <support@varnish-software.com>
+Maintainer: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
 Build-Depends: debhelper (>= 7),
  build-essential,
  pkg-config,
  python-docutils,
- varnish (>= 4.0.2),
- libvarnishapi-dev (>= 4.0.2)
+ varnish (>= 4.1.0),
+ libvarnishapi-dev (>= 4.1.0)
 Standards-Version: 3.8.1
-Vcs-Git: git://github.com/varnish/libvmod-example.git
+Vcs-Git: git://github.com/varnish/libvmod-named.git
 
-Package: libvmod-example
+Package: libvmod-named
 Architecture: any
-Depends: varnish (>= 4.0.2), ${shlibs:Depends}, ${misc:Depends}, ${Varnish:ABI}
-Description: Example vmod for Varnish
+Depends: varnish (>= 4.1.0), ${shlibs:Depends}, ${misc:Depends}, ${Varnish:ABI}
+Description: Named vmod for Varnish

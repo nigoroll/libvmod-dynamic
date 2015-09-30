@@ -4,18 +4,18 @@
 # (vmodtool requires this format.)
 #
 
-$Module example 3 Example VMOD
+$Module named 3 Named VMOD
 
 DESCRIPTION
 ===========
 
-This is the embedded documentation for the example VMOD. It should
+This is the embedded documentation for the named VMOD. It should
 mention what the vmod is intended to do.
 
 It can span multiple lines and is written in RST format.
 You can even have links and lists in here:
 
-* https://github.com/varnish/libvmod-example/
+* https://github.com/varnish/libvmod-named/
 * https://www.varnish-cache.org/
 
 The init-function declared next does not have documentation.

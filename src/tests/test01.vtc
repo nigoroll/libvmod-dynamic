@@ -1,4 +1,4 @@
-varnishtest "Test example vmod"
+varnishtest "Test named vmod"
 
 server s1 {
        rxreq
@@ -6,10 +6,10 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import example from "${vmod_topbuild}/src/.libs/libvmod_example.so";
+	import named from "${vmod_topbuild}/src/.libs/libvmod_named.so";
 
 	sub vcl_deliver {
-		set resp.http.hello = example.hello("World");
+		set resp.http.hello = named.hello("World");
 	}
 } -start
 

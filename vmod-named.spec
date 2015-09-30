@@ -1,27 +1,31 @@
-Summary: Example VMOD for Varnish
-Name: vmod-example
+Summary: Named VMOD for Varnish
+Name: vmod-named
 Version: 0.1
 Release: 1%{?dist}
 License: BSD
-Group: System Environment/Daemons
-Source0: libvmod-example.tar.gz
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-Requires: varnish >= 4.0.2
+Source0: libvmod-named.tar.gz
+
+Requires: varnish >= 4.1.0
+
 BuildRequires: make
 BuildRequires: python-docutils
-BuildRequires: varnish >= 4.0.2
-BuildRequires: varnish-libs-devel >= 4.0.2
+BuildRequires: varnish >= 4.1.0
+BuildRequires: varnish-libs-devel >= 4.1.0
+
 
 %description
-Example VMOD
+A VMOD to create named director, that is to say relying on DNS to dynamically
+create backends.
+
 
 %prep
-%setup -n libvmod-example-trunk
+%setup -qn libvmod-named-trunk
+
 
 %build
 %configure --prefix=/usr/
 %{__make} %{?_smp_mflags}
-%{__make} %{?_smp_mflags} check
+
 
 %install
 [ %{buildroot} != "/" ] && %{__rm} -rf %{buildroot}
@@ -29,8 +33,13 @@ Example VMOD
 mv %{buildroot}/usr/share/doc/lib%{name} %{buildroot}/usr/share/doc/%{name}
 
 
+%check
+%{__make} %{?_smp_mflags} check
+
+
 %clean
 [ %{buildroot} != "/" ] && %{__rm} -rf %{buildroot}
+
 
 %files
 %defattr(-,root,root,-)
@@ -39,5 +48,5 @@ mv %{buildroot}/usr/share/doc/lib%{name} %{buildroot}/usr/share/doc/%{name}
 %{_mandir}/man?/*
 
 %changelog
-* Tue Nov 14 2012 Lasse Karstensen <lasse@varnish-software.com> - 0.1-0.20121114
+* Wed Sep 30 2015 Dridi Boukelmoune <dridi.boukelmoune[AT]gmail.com> - 0.1-1
 - Initial version.

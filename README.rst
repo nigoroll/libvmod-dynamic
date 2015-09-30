@@ -1,9 +1,9 @@
 ============
-vmod_example
+vmod_named
 ============
 
 ----------------------
-Varnish Example Module
+Varnish Named Module
 ----------------------
 
 :Date: 2015-03-03
@@ -13,12 +13,12 @@ Varnish Example Module
 SYNOPSIS
 ========
 
-import example;
+import named;
 
 DESCRIPTION
 ===========
 
-Example Varnish vmod demonstrating how to write an out-of-tree Varnish vmod.
+Named Varnish vmod demonstrating how to write an out-of-tree Varnish vmod.
 
 Implements the traditional Hello World as a vmod.
 
@@ -36,10 +36,10 @@ Return value
 	STRING
 Description
 	Returns "Hello, " prepended to S
-Example
+Named
         ::
 
-                set resp.http.hello = example.hello("World");
+                set resp.http.hello = named.hello("World");
 
 INSTALLATION
 ============
@@ -58,7 +58,7 @@ Usage::
 
 If you have installed Varnish to a non-standard directory, call
 ``autogen.sh`` and ``configure`` with ``PKG_CONFIG_PATH`` pointing to
-the appropriate path. For example, when varnishd configure was called
+the appropriate path. For instance, when varnishd configure was called
 with ``--prefix=$PREFIX``, use
 
  PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig
@@ -88,11 +88,11 @@ USAGE EXAMPLE
 
 In your VCL you could then use this vmod along the following lines::
 
-        import example;
+        import named;
 
         sub vcl_deliver {
                 # This sets resp.http.hello to "Hello, World"
-                set resp.http.hello = example.hello("World");
+                set resp.http.hello = named.hello("World");
         }
 
 COMMON PROBLEMS
@@ -106,4 +106,4 @@ COMMON PROBLEMS
 * Incompatibilities with different Varnish Cache versions
 
   Make sure you build this vmod against its correspondent Varnish Cache version.
-  For example, to build against Varnish Cache 4.0, this vmod must be built from branch 4.0.
+  For instance, to build against Varnish Cache 4.0, this vmod must be built from branch 4.0.

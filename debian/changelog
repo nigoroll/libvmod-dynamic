@@ -1,5 +1,5 @@
-libvmod-example (0.1) unstable; urgency=low
+libvmod-named (0.1) unstable; urgency=low
 
   * First version
 
- -- Lasse Karstensen <lasse@varnish-software.com>  Wed, 19 Sep 2012 15:03:00 +0200
+ -- Dridi Boukelmoune <dridi.boukelmoune@gmail.com>  Wed, 30 Sep 2015 17:20:00 +0200
