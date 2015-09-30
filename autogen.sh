@@ -45,6 +45,9 @@ to the PKG_CONFIG_PATH environment variable
 EOF
 	exit 1
 fi
+
+mkdir -p m4
+
 set -ex
 aclocal -I m4 -I ${dataroot}/aclocal
 $LIBTOOLIZE --copy --force
