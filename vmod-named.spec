@@ -1,9 +1,9 @@
-Summary: Named VMOD for Varnish
+Summary: DNS director for Varnish 4.1
 Name: vmod-named
 Version: 0.1
 Release: 1%{?dist}
 License: BSD
-Source0: libvmod-named.tar.gz
+Source0: lib%{name}-%{version}.tar.gz
 
 Requires: varnish >= 4.1.0
 
@@ -19,7 +19,7 @@ create backends.
 
 
 %prep
-%setup -qn libvmod-named-trunk
+%setup -qn lib%{name}-%{version}
 
 
 %build
@@ -28,24 +28,21 @@ create backends.
 
 
 %install
-[ %{buildroot} != "/" ] && %{__rm} -rf %{buildroot}
 %{__make} install DESTDIR=%{buildroot}
 mv %{buildroot}/usr/share/doc/lib%{name} %{buildroot}/usr/share/doc/%{name}
+
+rm %{buildroot}%{_libdir}/varnish*/vmods/*.la
 
 
 %check
 %{__make} %{?_smp_mflags} check
 
 
-%clean
-[ %{buildroot} != "/" ] && %{__rm} -rf %{buildroot}
-
-
 %files
 %defattr(-,root,root,-)
-%{_libdir}/varnis*/vmods/
+%{_libdir}/varnish*/vmods/
 %doc /usr/share/doc/%{name}/*
-%{_mandir}/man?/*
+%doc %{_mandir}/man?/*
 
 %changelog
 * Wed Sep 30 2015 Dridi Boukelmoune <dridi.boukelmoune[AT]gmail.com> - 0.1-1
