@@ -1,45 +1,14 @@
-============
-vmod_named
-============
-
 ----------------------
 Varnish Named Module
 ----------------------
 
-:Date: 2015-03-03
-:Version: 1.0
-:Manual section: 3
-
-SYNOPSIS
-========
-
-import named;
-
 DESCRIPTION
 ===========
 
-Named Varnish vmod demonstrating how to write an out-of-tree Varnish vmod.
+A DNS director for Varnish 4.1 that relies on the system's resolver. Make
+sure you read the manual to learn the remaining issues in Varnish 4.1.0
+preventing reliable dynamic backends
 
-Implements the traditional Hello World as a vmod.
-
-FUNCTIONS
-=========
-
-hello
------
-
-Prototype
-        ::
-
-                hello(STRING S)
-Return value
-	STRING
-Description
-	Returns "Hello, " prepended to S
-Named
-        ::
-
-                set resp.http.hello = named.hello("World");
 
 INSTALLATION
 ============
@@ -71,6 +40,7 @@ Make targets:
 * make check - runs the unit tests in ``src/tests/*.vtc``
 * make distcheck - run check and prepare a tarball of the vmod.
 
+
 Installation directories
 ------------------------
 
@@ -83,17 +53,6 @@ Other files like man-pages and documentation are installed in the
 locations determined by ``configure``, which inherits its default
 ``--prefix`` setting from Varnish.
 
-USAGE EXAMPLE
-=============
-
-In your VCL you could then use this vmod along the following lines::
-
-        import named;
-
-        sub vcl_deliver {
-                # This sets resp.http.hello to "Hello, World"
-                set resp.http.hello = named.hello("World");
-        }
 
 COMMON PROBLEMS
 ===============
