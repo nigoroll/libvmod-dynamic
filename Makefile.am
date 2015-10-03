@@ -10,7 +10,6 @@ EXTRA_DIST = README.rst LICENSE vmod-named.spec debian
 doc_DATA = README.rst LICENSE
 
 dist_man_MANS = vmod_named.3
-MAINTAINERCLEANFILES = $(dist_man_MANS)
 
 vmod_named.3: src/vmod_named.man.rst
 
@@ -24,3 +23,4 @@ else
 	@false
 endif
 
+CLEANFILES = $(dist_man_MANS)
