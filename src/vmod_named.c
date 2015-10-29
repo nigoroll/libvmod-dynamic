@@ -69,6 +69,7 @@ struct vmod_named_director {
 	pthread_t				thread;
 	pthread_mutex_t				mtx;
 	pthread_cond_t				cond;
+	pthread_cond_t				resolve;
 	char					*vcl_name;
 	char					*addr;
 	char					*port;
@@ -81,6 +82,7 @@ struct vmod_named_director {
 	struct vcl				*vcl;
 	volatile unsigned			active;
 	unsigned				mark;
+	unsigned				lookedup;
 };
 
 /*--------------------------------------------------------------------
@@ -93,11 +95,21 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 {
 	struct vmod_named_director *dns;
 	struct dns_entry *next;
+	struct timespec ts;
+	double deadline;
+	int ret;
 
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dns, d->priv, VMOD_DIRECTORS_DNS_MAGIC);
 
 	AZ(pthread_mutex_lock(&dns->mtx));
+
+	if (!dns->lookedup) {
+		deadline = VTIM_real() + 10.; /* XXX magic timeout */
+		ts = VTIM_timespec(deadline);
+		ret = pthread_cond_timedwait(&dns->resolve, &dns->mtx, &ts);
+		assert(ret == 0 || ret == ETIMEDOUT);
+	}
 
 	next = dns->current;
 
@@ -348,6 +360,11 @@ vmod_dns_lookup_thread(void *obj)
 		else
 			VSL(SLT_Error, 0, "DNS lookup failed: %d (%s)",
 			    ret, gai_strerror(ret));
+
+		if (!dns->lookedup) {
+			AZ(pthread_cond_broadcast(&dns->resolve));
+			dns->lookedup = 1;
+		}
 
 		/* Check status again after the blocking call */
 		if (!dns->active) {
