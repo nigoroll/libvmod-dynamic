@@ -472,8 +472,8 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 }
 
 VCL_VOID __match_proto__()
-vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp, const char *vcl_name,
-    VCL_STRING addr, VCL_STRING port)
+vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
+    const char *vcl_name, VCL_STRING addr, VCL_STRING port)
 {
 	struct vmod_named_director *dns;
 
