@@ -118,8 +118,8 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 			next = next->list.vtqe_next;
 		if (next == NULL)
 			next = dns->entries.vtqh_first;
-	} while (!next->backend->healthy(next->backend, NULL, NULL) &&
-	    next != dns->current);
+	} while (next != dns->current &&
+	    !next->backend->healthy(next->backend, NULL, NULL));
 
 	dns->current = next;
 
