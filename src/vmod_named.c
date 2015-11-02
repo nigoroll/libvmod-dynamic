@@ -226,7 +226,6 @@ vmod_dns_add(VRT_CTX, struct vmod_named_director *dns, struct suckaddr *sa)
 	const unsigned char *ptr = NULL;
 	char ip[INET6_ADDRSTRLEN];
 	int af;
-	socklen_t len;
 
 	e = malloc(sizeof *e);
 	AN(e);
@@ -236,9 +235,7 @@ vmod_dns_add(VRT_CTX, struct vmod_named_director *dns, struct suckaddr *sa)
 
 	af = VRT_VSA_GetPtr(sa, &ptr);
 	AN(ptr);
-	len = af == AF_INET ? sizeof(struct sockaddr_in) :
-	    sizeof(struct sockaddr_in6);
-	AN(inet_ntop(af, ptr, ip, len));
+	AN(inet_ntop(af, ptr, ip, sizeof ip));
 	e->ip_addr = strdup(ip);
 	AN(e->ip_addr);
 
