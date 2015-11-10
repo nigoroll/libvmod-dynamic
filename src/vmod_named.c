@@ -486,9 +486,6 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		if (strcmp(dir->addr, addr))
 			continue;
-		if (strcmp(dir->port, dns->port))
-			continue;
-		(void)ctx; // XXX log director reuse
 		return dir;
 	}
 
@@ -510,6 +507,8 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 	AZ(pthread_cond_init(&dir->resolve, NULL));
 
 	AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread, dir));
+
+	VTAILQ_INSERT_TAIL(&dns->directors, dir, list);
 
 	return dir;
 }
