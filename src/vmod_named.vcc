@@ -52,7 +52,7 @@ logged with the following message::
 
 $Event vmod_event
 
-$Object director(STRING, STRING)
+$Object director(STRING)
 
 Description
 	Create a DNS director.
@@ -71,13 +71,13 @@ Example
 	   }
 
 	   sub vcl_init {
-	   	new www_dir = named.director("www.example.com", "80");
+	   	new www_dir = named.director("80");
 	   	www_dir.probe_with(www_probe);
 	   	www_dir.set_ttl(5m);
 	   }
 
 	   sub vcl_recv {
-	   	set req.backend_hint = www_dir.backend();
+	   	set req.backend_hint = www_dir.backend("production.acme.com");
 	   }
 
 .. raw:: pdf
@@ -94,10 +94,10 @@ $Method VOID .set_ttl(DURATION)
 Description
 	Set the DNS lookup TTL (defaults to one hour).
 
-$Method BACKEND .backend()
+$Method BACKEND .backend(STRING)
 
 Description
-	Pick a backend from the director.
+	Pick a backend from the director for a given host name.
 
 KNOWN ISSUES
 ============

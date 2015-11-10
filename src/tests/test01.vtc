@@ -9,11 +9,11 @@ varnish v1 -vcl+backend {
 	import named from "${vmod_topbuild}/src/.libs/libvmod_named.so";
 
 	sub vcl_init {
-		new d1 = named.director("localhost", "${s1_port}");
+		new d1 = named.director("${s1_port}");
 	}
 
 	sub vcl_recv {
-		set req.backend_hint = d1.backend();
+		set req.backend_hint = d1.backend("localhost");
 	}
 } -start
 
@@ -23,4 +23,4 @@ client c1 {
 	expect resp.status == 200
 } -run
 
-varnish v1 -expect VBE.vcl1.d1(${s1_addr}).req == 1
+varnish v1 -expect VBE.vcl1.d1(localhost,${s1_addr}).req == 1
