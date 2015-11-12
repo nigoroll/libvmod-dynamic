@@ -49,18 +49,32 @@
 #include "vtim.h"
 #include "vcc_if.h"
 
-// no locking required, accessed only by the CLI thread
+
+/*--------------------------------------------------------------------
+ * Global data structure
+ *
+ * No locking required, accessed only by the CLI thread.
+ */
+
 static VTAILQ_HEAD(, vmod_named_director) objects =
     VTAILQ_HEAD_INITIALIZER(objects);
+
+/*--------------------------------------------------------------------
+ * Data structures
+ *
+ * Locking order is always vmod_named_director.mtx and then dns_director.mtx
+ * when both are needed.
+ */
 
 struct dns_entry {
 	struct dns_director		*dir;
 	struct director			*backend;
-	VTAILQ_ENTRY(dns_entry)		list;
+	VTAILQ_ENTRY(dns_entry)		dns_list;
+	VTAILQ_ENTRY(dns_entry)		dir_list;
 	struct suckaddr 		*ip_suckaddr;
 	char				*ip_addr;
 	char				*vcl_name;
-	unsigned			mark;
+	unsigned			refcount;
 };
 
 struct dns_director {
@@ -77,7 +91,6 @@ struct dns_director {
 	char				*addr;
 	const char			*port;
 	struct director			dir;
-	unsigned			mark;
 	unsigned			lookedup;
 };
 
@@ -91,6 +104,7 @@ struct vmod_named_director {
 	double					ttl;
 	VTAILQ_ENTRY(vmod_named_director)	list;
 	VTAILQ_HEAD(,dns_director)		directors;
+	VTAILQ_HEAD(,dns_entry)			entries;
 	struct vcl				*vcl;
 	volatile unsigned			active;
 };
@@ -125,7 +139,7 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 
 	do {
 		if (next != NULL)
-			next = next->list.vtqe_next;
+			next = next->dir_list.vtqe_next;
 		if (next == NULL)
 			next = dir->entries.vtqh_first;
 	} while (next != dir->current &&
@@ -162,7 +176,7 @@ vmod_dns_healthy(const struct director *d, const struct busyobj *bo,
 		*changed = 0;
 
 	/* One healthy backend is enough for the director to be healthy */
-	VTAILQ_FOREACH(e, &dir->entries, list) {
+	VTAILQ_FOREACH(e, &dir->entries, dir_list) {
 		CHECK_OBJ_NOTNULL(e->backend, DIRECTOR_MAGIC);
 		AN(e->backend->healthy);
 		retval = e->backend->healthy(e->backend, bo, &c);
@@ -181,37 +195,17 @@ vmod_dns_healthy(const struct director *d, const struct busyobj *bo,
  * Background job
  */
 
-static int
-vmod_dns_notfound(struct dns_director *dir, struct suckaddr *sa)
-{
-	struct dns_entry *e;
-
-	AN(sa);
-
-	VTAILQ_FOREACH(e, &dir->entries, list) {
-		if (e->mark == dir->mark) /* Already visited */
-			continue;
-
-		if (VSA_Compare(e->ip_suckaddr, sa))
-			continue;
-
-		/* The mark can be invalidated by setting the probe */
-		if (e->mark + 1 != dir->mark)
-			return (1);
-
-		e->mark = dir->mark;
-		return (0);
-	}
-
-	return (1);
-}
-
 static void
 vmod_dns_del(VRT_CTX, struct dns_entry *e)
 {
 	struct dns_director *dir;
 
 	AN(e);
+	CHECK_OBJ_NOTNULL(e->backend, DIRECTOR_MAGIC);
+
+	if (e->refcount > 0)
+		return;
+
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(e->dir, DNS_DIRECTOR_MAGIC);
 
@@ -219,9 +213,9 @@ vmod_dns_del(VRT_CTX, struct dns_entry *e)
 	dir = e->dir;
 
 	if (e == dir->current)
-		dir->current = e->list.vtqe_next;
+		dir->current = e->dir_list.vtqe_next;
 
-	VTAILQ_REMOVE(&e->dir->entries, e, list);
+	VTAILQ_REMOVE(&e->dir->entries, e, dir_list);
 	if (ctx) {
 		AN(ctx->vcl);
 		VRT_delete_backend(ctx, &e->backend);
@@ -232,7 +226,7 @@ vmod_dns_del(VRT_CTX, struct dns_entry *e)
 	free(e);
 }
 
-static void
+static unsigned
 vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 {
 	struct vrt_backend vrt;
@@ -242,10 +236,21 @@ vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 	char ip[INET6_ADDRSTRLEN];
 	int af;
 
+	CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(dir->dns, VMOD_NAMED_DIRECTOR_MAGIC);
+
+	VTAILQ_FOREACH(e, &dir->dns->entries, dns_list) {
+		CHECK_OBJ_NOTNULL(e->backend, DIRECTOR_MAGIC);
+		if (!VSA_Compare(e->ip_suckaddr, sa)) {
+			VTAILQ_INSERT_TAIL(&dir->entries, e, dir_list);
+			e->refcount++;
+			return (0);
+		}
+	}
+
 	e = malloc(sizeof *e);
 	AN(e);
 	e->dir = dir;
-	e->mark = dir->mark;
 	e->ip_suckaddr = sa;
 
 	af = VRT_VSA_GetPtr(sa, &ptr);
@@ -256,8 +261,7 @@ vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 
 	vsb = VSB_new_auto();
 	AN(vsb);
-	VSB_printf(vsb, "%s(%s,%s)", dir->dns->vcl_name, dir->addr,
-	    e->ip_addr);
+	VSB_printf(vsb, "%s(%s)", dir->dns->vcl_name, e->ip_addr);
 	AZ(VSB_finish(vsb));
 
 	e->vcl_name = strdup(VSB_data(vsb));
@@ -291,7 +295,7 @@ vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 		free(e->vcl_name);
 		free(e->ip_addr);
 		free(e);
-		return;
+		return (0);
 	}
 
 	/* XXX Abandon all hope, ye who enter here.
@@ -301,7 +305,11 @@ vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 	e->backend = VRT_new_backend(ctx, &vrt);
 	AN(e->backend);
 
-	VTAILQ_INSERT_TAIL(&dir->entries, e, list);
+	e->refcount = 1;
+
+	VTAILQ_INSERT_TAIL(&dir->dns->entries, e, dns_list);
+	VTAILQ_INSERT_TAIL(&dir->entries, e, dir_list);
+	return (1);
 }
 
 static void
@@ -316,7 +324,15 @@ vmod_dns_update(struct dns_director *dir, struct addrinfo *addr)
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = dir->dns->vcl;
 
-	dir->mark++;
+	AZ(pthread_mutex_lock(&dir->dns->mtx));
+	AZ(pthread_mutex_lock(&dir->mtx));
+
+	VTAILQ_FOREACH(e, &dir->entries, dir_list) {
+		CHECK_OBJ_NOTNULL(e->backend, DIRECTOR_MAGIC);
+		AN(e->refcount);
+		e->refcount--;
+	}
+
 	while (addr) {
 		/* XXX We shouldn't need this check, but since the VCL can go
 		 * cold behind our back, we have no choice. It is illegal to
@@ -331,17 +347,18 @@ vmod_dns_update(struct dns_director *dir, struct addrinfo *addr)
 			sa = malloc(vsa_suckaddr_len);
 			AN(sa);
 			AN(VSA_Build(sa, addr->ai_addr, addr->ai_addrlen));
-			if (vmod_dns_notfound(dir, sa))
-				vmod_dns_add(&ctx, dir, sa);
-			else
+			if (!vmod_dns_add(&ctx, dir, sa))
 				free(sa);
 		}
 		addr = addr->ai_next;
 	}
 
-	VTAILQ_FOREACH_SAFE(e, &dir->entries, list, e2)
-		if (e->mark != dir->mark)
-			vmod_dns_del(&ctx, e);
+	AZ(pthread_mutex_unlock(&dir->mtx));
+
+	VTAILQ_FOREACH_SAFE(e, &dir->dns->entries, dns_list, e2)
+		vmod_dns_del(&ctx, e);
+
+	AZ(pthread_mutex_unlock(&dir->dns->mtx));
 }
 
 static void*
@@ -364,8 +381,6 @@ vmod_dns_lookup_thread(void *obj)
 
 		ret = getaddrinfo(dir->addr, dir->dns->port, &hints, &res);
 
-		AZ(pthread_mutex_lock(&dir->mtx));
-
 		if (ret == 0) {
 			vmod_dns_update(dir, res);
 			freeaddrinfo(res);
@@ -373,6 +388,8 @@ vmod_dns_lookup_thread(void *obj)
 		else
 			VSL(SLT_Error, 0, "DNS lookup failed: %d (%s)",
 			    ret, gai_strerror(ret));
+
+		AZ(pthread_mutex_lock(&dir->mtx));
 
 		if (!dir->lookedup) {
 			AZ(pthread_cond_broadcast(&dir->resolve));
@@ -417,6 +434,8 @@ vmod_dns_stop(struct vmod_named_director *dns)
 {
 	struct dns_director *dir;
 
+	ASSERT_CLI();
+	AZ(pthread_mutex_lock(&dns->mtx));
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		AZ(pthread_mutex_lock(&dir->mtx));
@@ -425,6 +444,7 @@ vmod_dns_stop(struct vmod_named_director *dns)
 
 		AZ(pthread_cond_signal(&dir->cond));
 	}
+	AZ(pthread_mutex_unlock(&dns->mtx));
 }
 
 static void
@@ -432,7 +452,21 @@ vmod_dns_start(struct vmod_named_director *dns)
 {
 	struct dns_director *dir;
 
+	ASSERT_CLI();
+	AZ(pthread_mutex_lock(&dns->mtx));
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
+		/* XXX At this point, we should acquire a reference on the VCL
+		 * to prevent it from completely cooling down before the VMOD
+		 * releases all its resources. VMODs running background jobs are
+		 * currently exposed to spurious temperature changes before they
+		 * reach a stable state.
+		 *
+		 * Suggested API:
+		 * struct vrt_ctx ctx;
+		 * INIT_OBJ(&ctx, VRT_CTX_MAGIC);
+		 * ctx.vcl = dns->vcl;
+		 * VRT_ref_vcl(&ctx);
+		 */
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		AZ(pthread_mutex_lock(&dir->mtx));
 		AZ(dir->thread);
@@ -441,19 +475,7 @@ vmod_dns_start(struct vmod_named_director *dns)
 		AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread,
 		    dir));
 	}
-
-	/* XXX At this point, we should acquire a reference on the VCL to
-	 * prevent it from completely cooling down before the VMOD releases
-	 * all its resources. VMODs running background jobs are currently
-	 * exposed to spurious temperature changes before they reach a stable
-	 * state.
-	 *
-	 * Suggested API:
-	 * struct vrt_ctx ctx;
-	 * INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-	 * ctx.vcl = dns->vcl;
-	 * VRT_ref_vcl(&ctx);
-	 */
+	AZ(pthread_mutex_unlock(&dns->mtx));
 }
 
 static void
@@ -506,6 +528,18 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 	AZ(pthread_cond_init(&dir->cond, NULL));
 	AZ(pthread_cond_init(&dir->resolve, NULL));
 
+	/* XXX At this point, we should acquire a reference on the VCL
+	 * to prevent it from completely cooling down before the VMOD
+	 * releases all its resources. VMODs running background jobs are
+	 * currently exposed to spurious temperature changes before they
+	 * reach a stable state.
+	 *
+	 * Suggested API:
+	 * struct vrt_ctx ctx;
+	 * INIT_OBJ(&ctx, VRT_CTX_MAGIC);
+	 * ctx.vcl = dns->vcl;
+	 * VRT_ref_vcl(&ctx);
+	 */
 	AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread, dir));
 
 	VTAILQ_INSERT_TAIL(&dns->directors, dir, list);
@@ -565,6 +599,7 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 	ALLOC_OBJ(dns, VMOD_NAMED_DIRECTOR_MAGIC);
 	AN(dns);
 	VTAILQ_INIT(&dns->directors);
+	VTAILQ_INIT(&dns->entries);
 	REPLACE(dns->vcl_name, vcl_name);
 	REPLACE(dns->port, port);
 
@@ -606,7 +641,6 @@ vmod_director__fini(struct vmod_named_director **dnsp)
 VCL_VOID __match_proto__()
 vmod_director_probe_with(VRT_CTX, struct vmod_named_director *dns, VCL_PROBE probe)
 {
-	struct dns_director *dir;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
@@ -616,12 +650,6 @@ vmod_director_probe_with(VRT_CTX, struct vmod_named_director *dns, VCL_PROBE pro
 		return;
 
 	dns->probe = probe;
-
-	/* Force a backend refresh on the next lookup */
-	AZ(pthread_mutex_lock(&dns->mtx));
-	VTAILQ_FOREACH(dir, &dns->directors, list)
-		dir->mark++;
-	AZ(pthread_mutex_unlock(&dns->mtx));
 }
 
 VCL_VOID __match_proto__()
