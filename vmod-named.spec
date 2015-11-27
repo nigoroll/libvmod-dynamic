@@ -1,6 +1,6 @@
 Summary: DNS director for Varnish 4.1
 Name: vmod-named
-Version: 0.1
+Version: 0.2
 Release: 1%{?dist}
 License: BSD
 Source0: lib%{name}-%{version}.tar.gz
@@ -45,5 +45,8 @@ rm %{buildroot}%{_libdir}/varnish*/vmods/*.la
 %doc %{_mandir}/man?/*
 
 %changelog
+* Fri Nov 27 2015 Dridi Boukelmoune <dridi.boukelmoune[AT]gmail.com> - 0.2-1
+- Implementation is closer to Varnish 3's DNS director.
+
 * Wed Sep 30 2015 Dridi Boukelmoune <dridi.boukelmoune[AT]gmail.com> - 0.1-1
 - Initial version.
