@@ -1,0 +1,71 @@
+varnishtest "VCL discarded with backends referenced more than once"
+
+# inspired by v00006.vtc
+
+server s1 {
+	rxreq
+	expect req.http.host == www.localhost
+	txresp
+
+	rxreq
+	expect req.http.host == img.localhost
+	txresp -hdr "Connection: close"
+
+	accept
+	rxreq
+	expect req.http.host == s1
+	txresp
+} -start
+
+varnish v1 -arg "-p thread_pools=1" -vcl {
+	import named from "${vmod_topbuild}/src/.libs/libvmod_named.so";
+
+	backend dummy {
+		.host = "${bad_ip}";
+	}
+
+	sub vcl_init {
+		new d1 = named.director("${s1_port}");
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend(req.http.host);
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+} -start
+
+client c1 {
+	txreq -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+
+	txreq -hdr "Host: img.localhost" -hdr "Connection: close"
+	rxresp
+	expect resp.status == 200
+} -run
+
+delay 0.1
+varnish v1 -expect VBE.vcl1.d1(${s1_addr}).req == 2
+
+delay 2
+
+varnish v1 -vcl+backend ""
+varnish v1 -cli "vcl.discard vcl1"
+varnish v1 -expect n_vcl == 2
+varnish v1 -expect n_vcl_avail == 1
+varnish v1 -expect n_vcl_discard == 1
+
+client c2 {
+	txreq -hdr "Host: s1"
+	rxresp
+	expect resp.status == 200
+} -run
+
+server s1 -wait
+
+varnish v1 -cli "vcl.list"
+varnish v1 -expect n_vcl == 1
