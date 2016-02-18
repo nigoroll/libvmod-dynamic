@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_COPYRIGHT([Copyright (c) 2015 Dridi Boukelmoune])
+AC_COPYRIGHT([Copyright (c) 2015-2016 Dridi Boukelmoune])
 AC_INIT([libvmod-named], [0.2])
 AC_CONFIG_MACRO_DIR([m4])
 m4_ifndef([VARNISH_VMOD_INCLUDES], AC_MSG_ERROR([Need varnish.m4 -- see README.rst]))
@@ -24,9 +24,16 @@ AC_PROG_LIBTOOL
 AC_PROG_MAKE_SET
 
 # Check for rst utilities
-AC_CHECK_PROGS(RST2MAN, [rst2man rst2man.py], "no")
-if test "x$RST2MAN" = "xno"; then
-	AC_MSG_ERROR([rst2man not found - cannot build man pages])
+AC_ARG_WITH([rst2man],
+	AS_HELP_STRING(
+		[--with-rst2man=PATH],
+		[Location of rst2man (auto)]),
+	[RST2MAN="$withval"],
+	AC_CHECK_PROGS(RST2MAN, [rst2man rst2man.py], [no]))
+if test "$RST2MAN" = "no"
+then
+	AC_MSG_ERROR(
+		[rst2man is needed to build the manual. To proceed without, specify --with-rst2man=true.])
 fi
 
 # Checks for header files.

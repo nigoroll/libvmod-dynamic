@@ -7,8 +7,7 @@ Source0: lib%{name}-%{version}.tar.gz
 
 Requires: varnish >= 4.1.0
 
-BuildRequires: make
-BuildRequires: python-docutils
+BuildRequires: python
 BuildRequires: varnish >= 4.1.0
 BuildRequires: varnish-libs-devel >= 4.1.0
 
@@ -23,7 +22,7 @@ create backends.
 
 
 %build
-%configure --prefix=/usr/
+%configure --with-rst2man=true
 %{__make} %{?_smp_mflags}
 
 
