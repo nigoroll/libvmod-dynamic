@@ -18,13 +18,13 @@ dist_man_MANS = vmod_named.3
 vmod_named.3: vmod_named.man.rst
 	${RST2MAN} $< $@
 
-vmod_named.lo vmod_named.man.rst: vcc
+vmod_named.lo vmod_named.man.rst: .vcc
 
-vcc: @VMODTOOL@ $(top_srcdir)/src/vmod_named.vcc
-	@VMODTOOL@ $(top_srcdir)/src/vmod_named.vcc
+.vcc: vmod_named.vcc
+	@VMODTOOL@ $<
+	@touch $@
 
 VMOD_TESTS = $(top_srcdir)/src/tests/*.vtc
-.PHONY: $(VMOD_TESTS) vcc
 
 $(top_srcdir)/src/tests/*.vtc: libvmod_named.la
 	env PATH="@TEST_PATH@" \
@@ -41,4 +41,5 @@ CLEANFILES = \
 	$(builddir)/vcc_if.h \
 	$(builddir)/vmod_named.rst \
 	$(builddir)/vmod_named.man.rst \
-	$(dist_man_MANS)
+	$(dist_man_MANS) \
+	.vcc

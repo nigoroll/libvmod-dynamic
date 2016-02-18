@@ -26,6 +26,7 @@ Makefile.in
 /stamp-h1
 /m4/
 
+/src/.vcc
 /src/vcc_if.c
 /src/vcc_if.h
 /src/vmod_*rst
