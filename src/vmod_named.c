@@ -131,6 +131,8 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dir, d->priv, DNS_DIRECTOR_MAGIC);
+	(void)wrk;
+	(void)bo;
 
 	AZ(pthread_mutex_lock(&dir->mtx));
 
@@ -559,6 +561,7 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 
 	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
 	AN(addr);
+	(void)ctx;
 
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
