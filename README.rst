@@ -5,9 +5,7 @@ Varnish Named Module
 DESCRIPTION
 ===========
 
-A DNS director for Varnish 4.1 that relies on the system's resolver. Make
-sure you read the manual to learn the remaining issues in Varnish 4.1.0
-preventing reliable dynamic backends
+A DNS director for Varnish 4.1 that relies on the system's resolver.
 
 
 INSTALLATION

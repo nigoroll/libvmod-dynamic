@@ -1,5 +1,5 @@
 #-
-# Copyright (c) 2015 Dridi Boukelmoune
+# Copyright (c) 2015-2016 Dridi Boukelmoune
 #
 # Author: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
 #
@@ -99,43 +99,13 @@ $Method BACKEND .backend(STRING)
 Description
 	Pick a backend from the director for a given host name.
 
-KNOWN ISSUES
-============
-
-This module is also not safe for production use because the current (Varnish
-4.1.0) design of VCL temperature is not complete. There are essentially two
-factors that can either trigger a panic or leave a VMOD in an inconsistent
-state (which also leads to a panic).
-
-If after a successful lookup the module needs to create a backend, Varnish can
-crash if at the same time the VCL became cold. The module tries hard to reduce
-the probability to almost zero, but it can still happen. If that case, you will
-find the following error in the panic message::
-
-   Dynamic Backends can only be added to warm VCLs
-
-When a VCL transitions to ``cold`` (you can see it marked as ``cooling`` in the
-``varnish-cli``\(7)) and becomes ``warm`` again before reaching the cold state,
-behavior is undefined. With this VMOD, you will get a panic message starting
-with::
-
-   Missing errorhandling code in ...
-
-The message will then reference a line of code in the VMOD. If the message
-references code outside of the VMOD, the problem does not come from this VMOD
-and ``libvmod_named.so`` SHOULD NOT appear in the backtrace (otherwise please
-report the panic.)
-
-Instead of risking doing more harm by becoming inconsistent, a DNS director in
-this situation triggers this panic because there's no simple way to circumvent
-this flaw. You can however avoid it altogether by never running ``vcl.use`` or
-``vcl.state <configname> warm`` on a cooling VCL. You can monitor its current
-state with ``vcl.list`` and wait until it is effectively cold.
-
 SEE ALSO
 ========
 
-``vcl``\(7), ``varnish-cli``\(7), ``varnish-counters``\(7), ``varnishstat``\(1),
+``vcl``\(7),
+``varnish-cli``\(7),
+``varnish-counters``\(7),
+``varnishstat``\(1),
 ``getaddrinfo``\(3)
 
 COPYRIGHT
@@ -144,4 +114,4 @@ COPYRIGHT
 This document is licensed under the same licence as vmod_named itself. See
 LICENCE for details.
 
-Copyright (c) 2015 Dridi Boukelmoune
+Copyright (c) 2015-2016 Dridi Boukelmoune

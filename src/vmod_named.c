@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Varnish Software AS
+ * Copyright (c) 2015-2016 Varnish Software AS
  * All rights reserved.
  *
  * Author: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
@@ -48,7 +48,6 @@
 #include "vsa.h"
 #include "vtim.h"
 #include "vcc_if.h"
-
 
 /*--------------------------------------------------------------------
  * Global data structure
@@ -112,6 +111,7 @@ struct vmod_named_director {
 	VTAILQ_HEAD(,dns_director)		directors;
 	VTAILQ_HEAD(,dns_entry)			entries;
 	struct vcl				*vcl;
+	struct vclref				*vclref;
 	volatile unsigned			active;
 };
 
@@ -347,21 +347,6 @@ vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 		WRONG("unexpected family");
 	}
 
-	/* XXX We shouldn't need this check, but since the VCL can go
-	 * cold behind our back, we have no choice. It is illegal to
-	 * add a backend to a cold VCL.
-	 */
-	if (!dir->dns->active) {
-		free(b->vcl_name);
-		free(b->ip_addr);
-		free(b);
-		return (0);
-	}
-
-	/* XXX Abandon all hope, ye who enter here.
-	 *
-	 * Despite all the safety nets, we have no guarantee it won't crash.
-	 */
 	b->backend = VRT_new_backend(ctx, &vrt);
 	AN(b->backend);
 
@@ -389,13 +374,6 @@ vmod_dns_update(struct dns_director *dir, struct addrinfo *addr)
 	dir->mark++;
 
 	while (addr) {
-		/* XXX We shouldn't need this check, but since the VCL can go
-		 * cold behind our back, we have no choice. It is illegal to
-		 * add a backend to a cold VCL.
-		 */
-		if (!dir->dns->active)
-			return;
-
 		switch (addr->ai_family) {
 		case AF_INET:
 		case AF_INET6:
@@ -420,7 +398,6 @@ static void*
 vmod_dns_lookup_thread(void *obj)
 {
 	struct dns_director *dir;
-	struct vrt_ctx ctx;
 	struct timespec ts;
 	struct addrinfo hints, *res;
 	double deadline;
@@ -465,22 +442,6 @@ vmod_dns_lookup_thread(void *obj)
 		AZ(pthread_mutex_unlock(&dir->mtx));
 	}
 
-	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-	ctx.vcl = dir->dns->vcl;
-
-	AZ(pthread_mutex_lock(&dir->mtx));
-	dir->thread = 0;
-	AZ(pthread_mutex_unlock(&dir->mtx));
-
-	/* XXX At this point we should release the VCL, so that it could
-	 * transition from cooling to cold. The consequence is that a cooling
-	 * VCL could become warm again while the VMOD's cleanup is still in
-	 * progress.
-	 *
-	 * Suggested API:
-	 * VRT_rel_vcl(&ctx);
-	 */
-
 	return (NULL);
 }
 
@@ -488,8 +449,11 @@ static void
 vmod_dns_stop(struct vmod_named_director *dns)
 {
 	struct dns_director *dir;
+	struct vrt_ctx ctx;
 
 	ASSERT_CLI();
+	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
+
 	AZ(pthread_mutex_lock(&dns->mtx));
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
@@ -499,32 +463,36 @@ vmod_dns_stop(struct vmod_named_director *dns)
 
 		AZ(pthread_cond_signal(&dir->cond));
 	}
-	AZ(pthread_mutex_unlock(&dns->mtx));
 
-	/* XXX give a lot of time to the threads to finish */
-	VTIM_sleep(0.1);
+	VTAILQ_FOREACH(dir, &dns->directors, list) {
+		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
+		AZ(pthread_join(dir->thread, NULL));
+		dir->thread = 0;
+	}
+
+	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
+	ctx.vcl = dns->vcl;
+	VRT_rel_vcl(&ctx, &dns->vclref);
+	AZ(pthread_mutex_unlock(&dns->mtx));
 }
 
 static void
 vmod_dns_start(struct vmod_named_director *dns)
 {
 	struct dns_director *dir;
+	struct vrt_ctx ctx;
 
 	ASSERT_CLI();
+	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
+	AZ(dns->vclref);
+
+	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
+	ctx.vcl = dns->vcl;
+	/* XXX: name it "named director %s" instead */
+	dns->vclref = VRT_ref_vcl(&ctx, "vmod named");
+
 	AZ(pthread_mutex_lock(&dns->mtx));
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
-		/* XXX At this point, we should acquire a reference on the VCL
-		 * to prevent it from completely cooling down before the VMOD
-		 * releases all its resources. VMODs running background jobs are
-		 * currently exposed to spurious temperature changes before they
-		 * reach a stable state.
-		 *
-		 * Suggested API:
-		 * struct vrt_ctx ctx;
-		 * INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-		 * ctx.vcl = dns->vcl;
-		 * VRT_ref_vcl(&ctx);
-		 */
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		AZ(pthread_mutex_lock(&dir->mtx));
 		AZ(dir->thread);
@@ -587,18 +555,6 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 	AZ(pthread_cond_init(&dir->cond, NULL));
 	AZ(pthread_cond_init(&dir->resolve, NULL));
 
-	/* XXX At this point, we should acquire a reference on the VCL
-	 * to prevent it from completely cooling down before the VMOD
-	 * releases all its resources. VMODs running background jobs are
-	 * currently exposed to spurious temperature changes before they
-	 * reach a stable state.
-	 *
-	 * Suggested API:
-	 * struct vrt_ctx ctx;
-	 * INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-	 * ctx.vcl = dns->vcl;
-	 * VRT_ref_vcl(&ctx);
-	 */
 	AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread, dir));
 
 	VTAILQ_INSERT_TAIL(&dns->directors, dir, list);
