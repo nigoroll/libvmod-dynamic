@@ -24,17 +24,19 @@ vmod_named.lo vmod_named.man.rst: .vcc
 	@VMODTOOL@ $<
 	@touch $@
 
-VMOD_TESTS = $(top_srcdir)/src/tests/*.vtc
 
-$(top_srcdir)/src/tests/*.vtc: libvmod_named.la
+VTC_LOG_COMPILER = \
 	env PATH="@TEST_PATH@" \
-	varnishtest -Dvmod_topbuild=$(abs_top_builddir) $@
+	varnishtest -v \
+	-Dvmod_topbuild=$(abs_top_builddir)
 
-check: $(VMOD_TESTS)
+TEST_EXTENSIONS = .vtc
+
+TESTS = @VTC_TESTS@
 
 EXTRA_DIST = \
 	vmod_named.vcc \
-	$(VMOD_TESTS)
+	@VTC_TESTS@
 
 CLEANFILES = \
 	$(builddir)/vcc_if.c \

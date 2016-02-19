@@ -7,6 +7,7 @@ Makefile.in
 *.la
 *~
 *.[1-9]
+*.trs
 
 /aclocal.m4
 /autom4te.cache/
@@ -24,6 +25,7 @@ Makefile.in
 /ltmain.sh
 /missing
 /stamp-h1
+/test-driver
 /m4/
 
 /src/.vcc

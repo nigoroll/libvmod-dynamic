@@ -56,6 +56,8 @@ VARNISH_VMODTOOL
 # acessing ac_ variable because AC_PREFIX_DEFAULT acts too early
 ac_default_prefix=$LIBVARNISHAPI_PREFIX
 
+# Test suite
+AC_SUBST([VTC_TESTS], "$(cd $srcdir/src && echo tests/*.vtc)")
 AC_SUBST([TEST_PATH], [$LIBVARNISHAPI_SBINDIR:$LIBVARNISHAPI_BINDIR:$PATH])
 
 AC_CONFIG_FILES([
