@@ -44,11 +44,12 @@ vmod_named.3: vmod_named.man.rst
 
 # Test suite
 
+VMOD_FILE="$(abs_builddir)/.libs/libvmod_named.so"
 
 VTC_LOG_COMPILER = \
 	env PATH="@TEST_PATH@" \
 	varnishtest -v \
-	-Dvmod_topbuild=$(abs_top_builddir)
+	-Dvmod_named="named from \"$(VMOD_FILE)\""
 
 TEST_EXTENSIONS = .vtc
 

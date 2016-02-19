@@ -11,7 +11,7 @@ server s1 {
 } -start
 
 varnish v1 -vcl {
-	import named from "${vmod_topbuild}/src/.libs/libvmod_named.so";
+	import ${vmod_named};
 
 	backend dummy {
 		.host = "${bad_ip}";

@@ -6,7 +6,7 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import named from "${vmod_topbuild}/src/.libs/libvmod_named.so";
+	import ${vmod_named};
 
 	sub vcl_init {
 		new d1 = named.director("${s1_port}");
