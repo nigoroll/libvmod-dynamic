@@ -1,28 +1,48 @@
 AM_CPPFLAGS = @VMOD_INCLUDES@
 AM_CFLAGS = -Wall -Werror -Wextra
 
+# VMOD library
+
 vmoddir = @VMOD_DIR@
 vmod_LTLIBRARIES = libvmod_named.la
 
-libvmod_named_la_LDFLAGS = -module -export-dynamic -avoid-version -shared
+VCC_FILES = \
+	vcc_if.c \
+	vcc_if.h
+
+DOC_FILES = \
+	vmod_named.rst \
+	vmod_named.man.rst
+
+libvmod_named_la_LDFLAGS = \
+	-module \
+	-export-dynamic \
+	-avoid-version \
+	-shared
 
 libvmod_named_la_SOURCES = \
 	vmod_named.c
 
 nodist_libvmod_named_la_SOURCES = \
-	vcc_if.c \
-	vcc_if.h
+	$(VCC_FILES)
+
+$(srcdir)/vmod_named.c: $(VCC_FILES)
+
+$(VCC_FILES) $(DOC_FILES): .vcc
+
+.vcc: vmod_named.vcc
+	@echo vmodtool: @VMODTOOL@ $<
+	@@VMODTOOL@ $<
+	@touch $@
+
+# Documentation
 
 dist_man_MANS = vmod_named.3
 
 vmod_named.3: vmod_named.man.rst
 	${RST2MAN} $< $@
 
-vmod_named.lo vmod_named.man.rst: .vcc
-
-.vcc: vmod_named.vcc
-	@VMODTOOL@ $<
-	@touch $@
+# Test suite
 
 
 VTC_LOG_COMPILER = \
@@ -38,10 +58,10 @@ EXTRA_DIST = \
 	vmod_named.vcc \
 	@VTC_TESTS@
 
+# misc
+
 CLEANFILES = \
-	$(builddir)/vcc_if.c \
-	$(builddir)/vcc_if.h \
-	$(builddir)/vmod_named.rst \
-	$(builddir)/vmod_named.man.rst \
+	$(VCC_FILES) \
+	$(DOC_FILES) \
 	$(dist_man_MANS) \
 	.vcc
