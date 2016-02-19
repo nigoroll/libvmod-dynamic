@@ -9,7 +9,7 @@ varnish v1 -vcl+backend {
 	import ${vmod_named};
 
 	sub vcl_init {
-		new d1 = named.director("${s1_port}");
+		new d1 = named.director(port = "${s1_port}");
 	}
 
 	sub vcl_recv {

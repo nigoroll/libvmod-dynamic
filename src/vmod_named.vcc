@@ -52,7 +52,8 @@ logged with the following message::
 
 $Event vmod_event
 
-$Object director(STRING)
+$Object director(
+	STRING port)
 
 Description
 	Create a DNS director.
