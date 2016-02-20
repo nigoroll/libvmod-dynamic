@@ -600,7 +600,7 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 
 VCL_VOID __match_proto__()
 vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
-    const char *vcl_name, VCL_STRING port)
+    const char *vcl_name, VCL_STRING port, VCL_PROBE probe, VCL_DURATION ttl)
 {
 	struct vmod_named_director *dns;
 
@@ -610,6 +610,8 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 	AZ(*dnsp);
 	AN(vcl_name);
 	AN(port);
+	CHECK_OBJ_ORNULL(probe, VRT_BACKEND_PROBE_MAGIC);
+	xxxassert(ttl > 0);
 
 	ALLOC_OBJ(dns, VMOD_NAMED_DIRECTOR_MAGIC);
 	AN(dns);
@@ -620,8 +622,8 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 
 	dns->vcl = ctx->vcl;
 	dns->active = 0;
-	dns->probe = NULL;
-	dns->ttl = 3600;
+	dns->probe = probe;
+	dns->ttl = ttl;
 
 	AZ(pthread_mutex_init(&dns->mtx, NULL));
 
@@ -655,33 +657,7 @@ vmod_director__fini(struct vmod_named_director **dnsp)
 	FREE_OBJ(dns);
 }
 
-VCL_VOID __match_proto__()
-vmod_director_probe_with(VRT_CTX, struct vmod_named_director *dns, VCL_PROBE probe)
-{
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
-	CHECK_OBJ_NOTNULL(probe, VRT_BACKEND_PROBE_MAGIC);
-
-	if (dns->probe == probe)
-		return;
-
-	dns->probe = probe;
-}
-
-VCL_VOID __match_proto__()
-vmod_director_set_ttl(VRT_CTX, struct vmod_named_director *dns, VCL_DURATION ttl)
-{
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
-	assert(ttl > 0);
-	AZ(pthread_mutex_lock(&dns->mtx));
-	dns->ttl = ttl;
-	AZ(pthread_mutex_unlock(&dns->mtx));
-}
-
-VCL_BACKEND __match_proto__()
+VCL_BACKEND __match_proto__(td_named_director_backend)
 vmod_director_backend(VRT_CTX, struct vmod_named_director *dns, VCL_STRING host)
 {
 	struct dns_director *dir;

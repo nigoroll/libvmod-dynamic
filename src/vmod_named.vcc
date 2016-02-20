@@ -53,13 +53,17 @@ logged with the following message::
 $Event vmod_event
 
 $Object director(
-	STRING port)
+	STRING port	= http,
+	PROBE probe	= 0,
+	DURATION ttl	= 3600)
 
 Description
 	Create a DNS director.
 
 	The director creates backends with DNS lookups and chooses them in a
-	round robin fashion.
+	round robin fashion. It is possible to specify a probe definition that
+	will be used by all backends. DNS lookups have a default TTL of one
+	hour.
 
 Example
 	::
@@ -72,9 +76,10 @@ Example
 	   }
 
 	   sub vcl_init {
-	   	new www_dir = named.director("80");
-	   	www_dir.probe_with(www_probe);
-	   	www_dir.set_ttl(5m);
+	   	new www_dir = named.director(
+	   		port = "80",
+	   		probe = www_probe,
+	   		ttl = 5m);
 	   }
 
 	   sub vcl_recv {
@@ -84,16 +89,6 @@ Example
 .. raw:: pdf
 
    PageBreak
-
-$Method VOID .probe_with(PROBE)
-
-Description
-	Use a named probe for all resolved backends.
-
-$Method VOID .set_ttl(DURATION)
-
-Description
-	Set the DNS lookup TTL (defaults to one hour).
 
 $Method BACKEND .backend(STRING)
 
