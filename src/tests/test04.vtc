@@ -1,0 +1,63 @@
+varnishtest "Domain timeout"
+
+server s1 {
+       rxreq
+       expect req.http.Host == localhost
+       txresp
+
+       rxreq
+       expect req.http.Host == www.localhost
+       txresp
+
+       rxreq
+       expect req.http.Host == www.localhost
+       txresp
+} -start
+
+varnish v1 -vcl+backend {
+	import ${vmod_named};
+
+	sub vcl_init {
+		new d1 = named.director(
+			port = "${s1_port}",
+			ttl = 100ms,
+			domain_timeout = 200ms);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend(req.http.Host);
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+} -start
+
+logexpect l1 -v v1 {
+	expect * * VCL_Log "vmod-named: deleted localhost"
+} -start
+
+client c1 {
+	txreq -hdr "Host: localhost"
+	rxresp
+	expect resp.status == 200
+
+	delay 1
+
+	# mark localhost as stale
+	txreq -url "/foo" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+
+	delay 1
+
+	# evict localhost
+	txreq -url "/bar" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+} -run
+
+varnish v1 -expect VBE.vcl1.d1(${s1_addr}).req == 3
+
+logexpect l1 -wait

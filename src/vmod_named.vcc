@@ -53,17 +53,22 @@ logged with the following message::
 $Event vmod_event
 
 $Object director(
-	STRING port	= http,
-	PROBE probe	= 0,
-	DURATION ttl	= 3600)
+	STRING port		= http,
+	PROBE probe		= 0,
+	DURATION ttl		= 3600,
+	DURATION domain_timeout	= 7200)
 
 Description
 	Create a DNS director.
 
 	The director creates backends with DNS lookups and chooses them in a
-	round robin fashion. It is possible to specify a probe definition that
-	will be used by all backends. DNS lookups have a default TTL of one
-	hour.
+	round robin fashion. It accepts the following parameters:
+
+	- *port* (defaults to ``"http"``)
+	- *probe* (defaults to no probe)
+	- *ttl* - delay between lookups (defaults to one hour)
+	- *domain_timeout* - delay until an unused domain and its backends are
+	  removed (defaults to two hours)
 
 Example
 	::

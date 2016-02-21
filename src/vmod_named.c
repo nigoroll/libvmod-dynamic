@@ -89,6 +89,7 @@ struct dns_director {
 	pthread_mutex_t			mtx;
 	pthread_cond_t			cond;
 	pthread_cond_t			resolve;
+	VCL_TIME			last_used;
 	VTAILQ_ENTRY(dns_director)	list;
 	VTAILQ_HEAD(,dir_entry)		entries;
 	struct dir_entry		*current;
@@ -97,6 +98,8 @@ struct dns_director {
 	struct director			dir;
 	unsigned			lookedup;
 	unsigned			mark;
+	volatile unsigned		stale;
+	volatile unsigned		done;
 };
 
 struct vmod_named_director {
@@ -106,7 +109,8 @@ struct vmod_named_director {
 	char					*vcl_name;
 	char					*port;
 	VCL_PROBE				probe;
-	double					ttl;
+	VCL_DURATION				ttl;
+	VCL_DURATION				domain_timeout;
 	VTAILQ_ENTRY(vmod_named_director)	list;
 	VTAILQ_HEAD(,dns_director)		directors;
 	VTAILQ_HEAD(,dns_entry)			entries;
@@ -409,7 +413,7 @@ vmod_dns_lookup_thread(void *obj)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_family = AF_UNSPEC;
 
-	while (dir->dns->active) {
+	while (dir->dns->active && !dir->stale) {
 
 		ret = getaddrinfo(dir->addr, dir->dns->port, &hints, &res);
 
@@ -429,7 +433,7 @@ vmod_dns_lookup_thread(void *obj)
 		}
 
 		/* Check status again after the blocking call */
-		if (!dir->dns->active) {
+		if (!dir->dns->active || dir->stale) {
 			AZ(pthread_mutex_unlock(&dir->mtx));
 			break;
 		}
@@ -441,6 +445,8 @@ vmod_dns_lookup_thread(void *obj)
 
 		AZ(pthread_mutex_unlock(&dir->mtx));
 	}
+
+	dir->done = 1;
 
 	return (NULL);
 }
@@ -467,6 +473,7 @@ vmod_dns_stop(struct vmod_named_director *dns)
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		AZ(pthread_join(dir->thread, NULL));
+		AN(dir->done);
 		dir->thread = 0;
 	}
 
@@ -508,8 +515,16 @@ static void
 vmod_dns_free(VRT_CTX, struct dns_director *dir)
 {
 
+	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 	AZ(dir->thread);
+	AN(dir->done);
+
+	if (ctx != NULL) {
+		AN(ctx->vsl);
+		VSLb(ctx->vsl, SLT_VCL_Log, "vmod-named: deleted %s",
+		    dir->addr);
+	}
 
 	VTAILQ_REMOVE(&dir->dns->directors, dir, list);
 	while (dir->entries.vtqh_first != NULL)
@@ -525,18 +540,32 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 static struct dns_director *
 vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 {
-	struct dns_director *dir;
+	struct dns_director *dir, *d, *d2;
 
 	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
 	AN(addr);
-	(void)ctx;
 
-	VTAILQ_FOREACH(dir, &dns->directors, list) {
-		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
-		if (strcmp(dir->addr, addr))
-			continue;
-		return dir;
+	dir = NULL;
+	VTAILQ_FOREACH_SAFE(d, &dns->directors, list, d2) {
+		CHECK_OBJ_NOTNULL(d, DNS_DIRECTOR_MAGIC);
+		if (!strcmp(d->addr, addr)) {
+			AZ(dir);
+			dir = d;
+		}
+		if (dir != d && dns->domain_timeout > 0 &&
+		    ctx->now - d->last_used > dns->domain_timeout) {
+			d->stale = 1;
+			AZ(pthread_cond_signal(&d->cond));
+		}
+		if (d->done) {
+			AZ(pthread_join(d->thread, NULL));
+			d->thread = 0;
+			vmod_dns_free(ctx, d);
+		}
 	}
+
+	if (dir != NULL)
+		return (dir);
 
 	ALLOC_OBJ(dir, DNS_DIRECTOR_MAGIC);
 	VTAILQ_INIT(&dir->entries);
@@ -600,7 +629,8 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 
 VCL_VOID __match_proto__()
 vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
-    const char *vcl_name, VCL_STRING port, VCL_PROBE probe, VCL_DURATION ttl)
+    const char *vcl_name, VCL_STRING port, VCL_PROBE probe, VCL_DURATION ttl,
+    VCL_DURATION domain_timeout)
 {
 	struct vmod_named_director *dns;
 
@@ -624,6 +654,7 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 	dns->active = 0;
 	dns->probe = probe;
 	dns->ttl = ttl;
+	dns->domain_timeout = domain_timeout;
 
 	AZ(pthread_mutex_init(&dns->mtx, NULL));
 
@@ -667,6 +698,7 @@ vmod_director_backend(VRT_CTX, struct vmod_named_director *dns, VCL_STRING host)
 
 	AZ(pthread_mutex_lock(&dns->mtx));
 	dir = vmod_dns_get(ctx, dns, host);
+	dir->last_used = ctx->now;
 	AZ(pthread_mutex_unlock(&dns->mtx));
 
 	return (&dir->dir);
