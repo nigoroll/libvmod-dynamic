@@ -538,12 +538,9 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 }
 
 static struct dns_director *
-vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
+vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 {
 	struct dns_director *dir, *d, *d2;
-
-	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
-	AN(addr);
 
 	dir = NULL;
 	VTAILQ_FOREACH_SAFE(d, &dns->directors, list, d2) {
@@ -564,6 +561,18 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 		}
 	}
 
+	return (dir);
+}
+
+static struct dns_director *
+vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
+{
+	struct dns_director *dir;
+
+	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
+	AN(addr);
+
+	dir = vmod_dns_search(ctx, dns, addr);
 	if (dir != NULL)
 		return (dir);
 
