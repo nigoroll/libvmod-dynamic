@@ -50,9 +50,10 @@
 #include "vcc_if.h"
 
 /*--------------------------------------------------------------------
- * Global data structure
+ * Global data structures
  *
- * No locking required, accessed only by the CLI thread.
+ * No locking required, mutated only by the CLI thread with guarantees that
+ * they can't be accessed at the same time.
  */
 
 static VTAILQ_HEAD(, vmod_named_director) objects =
@@ -61,6 +62,9 @@ static VTAILQ_HEAD(, vmod_named_director) objects =
 static struct VSC_C_lck *lck_dir, *lck_be;
 
 static unsigned loadcnt = 0;
+
+static const struct gethdr_s HDR_REQ_HOST = { HDR_REQ, "\005Host:"};
+static const struct gethdr_s HDR_BEREQ_HOST = { HDR_BEREQ, "\005Host:"};
 
 /*--------------------------------------------------------------------
  * Data structures
@@ -724,6 +728,15 @@ vmod_director_backend(VRT_CTX, struct vmod_named_director *dns, VCL_STRING host)
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
+
+	if ((host == NULL || *host == '\0') && ctx->http_bereq != NULL)
+		host = VRT_GetHdr(ctx, &HDR_BEREQ_HOST);
+
+	if ((host == NULL || *host == '\0') && ctx->http_req != NULL)
+		host = VRT_GetHdr(ctx, &HDR_REQ_HOST);
+
+	if (host == NULL || *host == '\0')
+		return (NULL);
 
 	Lck_Lock(&dns->mtx);
 	dir = vmod_dns_get(ctx, dns, host);

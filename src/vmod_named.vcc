@@ -99,10 +99,11 @@ Example
 
    PageBreak
 
-$Method BACKEND .backend(STRING)
+$Method BACKEND .backend(STRING host = "")
 
 Description
-	Pick a backend from the director for a given host name.
+	Pick a backend from the director for a given host name. If the host
+	is not specified, it is picked from either ``bereq`` or ``req``.
 
 SEE ALSO
 ========
