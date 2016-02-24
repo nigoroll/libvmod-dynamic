@@ -58,6 +58,10 @@
 static VTAILQ_HEAD(, vmod_named_director) objects =
     VTAILQ_HEAD_INITIALIZER(objects);
 
+static struct VSC_C_lck *lck_dir, *lck_be;
+
+static unsigned loadcnt = 0;
+
 /*--------------------------------------------------------------------
  * Data structures
  *
@@ -86,7 +90,7 @@ struct dns_director {
 #define DNS_DIRECTOR_MAGIC		0x1bfe1345
 	struct vmod_named_director	*dns;
 	pthread_t			thread;
-	pthread_mutex_t			mtx;
+	struct lock			mtx;
 	pthread_cond_t			cond;
 	pthread_cond_t			resolve;
 	VCL_TIME			last_used;
@@ -105,7 +109,7 @@ struct dns_director {
 struct vmod_named_director {
 	unsigned				magic;
 #define VMOD_NAMED_DIRECTOR_MAGIC		0x8a3e7fd1
-	pthread_mutex_t				mtx;
+	struct lock				mtx;
 	char					*vcl_name;
 	char					*port;
 	VCL_PROBE				probe;
@@ -129,7 +133,6 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 {
 	struct dns_director *dir;
 	struct dir_entry *next;
-	struct timespec ts;
 	double deadline;
 	int ret;
 
@@ -138,12 +141,11 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 	(void)wrk;
 	(void)bo;
 
-	AZ(pthread_mutex_lock(&dir->mtx));
+	Lck_Lock(&dir->mtx);
 
 	if (!dir->lookedup) {
 		deadline = VTIM_real() + 10.; /* XXX magic timeout */
-		ts = VTIM_timespec(deadline);
-		ret = pthread_cond_timedwait(&dir->resolve, &dir->mtx, &ts);
+		ret = Lck_CondWait(&dir->resolve, &dir->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
 	}
 
@@ -163,9 +165,7 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 	    !next->entry->backend->healthy(next->entry->backend, NULL, NULL))
 		next = NULL;
 
-
-
-	AZ(pthread_mutex_unlock(&dir->mtx));
+	Lck_Unlock(&dir->mtx);
 
 	assert(next == NULL || next->entry->backend != NULL);
 	return (next == NULL ? NULL : next->entry->backend);
@@ -183,7 +183,7 @@ vmod_dns_healthy(const struct director *d, const struct busyobj *bo,
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dir, d->priv, DNS_DIRECTOR_MAGIC);
 
-	AZ(pthread_mutex_lock(&dir->mtx));
+	Lck_Lock(&dir->mtx);
 
 	if (changed != NULL)
 		*changed = 0;
@@ -199,7 +199,7 @@ vmod_dns_healthy(const struct director *d, const struct busyobj *bo,
 			break;
 	}
 
-	AZ(pthread_mutex_unlock(&dir->mtx));
+	Lck_Unlock(&dir->mtx);
 
 	return (retval);
 }
@@ -372,8 +372,8 @@ vmod_dns_update(struct dns_director *dir, struct addrinfo *addr)
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = dir->dns->vcl;
 
-	AZ(pthread_mutex_lock(&dir->dns->mtx));
-	AZ(pthread_mutex_lock(&dir->mtx));
+	Lck_Lock(&dir->dns->mtx);
+	Lck_Lock(&dir->mtx);
 
 	dir->mark++;
 
@@ -394,15 +394,14 @@ vmod_dns_update(struct dns_director *dir, struct addrinfo *addr)
 		if (e->mark != dir->mark)
 			vmod_dns_del(&ctx, e);
 
-	AZ(pthread_mutex_unlock(&dir->mtx));
-	AZ(pthread_mutex_unlock(&dir->dns->mtx));
+	Lck_Unlock(&dir->mtx);
+	Lck_Unlock(&dir->dns->mtx);
 }
 
 static void*
 vmod_dns_lookup_thread(void *obj)
 {
 	struct dns_director *dir;
-	struct timespec ts;
 	struct addrinfo hints, *res;
 	double deadline;
 	int ret;
@@ -425,7 +424,7 @@ vmod_dns_lookup_thread(void *obj)
 			VSL(SLT_Error, 0, "DNS lookup failed: %d (%s)",
 			    ret, gai_strerror(ret));
 
-		AZ(pthread_mutex_lock(&dir->mtx));
+		Lck_Lock(&dir->mtx);
 
 		if (!dir->lookedup) {
 			AZ(pthread_cond_broadcast(&dir->resolve));
@@ -434,16 +433,15 @@ vmod_dns_lookup_thread(void *obj)
 
 		/* Check status again after the blocking call */
 		if (!dir->dns->active || dir->stale) {
-			AZ(pthread_mutex_unlock(&dir->mtx));
+			Lck_Unlock(&dir->mtx);
 			break;
 		}
 
 		deadline = VTIM_real() + dir->dns->ttl;
-		ts = VTIM_timespec(deadline);
-		ret = pthread_cond_timedwait(&dir->cond, &dir->mtx, &ts);
+		ret = Lck_CondWait(&dir->cond, &dir->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
 
-		AZ(pthread_mutex_unlock(&dir->mtx));
+		Lck_Unlock(&dir->mtx);
 	}
 
 	dir->done = 1;
@@ -460,12 +458,12 @@ vmod_dns_stop(struct vmod_named_director *dns)
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
 
-	AZ(pthread_mutex_lock(&dns->mtx));
+	Lck_Lock(&dns->mtx);
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
-		AZ(pthread_mutex_lock(&dir->mtx));
+		Lck_Lock(&dir->mtx);
 		AN(dir->thread);
-		AZ(pthread_mutex_unlock(&dir->mtx));
+		Lck_Unlock(&dir->mtx);
 
 		AZ(pthread_cond_signal(&dir->cond));
 	}
@@ -480,7 +478,7 @@ vmod_dns_stop(struct vmod_named_director *dns)
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = dns->vcl;
 	VRT_rel_vcl(&ctx, &dns->vclref);
-	AZ(pthread_mutex_unlock(&dns->mtx));
+	Lck_Unlock(&dns->mtx);
 }
 
 static void
@@ -498,17 +496,17 @@ vmod_dns_start(struct vmod_named_director *dns)
 	/* XXX: name it "named director %s" instead */
 	dns->vclref = VRT_ref_vcl(&ctx, "vmod named");
 
-	AZ(pthread_mutex_lock(&dns->mtx));
+	Lck_Lock(&dns->mtx);
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
-		AZ(pthread_mutex_lock(&dir->mtx));
+		Lck_Lock(&dir->mtx);
 		AZ(dir->thread);
-		AZ(pthread_mutex_unlock(&dir->mtx));
+		Lck_Unlock(&dir->mtx);
 
 		AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread,
 		    dir));
 	}
-	AZ(pthread_mutex_unlock(&dns->mtx));
+	Lck_Unlock(&dns->mtx);
 }
 
 static void
@@ -532,7 +530,7 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 
 	AZ(pthread_cond_destroy(&dir->resolve));
 	AZ(pthread_cond_destroy(&dir->cond));
-	AZ(pthread_mutex_destroy(&dir->mtx));
+	Lck_Delete(&dir->mtx);
 	free(dir->addr);
 	FREE_OBJ(dir);
 }
@@ -589,7 +587,7 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 	dir->dir.resolve = vmod_dns_resolve;
 	dir->dir.priv = dir;
 
-	AZ(pthread_mutex_init(&dir->mtx, NULL));
+	Lck_New(&dir->mtx, lck_be);
 	AZ(pthread_cond_init(&dir->cond, NULL));
 	AZ(pthread_cond_init(&dir->resolve, NULL));
 
@@ -616,8 +614,28 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 	AN(ctx);
 	AN(ctx->vcl);
 
-	/* The DNS director has no business with the other events */
-	if (e != VCL_EVENT_WARM && e!= VCL_EVENT_COLD)
+	if (e == VCL_EVENT_LOAD) {
+		if (loadcnt == 0) {
+			lck_dir = Lck_CreateClass("named.director");
+			lck_be = Lck_CreateClass("named.backend");
+			AN(lck_dir);
+			AN(lck_be);
+		}
+		loadcnt++;
+		return (0);
+	}
+
+	if (e == VCL_EVENT_DISCARD) {
+		assert(loadcnt > 0);
+		loadcnt--;
+		if (loadcnt == 0) {
+			VSM_Free(lck_dir);
+			VSM_Free(lck_be);
+		}
+		return (0);
+	}
+
+	if (e == VCL_EVENT_USE)
 		return (0);
 
 	active = e == VCL_EVENT_WARM ? 1 : 0;
@@ -665,7 +683,7 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 	dns->ttl = ttl;
 	dns->domain_timeout = domain_timeout;
 
-	AZ(pthread_mutex_init(&dns->mtx, NULL));
+	Lck_New(&dns->mtx, lck_dir);
 
 	VTAILQ_INSERT_TAIL(&objects, dns, list);
 	*dnsp = dns;
@@ -692,7 +710,7 @@ vmod_director__fini(struct vmod_named_director **dnsp)
 
 	AZ(dns->entries.vtqh_first);
 
-	AZ(pthread_mutex_destroy(&dns->mtx));
+	Lck_Delete(&dns->mtx);
 	free(dns->vcl_name);
 	FREE_OBJ(dns);
 }
@@ -705,10 +723,10 @@ vmod_director_backend(VRT_CTX, struct vmod_named_director *dns, VCL_STRING host)
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
 
-	AZ(pthread_mutex_lock(&dns->mtx));
+	Lck_Lock(&dns->mtx);
 	dir = vmod_dns_get(ctx, dns, host);
 	dir->last_used = ctx->now;
-	AZ(pthread_mutex_unlock(&dns->mtx));
+	Lck_Unlock(&dns->mtx);
 
 	return (&dir->dir);
 }

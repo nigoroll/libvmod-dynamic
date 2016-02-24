@@ -32,7 +32,7 @@ DESCRIPTION
 This module provides a DNS director implementation with limited capabilities.
 It currently relies on the default timeouts and doesn't support CIDR-based
 white-listing. DNS lookups are operated by background threads, one per DNS
-director, and rely on your system's resolver.
+director domain, and rely on your system's resolver.
 
 Backends are created and deleted depending on the lookup results, you can
 monitor them over time just like regular backends. They will appear in
