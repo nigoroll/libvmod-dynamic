@@ -53,10 +53,11 @@ logged with the following message::
 $Event vmod_event
 
 $Object director(
-	STRING port		= http,
-	PROBE probe		= 0,
-	DURATION ttl		= 3600,
-	DURATION domain_timeout	= 7200)
+	STRING port			= http,
+	PROBE probe			= 0,
+	DURATION ttl			= 3600,
+	DURATION domain_timeout		= 7200,
+	DURATION first_lookup_timeout	= 10)
 
 Description
 	Create a DNS director.
@@ -69,6 +70,9 @@ Description
 	- *ttl* - delay between lookups (defaults to one hour)
 	- *domain_timeout* - delay until an unused domain and its backends are
 	  removed (defaults to two hours)
+	- *first_lookup_timeout* - delay until the director fails to provide a
+	  backend when a domain is requested for the first time (defaults to
+	  ten seconds)
 
 Example
 	::
