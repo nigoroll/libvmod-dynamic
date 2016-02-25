@@ -158,9 +158,9 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 
 	do {
 		if (next != NULL)
-			next = next->dir_list.vtqe_next;
+			next = VTAILQ_NEXT(next, dir_list);
 		if (next == NULL)
-			next = dir->entries.vtqh_first;
+			next = VTAILQ_FIRST(&dir->entries);
 	} while (next != dir->current &&
 	    !next->entry->backend->healthy(next->entry->backend, NULL, NULL));
 
@@ -235,7 +235,7 @@ vmod_dns_del(VRT_CTX, struct dir_entry *e)
 	}
 
 	if (e == dir->current)
-		dir->current = e->dir_list.vtqe_next;
+		dir->current = VTAILQ_NEXT(e, dir_list);
 
 	VTAILQ_REMOVE(&dir->entries, e, dir_list);
 	free(e);
@@ -537,8 +537,8 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 
 	VTAILQ_REMOVE(&dir->dns->directors, dir, list);
 	Lck_Lock(&dir->mtx);
-	while (dir->entries.vtqh_first != NULL)
-		vmod_dns_del(ctx, dir->entries.vtqh_first);
+	while (!VTAILQ_EMPTY(&dir->entries))
+		vmod_dns_del(ctx, VTAILQ_FIRST(&dir->entries));
 	Lck_Unlock(&dir->mtx);
 
 	AZ(pthread_cond_destroy(&dir->resolve));
@@ -724,10 +724,10 @@ vmod_director__fini(struct vmod_named_director **dnsp)
 	VTAILQ_REMOVE(&objects, dns, list);
 
 	/* Backends will be deleted by the VCL, pass a NULL struct ctx */
-	while (dns->directors.vtqh_first != NULL)
-		vmod_dns_free(NULL, dns->directors.vtqh_first);
+	while (!VTAILQ_EMPTY(&dns->directors))
+		vmod_dns_free(NULL, VTAILQ_FIRST(&dns->directors));
 
-	AZ(dns->entries.vtqh_first);
+	assert(VTAILQ_EMPTY(&dns->entries));
 
 	Lck_Delete(&dns->mtx);
 	free(dns->vcl_name);
