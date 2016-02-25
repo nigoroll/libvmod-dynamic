@@ -229,6 +229,11 @@ vmod_dns_del(VRT_CTX, struct dir_entry *e)
 
 	dir = e->dir;
 
+	if (ctx != NULL) {
+		Lck_AssertHeld(&dir->mtx);
+		Lck_AssertHeld(&dir->dns->mtx);
+	}
+
 	if (e == dir->current)
 		dir->current = e->dir_list.vtqe_next;
 
@@ -313,6 +318,8 @@ vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 
 	CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 	CHECK_OBJ_NOTNULL(dir->dns, VMOD_NAMED_DIRECTOR_MAGIC);
+	Lck_AssertHeld(&dir->mtx);
+	Lck_AssertHeld(&dir->dns->mtx);
 
 	if (vmod_dns_find(dir, sa))
 		return (0);
@@ -468,9 +475,8 @@ vmod_dns_stop(struct vmod_named_director *dns)
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		Lck_Lock(&dir->mtx);
 		AN(dir->thread);
-		Lck_Unlock(&dir->mtx);
-
 		AZ(pthread_cond_signal(&dir->cond));
+		Lck_Unlock(&dir->mtx);
 	}
 
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
@@ -504,10 +510,7 @@ vmod_dns_start(struct vmod_named_director *dns)
 	Lck_Lock(&dns->mtx);
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
-		Lck_Lock(&dir->mtx);
 		AZ(dir->thread);
-		Lck_Unlock(&dir->mtx);
-
 		AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread,
 		    dir));
 	}
@@ -523,6 +526,9 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 	AZ(dir->thread);
 	AN(dir->done);
 
+	if (ctx != NULL)
+		Lck_AssertHeld(&dir->dns->mtx);
+
 	if (ctx != NULL) {
 		AN(ctx->vsl);
 		VSLb(ctx->vsl, SLT_VCL_Log, "vmod-named: deleted %s",
@@ -530,8 +536,10 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 	}
 
 	VTAILQ_REMOVE(&dir->dns->directors, dir, list);
+	Lck_Lock(&dir->mtx);
 	while (dir->entries.vtqh_first != NULL)
 		vmod_dns_del(ctx, dir->entries.vtqh_first);
+	Lck_Unlock(&dir->mtx);
 
 	AZ(pthread_cond_destroy(&dir->resolve));
 	AZ(pthread_cond_destroy(&dir->cond));
@@ -554,12 +562,16 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 		}
 		if (dir != d && dns->domain_timeout > 0 &&
 		    ctx->now - d->last_used > dns->domain_timeout) {
+			Lck_Lock(&d->mtx);
 			d->stale = 1;
 			AZ(pthread_cond_signal(&d->cond));
+			Lck_Unlock(&d->mtx);
 		}
 		if (d->done) {
+			Lck_Lock(&d->mtx);
 			AZ(pthread_join(d->thread, NULL));
 			d->thread = 0;
+			Lck_Unlock(&d->mtx);
 			vmod_dns_free(ctx, d);
 		}
 	}
@@ -573,6 +585,7 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 	struct dns_director *dir;
 
 	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
+	Lck_AssertHeld(&dns->mtx);
 	AN(addr);
 
 	dir = vmod_dns_search(ctx, dns, addr);
