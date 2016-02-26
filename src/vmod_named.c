@@ -118,8 +118,8 @@ struct vmod_named_director {
 	char					*port;
 	VCL_PROBE				probe;
 	VCL_DURATION				ttl;
-	VCL_DURATION				domain_timeout;
-	VCL_DURATION				first_lookup_timeout;
+	VCL_DURATION				domain_tmo;
+	VCL_DURATION				first_tmo;
 	VTAILQ_ENTRY(vmod_named_director)	list;
 	VTAILQ_HEAD(,dns_director)		directors;
 	VTAILQ_HEAD(,dns_entry)			entries;
@@ -149,7 +149,7 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 	Lck_Lock(&dir->mtx);
 
 	if (!dir->lookedup) {
-		deadline = VTIM_real() + dir->dns->first_lookup_timeout;
+		deadline = VTIM_real() + dir->dns->first_tmo;
 		ret = Lck_CondWait(&dir->resolve, &dir->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
 	}
@@ -560,8 +560,8 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 			AZ(dir);
 			dir = d;
 		}
-		if (dir != d && dns->domain_timeout > 0 &&
-		    ctx->now - d->last_used > dns->domain_timeout) {
+		if (dir != d && dns->domain_tmo > 0 &&
+		    ctx->now - d->last_used > dns->domain_tmo) {
 			Lck_Lock(&d->mtx);
 			d->stale = 1;
 			AZ(pthread_cond_signal(&d->cond));
@@ -699,8 +699,8 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 	dns->active = 0;
 	dns->probe = probe;
 	dns->ttl = ttl;
-	dns->domain_timeout = domain_timeout;
-	dns->first_lookup_timeout = first_lookup_timeout;
+	dns->domain_tmo = domain_timeout;
+	dns->first_tmo = first_lookup_timeout;
 
 	Lck_New(&dns->mtx, lck_dir);
 
