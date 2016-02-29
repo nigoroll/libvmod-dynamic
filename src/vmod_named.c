@@ -143,6 +143,7 @@ struct vmod_named_director {
 	VCL_DURATION				first_tmo;
 	VTAILQ_ENTRY(vmod_named_director)	list;
 	VTAILQ_HEAD(,dns_director)		active_dirs;
+	VTAILQ_HEAD(,dns_director)		purged_dirs;
 	VTAILQ_HEAD(,dns_entry)			entries;
 	const char				*vcl_conf;
 	struct vcl				*vcl;
@@ -505,7 +506,6 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 		LOG(ctx, SLT_VCL_Log, dir, "%s", "deleted");
 	}
 
-	VTAILQ_REMOVE(&dir->dns->active_dirs, dir, list);
 	Lck_Lock(&dir->mtx);
 	while (!VTAILQ_EMPTY(&dir->entries))
 		vmod_dns_del(ctx, VTAILQ_FIRST(&dir->entries));
@@ -521,7 +521,7 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 static void
 vmod_dns_stop(struct vmod_named_director *dns)
 {
-	struct dns_director *dir;
+	struct dns_director *dir, *d2;
 	struct vrt_ctx ctx;
 
 	ASSERT_CLI();
@@ -536,12 +536,30 @@ vmod_dns_stop(struct vmod_named_director *dns)
 		Lck_Unlock(&dir->mtx);
 	}
 
+	/* NB: After a call to pthread_join we know for sure that the only
+	 * potential contender stopped. Therefore locking is no longer
+	 * required to access a (struct dns_director *)->status.
+	 */
+
 	VTAILQ_FOREACH(dir, &dns->active_dirs, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		AZ(pthread_join(dir->thread, NULL));
 		assert(dir->status == DNS_ST_DONE);
 		dir->thread = 0;
 		dir->status = DNS_ST_READY;
+	}
+
+	VTAILQ_FOREACH_SAFE(dir, &dns->purged_dirs, list, d2) {
+		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
+		Lck_Lock(&dir->mtx);
+		assert(dir->status == DNS_ST_STALE ||
+		    dir->status == DNS_ST_DONE);
+		Lck_Unlock(&dir->mtx);
+		AZ(pthread_join(dir->thread, NULL));
+		assert(dir->status == DNS_ST_DONE);
+		dir->status = DNS_ST_READY;
+		vmod_dns_free(NULL, dir);
+		VTAILQ_REMOVE(&dir->dns->purged_dirs, dir, list);
 	}
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
@@ -581,6 +599,10 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 {
 	struct dns_director *dir, *d, *d2;
 
+	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
+	Lck_AssertHeld(&dns->mtx);
+	AN(addr);
+
 	dir = NULL;
 	VTAILQ_FOREACH_SAFE(d, &dns->active_dirs, list, d2) {
 		CHECK_OBJ_NOTNULL(d, DNS_DIRECTOR_MAGIC);
@@ -588,7 +610,7 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 			AZ(dir);
 			dir = d;
 		}
-		if (dir != d && d->status <= DNS_ST_ACTIVE &&
+		if (dir != d && d->status == DNS_ST_ACTIVE &&
 		    dns->domain_tmo > 0 &&
 		    ctx->now - d->last_used > dns->domain_tmo) {
 			LOG(ctx, SLT_VCL_Log, d, "%s", "timeout");
@@ -596,14 +618,21 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 			d->status = DNS_ST_STALE;
 			AZ(pthread_cond_signal(&d->cond));
 			Lck_Unlock(&d->mtx);
+			VTAILQ_REMOVE(&d->dns->active_dirs, d, list);
+			VTAILQ_INSERT_TAIL(&d->dns->purged_dirs, d, list);
 		}
+	}
+
+	VTAILQ_FOREACH_SAFE(d, &dns->purged_dirs, list, d2) {
+		CHECK_OBJ_NOTNULL(d, DNS_DIRECTOR_MAGIC);
 		if (d->status == DNS_ST_DONE) {
-			Lck_Lock(&d->mtx);
 			AZ(pthread_join(d->thread, NULL));
+			Lck_Lock(&d->mtx);
 			d->thread = 0;
 			d->status = DNS_ST_READY;
 			Lck_Unlock(&d->mtx);
 			vmod_dns_free(ctx, d);
+			VTAILQ_REMOVE(&dir->dns->purged_dirs, d, list);
 		}
 	}
 
@@ -722,6 +751,7 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 	ALLOC_OBJ(dns, VMOD_NAMED_DIRECTOR_MAGIC);
 	AN(dns);
 	VTAILQ_INIT(&dns->active_dirs);
+	VTAILQ_INIT(&dns->purged_dirs);
 	VTAILQ_INIT(&dns->entries);
 	REPLACE(dns->vcl_name, vcl_name);
 	REPLACE(dns->port, port);
@@ -756,8 +786,17 @@ vmod_director__fini(struct vmod_named_director **dnsp)
 	VTAILQ_REMOVE(&objects, dns, list);
 
 	/* Backends will be deleted by the VCL, pass a NULL struct ctx */
-	while (!VTAILQ_EMPTY(&dns->active_dirs))
+	while (!VTAILQ_EMPTY(&dns->purged_dirs)) {
+		vmod_dns_free(NULL, VTAILQ_FIRST(&dns->purged_dirs));
+		VTAILQ_REMOVE(&dns->purged_dirs,
+		    VTAILQ_FIRST(&dns->purged_dirs), list);
+	}
+
+	while (!VTAILQ_EMPTY(&dns->active_dirs)) {
 		vmod_dns_free(NULL, VTAILQ_FIRST(&dns->active_dirs));
+		VTAILQ_REMOVE(&dns->active_dirs,
+		    VTAILQ_FIRST(&dns->active_dirs), list);
+	}
 
 	assert(VTAILQ_EMPTY(&dns->entries));
 
