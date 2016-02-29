@@ -111,7 +111,6 @@ struct dns_director {
 	char				*addr;
 	const char			*port;
 	struct director			dir;
-	unsigned			lookedup;
 	unsigned			mark;
 	volatile enum dns_status_e	status;
 };
@@ -154,10 +153,15 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 
 	Lck_Lock(&dir->mtx);
 
-	if (!dir->lookedup) {
+	if (dir->status < DNS_ST_ACTIVE) {
 		deadline = VTIM_real() + dir->dns->first_tmo;
 		ret = Lck_CondWait(&dir->resolve, &dir->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
+	}
+
+	if (dir->status > DNS_ST_ACTIVE) {
+		Lck_Unlock(&dir->mtx);
+		return (NULL);
 	}
 
 	next = dir->current;
@@ -444,9 +448,9 @@ vmod_dns_lookup_thread(void *obj)
 
 		Lck_Lock(&dir->mtx);
 
-		if (!dir->lookedup) {
+		if (dir->status == DNS_ST_READY) {
 			AZ(pthread_cond_broadcast(&dir->resolve));
-			dir->lookedup = 1;
+			dir->status = DNS_ST_ACTIVE;
 		}
 
 		/* Check status again after the blocking call */
