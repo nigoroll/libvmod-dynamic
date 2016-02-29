@@ -575,6 +575,8 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 		if (dir != d && d->status <= DNS_ST_ACTIVE &&
 		    dns->domain_tmo > 0 &&
 		    ctx->now - d->last_used > dns->domain_tmo) {
+			VSLb(ctx->vsl, SLT_VCL_Log, "vmod-named: timeout %s",
+			    d->addr);
 			Lck_Lock(&d->mtx);
 			d->status = DNS_ST_STALE;
 			AZ(pthread_cond_signal(&d->cond));
