@@ -42,9 +42,23 @@ named according to the following pattern::
    VBE.<configname>.<directorname>(<ip>).*
 
 When a lookup fails, the backends are left untouched and the error will be
-logged with the following message::
+logged with the following event::
 
-   DNS lookup failed: <errno> (<reason>)
+   getaddrinfo <errno> (<reason>)
+
+LOGGING
+=======
+
+This module may log ``VCL_Log`` and ``Error`` records following a common
+pattern::
+
+   vmod-named: %s %s %s %s [ %s ]
+               |  |  |  |    |
+               |  |  |  |    +- Additional information
+               |  |  |  +------ Event
+               |  |  +--------- Host name
+               |  +------------ Director name
+               +--------------- VCL name
 
 .. raw:: pdf
 

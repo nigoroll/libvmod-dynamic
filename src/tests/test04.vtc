@@ -35,8 +35,8 @@ varnish v1 -vcl+backend {
 } -start
 
 logexpect l1 -v v1 {
-	expect * * VCL_Log "vmod-named: timeout localhost"
-	expect * * VCL_Log "vmod-named: deleted localhost"
+	expect * * VCL_Log "vmod-named: vcl1 d1 localhost timeout"
+	expect * * VCL_Log "vmod-named: vcl1 d1 localhost deleted"
 } -start
 
 client c1 {

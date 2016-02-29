@@ -49,6 +49,22 @@
 
 #include "vcc_if.h"
 
+#define LOG(ctx, slt, dir, fmt, ...)				\
+	do {							\
+		if ((ctx)->vsl != NULL)				\
+			VSLb((ctx)->vsl, slt,			\
+			    "vmod-named: %s %s %s " fmt,	\
+			    (dir)->dns->vcl_conf,		\
+			    (dir)->dns->vcl_name, (dir)->addr,	\
+			    __VA_ARGS__);			\
+		else						\
+			VSL(slt, 0,				\
+			    "vmod-named: %s %s %s " fmt, 	\
+			    (dir)->dns->vcl_conf,		\
+			    (dir)->dns->vcl_name, (dir)->addr,	\
+			    __VA_ARGS__);			\
+	} while (0)
+
 /*--------------------------------------------------------------------
  * Global data structures
  *
@@ -128,6 +144,7 @@ struct vmod_named_director {
 	VTAILQ_ENTRY(vmod_named_director)	list;
 	VTAILQ_HEAD(,dns_director)		active_dirs;
 	VTAILQ_HEAD(,dns_entry)			entries;
+	const char				*vcl_conf;
 	struct vcl				*vcl;
 	struct vclref				*vclref;
 	volatile unsigned			active;
@@ -425,10 +442,12 @@ vmod_dns_lookup_thread(void *obj)
 {
 	struct dns_director *dir;
 	struct addrinfo hints, *res;
+	struct vrt_ctx ctx;
 	double deadline;
 	int ret;
 
 	CAST_OBJ_NOTNULL(dir, obj, DNS_DIRECTOR_MAGIC);
+	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_socktype = SOCK_STREAM;
@@ -443,7 +462,7 @@ vmod_dns_lookup_thread(void *obj)
 			freeaddrinfo(res);
 		}
 		else
-			VSL(SLT_Error, 0, "DNS lookup failed: %d (%s)",
+			LOG(&ctx, SLT_Error, dir, "getaddrinfo %d (%s)",
 			    ret, gai_strerror(ret));
 
 		Lck_Lock(&dir->mtx);
@@ -480,11 +499,10 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 	AZ(dir->thread);
 	assert(dir->status == DNS_ST_READY);
 
+
 	if (ctx != NULL) {
 		Lck_AssertHeld(&dir->dns->mtx);
-		AN(ctx->vsl);
-		VSLb(ctx->vsl, SLT_VCL_Log, "vmod-named: deleted %s",
-		    dir->addr);
+		LOG(ctx, SLT_VCL_Log, dir, "%s", "deleted");
 	}
 
 	VTAILQ_REMOVE(&dir->dns->active_dirs, dir, list);
@@ -573,8 +591,7 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 		if (dir != d && d->status <= DNS_ST_ACTIVE &&
 		    dns->domain_tmo > 0 &&
 		    ctx->now - d->last_used > dns->domain_tmo) {
-			VSLb(ctx->vsl, SLT_VCL_Log, "vmod-named: timeout %s",
-			    d->addr);
+			LOG(ctx, SLT_VCL_Log, d, "%s", "timeout");
 			Lck_Lock(&d->mtx);
 			d->status = DNS_ST_STALE;
 			AZ(pthread_cond_signal(&d->cond));
@@ -709,6 +726,7 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 	REPLACE(dns->vcl_name, vcl_name);
 	REPLACE(dns->port, port);
 
+	dns->vcl_conf = VCL_Name(ctx->vcl);
 	dns->vcl = ctx->vcl;
 	dns->active = 0;
 	dns->probe = probe;
