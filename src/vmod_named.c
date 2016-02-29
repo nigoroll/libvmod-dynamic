@@ -39,14 +39,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "vcl.h"
-#include "vrt.h"
+#include <vcl.h>
+#include <vrt.h>
+#include <vsa.h>
+#include <vtim.h>
 
-#include "cache/cache.h"
-#include "cache/cache_director.h"
+#include <cache/cache.h>
+#include <cache/cache_director.h>
 
-#include "vsa.h"
-#include "vtim.h"
 #include "vcc_if.h"
 
 /*--------------------------------------------------------------------
