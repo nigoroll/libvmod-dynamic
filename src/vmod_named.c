@@ -126,7 +126,7 @@ struct vmod_named_director {
 	VCL_DURATION				domain_tmo;
 	VCL_DURATION				first_tmo;
 	VTAILQ_ENTRY(vmod_named_director)	list;
-	VTAILQ_HEAD(,dns_director)		directors;
+	VTAILQ_HEAD(,dns_director)		active_dirs;
 	VTAILQ_HEAD(,dns_entry)			entries;
 	struct vcl				*vcl;
 	struct vclref				*vclref;
@@ -481,7 +481,7 @@ vmod_dns_stop(struct vmod_named_director *dns)
 	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
 
 	Lck_Lock(&dns->mtx);
-	VTAILQ_FOREACH(dir, &dns->directors, list) {
+	VTAILQ_FOREACH(dir, &dns->active_dirs, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		Lck_Lock(&dir->mtx);
 		AN(dir->thread);
@@ -489,7 +489,7 @@ vmod_dns_stop(struct vmod_named_director *dns)
 		Lck_Unlock(&dir->mtx);
 	}
 
-	VTAILQ_FOREACH(dir, &dns->directors, list) {
+	VTAILQ_FOREACH(dir, &dns->active_dirs, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		AZ(pthread_join(dir->thread, NULL));
 		assert(dir->status == DNS_ST_DONE);
@@ -519,7 +519,7 @@ vmod_dns_start(struct vmod_named_director *dns)
 	dns->vclref = VRT_ref_vcl(&ctx, "vmod named");
 
 	Lck_Lock(&dns->mtx);
-	VTAILQ_FOREACH(dir, &dns->directors, list) {
+	VTAILQ_FOREACH(dir, &dns->active_dirs, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		assert(dir->status == DNS_ST_READY);
 		AZ(dir->thread);
@@ -547,7 +547,7 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 		    dir->addr);
 	}
 
-	VTAILQ_REMOVE(&dir->dns->directors, dir, list);
+	VTAILQ_REMOVE(&dir->dns->active_dirs, dir, list);
 	Lck_Lock(&dir->mtx);
 	while (!VTAILQ_EMPTY(&dir->entries))
 		vmod_dns_del(ctx, VTAILQ_FIRST(&dir->entries));
@@ -566,7 +566,7 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 	struct dns_director *dir, *d, *d2;
 
 	dir = NULL;
-	VTAILQ_FOREACH_SAFE(d, &dns->directors, list, d2) {
+	VTAILQ_FOREACH_SAFE(d, &dns->active_dirs, list, d2) {
 		CHECK_OBJ_NOTNULL(d, DNS_DIRECTOR_MAGIC);
 		if (!strcmp(d->addr, addr)) {
 			AZ(dir);
@@ -627,7 +627,7 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 
 	AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread, dir));
 
-	VTAILQ_INSERT_TAIL(&dns->directors, dir, list);
+	VTAILQ_INSERT_TAIL(&dns->active_dirs, dir, list);
 
 	return dir;
 }
@@ -706,7 +706,7 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 
 	ALLOC_OBJ(dns, VMOD_NAMED_DIRECTOR_MAGIC);
 	AN(dns);
-	VTAILQ_INIT(&dns->directors);
+	VTAILQ_INIT(&dns->active_dirs);
 	VTAILQ_INIT(&dns->entries);
 	REPLACE(dns->vcl_name, vcl_name);
 	REPLACE(dns->port, port);
@@ -740,8 +740,8 @@ vmod_director__fini(struct vmod_named_director **dnsp)
 	VTAILQ_REMOVE(&objects, dns, list);
 
 	/* Backends will be deleted by the VCL, pass a NULL struct ctx */
-	while (!VTAILQ_EMPTY(&dns->directors))
-		vmod_dns_free(NULL, VTAILQ_FIRST(&dns->directors));
+	while (!VTAILQ_EMPTY(&dns->active_dirs))
+		vmod_dns_free(NULL, VTAILQ_FIRST(&dns->active_dirs));
 
 	assert(VTAILQ_EMPTY(&dns->entries));
 
