@@ -89,6 +89,13 @@ struct dir_entry {
 	unsigned		mark;
 };
 
+enum dns_status_e {
+	DNS_ST_READY	= 0,
+	DNS_ST_ACTIVE	= 1,
+	DNS_ST_STALE	= 2,
+	DNS_ST_DONE	= 3,
+};
+
 struct dns_director {
 	unsigned			magic;
 #define DNS_DIRECTOR_MAGIC		0x1bfe1345
@@ -106,8 +113,7 @@ struct dns_director {
 	struct director			dir;
 	unsigned			lookedup;
 	unsigned			mark;
-	volatile unsigned		stale;
-	volatile unsigned		done;
+	volatile enum dns_status_e	status;
 };
 
 struct vmod_named_director {
@@ -424,7 +430,7 @@ vmod_dns_lookup_thread(void *obj)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_family = AF_UNSPEC;
 
-	while (dir->dns->active && !dir->stale) {
+	while (dir->dns->active && dir->status <= DNS_ST_ACTIVE) {
 
 		ret = getaddrinfo(dir->addr, dir->dns->port, &hints, &res);
 
@@ -444,7 +450,7 @@ vmod_dns_lookup_thread(void *obj)
 		}
 
 		/* Check status again after the blocking call */
-		if (!dir->dns->active || dir->stale) {
+		if (!dir->dns->active || dir->status == DNS_ST_STALE) {
 			Lck_Unlock(&dir->mtx);
 			break;
 		}
@@ -456,7 +462,7 @@ vmod_dns_lookup_thread(void *obj)
 		Lck_Unlock(&dir->mtx);
 	}
 
-	dir->done = 1;
+	dir->status = DNS_ST_DONE;
 
 	return (NULL);
 }
@@ -482,8 +488,9 @@ vmod_dns_stop(struct vmod_named_director *dns)
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		AZ(pthread_join(dir->thread, NULL));
-		AN(dir->done);
+		assert(dir->status == DNS_ST_DONE);
 		dir->thread = 0;
+		dir->status = DNS_ST_READY;
 	}
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
@@ -510,6 +517,7 @@ vmod_dns_start(struct vmod_named_director *dns)
 	Lck_Lock(&dns->mtx);
 	VTAILQ_FOREACH(dir, &dns->directors, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
+		assert(dir->status == DNS_ST_READY);
 		AZ(dir->thread);
 		AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread,
 		    dir));
@@ -524,7 +532,7 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 	AZ(dir->thread);
-	AN(dir->done);
+	assert(dir->status == DNS_ST_READY);
 
 	if (ctx != NULL)
 		Lck_AssertHeld(&dir->dns->mtx);
@@ -560,17 +568,19 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 			AZ(dir);
 			dir = d;
 		}
-		if (dir != d && dns->domain_tmo > 0 &&
+		if (dir != d && d->status <= DNS_ST_ACTIVE &&
+		    dns->domain_tmo > 0 &&
 		    ctx->now - d->last_used > dns->domain_tmo) {
 			Lck_Lock(&d->mtx);
-			d->stale = 1;
+			d->status = DNS_ST_STALE;
 			AZ(pthread_cond_signal(&d->cond));
 			Lck_Unlock(&d->mtx);
 		}
-		if (d->done) {
+		if (d->status == DNS_ST_DONE) {
 			Lck_Lock(&d->mtx);
 			AZ(pthread_join(d->thread, NULL));
 			d->thread = 0;
+			d->status = DNS_ST_READY;
 			Lck_Unlock(&d->mtx);
 			vmod_dns_free(ctx, d);
 		}
