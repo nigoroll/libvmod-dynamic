@@ -472,6 +472,35 @@ vmod_dns_lookup_thread(void *obj)
 }
 
 static void
+vmod_dns_free(VRT_CTX, struct dns_director *dir)
+{
+
+	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
+	AZ(dir->thread);
+	assert(dir->status == DNS_ST_READY);
+
+	if (ctx != NULL) {
+		Lck_AssertHeld(&dir->dns->mtx);
+		AN(ctx->vsl);
+		VSLb(ctx->vsl, SLT_VCL_Log, "vmod-named: deleted %s",
+		    dir->addr);
+	}
+
+	VTAILQ_REMOVE(&dir->dns->active_dirs, dir, list);
+	Lck_Lock(&dir->mtx);
+	while (!VTAILQ_EMPTY(&dir->entries))
+		vmod_dns_del(ctx, VTAILQ_FIRST(&dir->entries));
+	Lck_Unlock(&dir->mtx);
+
+	AZ(pthread_cond_destroy(&dir->resolve));
+	AZ(pthread_cond_destroy(&dir->cond));
+	Lck_Delete(&dir->mtx);
+	free(dir->addr);
+	FREE_OBJ(dir);
+}
+
+static void
 vmod_dns_stop(struct vmod_named_director *dns)
 {
 	struct dns_director *dir;
@@ -527,37 +556,6 @@ vmod_dns_start(struct vmod_named_director *dns)
 		    dir));
 	}
 	Lck_Unlock(&dns->mtx);
-}
-
-static void
-vmod_dns_free(VRT_CTX, struct dns_director *dir)
-{
-
-	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
-	AZ(dir->thread);
-	assert(dir->status == DNS_ST_READY);
-
-	if (ctx != NULL)
-		Lck_AssertHeld(&dir->dns->mtx);
-
-	if (ctx != NULL) {
-		AN(ctx->vsl);
-		VSLb(ctx->vsl, SLT_VCL_Log, "vmod-named: deleted %s",
-		    dir->addr);
-	}
-
-	VTAILQ_REMOVE(&dir->dns->active_dirs, dir, list);
-	Lck_Lock(&dir->mtx);
-	while (!VTAILQ_EMPTY(&dir->entries))
-		vmod_dns_del(ctx, VTAILQ_FIRST(&dir->entries));
-	Lck_Unlock(&dir->mtx);
-
-	AZ(pthread_cond_destroy(&dir->resolve));
-	AZ(pthread_cond_destroy(&dir->cond));
-	Lck_Delete(&dir->mtx);
-	free(dir->addr);
-	FREE_OBJ(dir);
 }
 
 static struct dns_director *
