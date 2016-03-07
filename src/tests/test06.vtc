@@ -1,0 +1,29 @@
+varnishtest "White-listing"
+
+server s1 "" -start
+
+varnish v1 -vcl {
+	import ${vmod_named};
+
+	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+
+	acl gandalf {
+		"${bad_ip}";
+	}
+
+	sub vcl_init {
+		new d1 = named.director(
+			port = "${s1_port}",
+			whitelist = gandalf);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend("localhost");
+	}
+} -start
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 503
+} -run

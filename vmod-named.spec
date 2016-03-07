@@ -12,10 +12,10 @@ License:        BSD
 Source:         lib%{name}-%{version}.tar.gz
 
 BuildRequires:  python
-BuildRequires:  varnish >= 4.1.1
-BuildRequires:  varnish-libs-devel >= 4.1.1
+BuildRequires:  varnish >= 4.1.2
+BuildRequires:  varnish-libs-devel >= 4.1.2
 
-Requires:       varnish >= 4.1.1
+Requires:       varnish >= 4.1.2
 
 
 %description

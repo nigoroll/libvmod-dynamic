@@ -69,6 +69,7 @@ $Event vmod_event
 $Object director(
 	STRING port			= http,
 	PROBE probe			= 0,
+	ACL whitelist			= 0,
 	DURATION ttl			= 3600,
 	DURATION domain_timeout		= 7200,
 	DURATION first_lookup_timeout	= 10)
@@ -80,7 +81,8 @@ Description
 	round robin fashion. It accepts the following parameters:
 
 	- *port* (defaults to ``"http"``)
-	- *probe* (defaults to no probe)
+	- *probe* (defaults to none)
+	- *whitelist* - an acl (defaults to none)
 	- *ttl* - delay between lookups (defaults to one hour)
 	- *domain_timeout* - delay until an unused domain and its backends are
 	  removed (defaults to two hours)
@@ -98,10 +100,15 @@ Example
 	   	.interval = 5s;
 	   }
 
+	   acl www_acl {
+	   	"192.168"/24;
+	   }
+
 	   sub vcl_init {
 	   	new www_dir = named.director(
 	   		port = "80",
 	   		probe = www_probe,
+	   		whitelist = www_acl,
 	   		ttl = 5m);
 	   }
 

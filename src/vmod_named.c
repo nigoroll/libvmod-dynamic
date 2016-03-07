@@ -138,6 +138,7 @@ struct vmod_named_director {
 	char					*vcl_name;
 	char					*port;
 	VCL_PROBE				probe;
+	VCL_ACL					whitelist;
 	VCL_DURATION				ttl;
 	VCL_DURATION				domain_tmo;
 	VCL_DURATION				first_tmo;
@@ -406,6 +407,8 @@ vmod_dns_update(struct dns_director *dir, struct addrinfo *addr)
 	struct suckaddr *sa;
 	struct dir_entry *e, *e2;
 	struct vrt_ctx ctx;
+	VCL_ACL acl;
+	unsigned match;
 
 	AN(addr);
 
@@ -416,6 +419,7 @@ vmod_dns_update(struct dns_director *dir, struct addrinfo *addr)
 	Lck_Lock(&dir->mtx);
 
 	dir->mark++;
+	acl = dir->dns->whitelist;
 
 	while (addr) {
 		switch (addr->ai_family) {
@@ -424,7 +428,10 @@ vmod_dns_update(struct dns_director *dir, struct addrinfo *addr)
 			sa = malloc(vsa_suckaddr_len);
 			AN(sa);
 			AN(VSA_Build(sa, addr->ai_addr, addr->ai_addrlen));
-			if (!vmod_dns_add(&ctx, dir, sa))
+			match = acl != NULL ? VRT_acl_match(&ctx, acl, sa) : 1;
+			if (!match)
+				LOG(&ctx, SLT_Error, dir, "%s", "mismatch");
+			if (!match || !vmod_dns_add(&ctx, dir, sa))
 				free(sa);
 		}
 		addr = addr->ai_next;
@@ -733,9 +740,15 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 }
 
 VCL_VOID __match_proto__()
-vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
-    const char *vcl_name, VCL_STRING port, VCL_PROBE probe, VCL_DURATION ttl,
-    VCL_DURATION domain_timeout, VCL_DURATION first_lookup_timeout)
+vmod_director__init(VRT_CTX,
+    struct vmod_named_director **dnsp,
+    const char *vcl_name,
+    VCL_STRING port,
+    VCL_PROBE probe,
+    VCL_ACL whitelist,
+    VCL_DURATION ttl,
+    VCL_DURATION domain_timeout,
+    VCL_DURATION first_lookup_timeout)
 {
 	struct vmod_named_director *dns;
 
@@ -746,6 +759,7 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 	AN(vcl_name);
 	AN(port);
 	CHECK_OBJ_ORNULL(probe, VRT_BACKEND_PROBE_MAGIC);
+	CHECK_OBJ_ORNULL(whitelist, VRT_ACL_MAGIC);
 	xxxassert(ttl > 0);
 
 	ALLOC_OBJ(dns, VMOD_NAMED_DIRECTOR_MAGIC);
@@ -760,6 +774,7 @@ vmod_director__init(VRT_CTX, struct vmod_named_director **dnsp,
 	dns->vcl = ctx->vcl;
 	dns->active = 0;
 	dns->probe = probe;
+	dns->whitelist = whitelist;
 	dns->ttl = ttl;
 	dns->domain_tmo = domain_timeout;
 	dns->first_tmo = first_lookup_timeout;
