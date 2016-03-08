@@ -1,6 +1,9 @@
 varnishtest "White-listing"
 
-server s1 "" -start
+server s1 {
+	txreq
+	rxresp
+} -start
 
 varnish v1 -vcl {
 	import ${vmod_named};
