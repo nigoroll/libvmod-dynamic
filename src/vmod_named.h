@@ -33,7 +33,7 @@
 
 struct named_backend {
 	struct director			*dir;
-	VTAILQ_ENTRY(named_backend)	dns_list;
+	VTAILQ_ENTRY(named_backend)	list;
 	struct suckaddr 		*ip_suckaddr;
 	char				*ip_addr;
 	char				*vcl_name;
@@ -42,7 +42,7 @@ struct named_backend {
 
 struct named_ref {
 	struct named_domain	*dom;
-	VTAILQ_ENTRY(named_ref)	dir_list;
+	VTAILQ_ENTRY(named_ref)	list;
 	struct named_backend	*be;
 	unsigned		mark;
 };
