@@ -102,13 +102,13 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 
 	Lck_Lock(&dir->mtx);
 
-	if (dir->status < DNS_ST_ACTIVE) {
+	if (dir->status < NAMED_ST_ACTIVE) {
 		deadline = VTIM_real() + dir->obj->first_tmo;
 		ret = Lck_CondWait(&dir->resolve, &dir->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
 	}
 
-	if (dir->status > DNS_ST_ACTIVE) {
+	if (dir->status > NAMED_ST_ACTIVE) {
 		Lck_Unlock(&dir->mtx);
 		return (NULL);
 	}
@@ -391,7 +391,7 @@ vmod_dns_lookup_thread(void *obj)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_family = AF_UNSPEC;
 
-	while (dir->obj->active && dir->status <= DNS_ST_ACTIVE) {
+	while (dir->obj->active && dir->status <= NAMED_ST_ACTIVE) {
 
 		ret = getaddrinfo(dir->addr, dir->obj->port, &hints, &res);
 
@@ -405,13 +405,13 @@ vmod_dns_lookup_thread(void *obj)
 
 		Lck_Lock(&dir->mtx);
 
-		if (dir->status == DNS_ST_READY) {
+		if (dir->status == NAMED_ST_READY) {
 			AZ(pthread_cond_broadcast(&dir->resolve));
-			dir->status = DNS_ST_ACTIVE;
+			dir->status = NAMED_ST_ACTIVE;
 		}
 
 		/* Check status again after the blocking call */
-		if (!dir->obj->active || dir->status == DNS_ST_STALE) {
+		if (!dir->obj->active || dir->status == NAMED_ST_STALE) {
 			Lck_Unlock(&dir->mtx);
 			break;
 		}
@@ -423,7 +423,7 @@ vmod_dns_lookup_thread(void *obj)
 		Lck_Unlock(&dir->mtx);
 	}
 
-	dir->status = DNS_ST_DONE;
+	dir->status = NAMED_ST_DONE;
 
 	return (NULL);
 }
@@ -435,7 +435,7 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 	AZ(dir->thread);
-	assert(dir->status == DNS_ST_READY);
+	assert(dir->status == NAMED_ST_READY);
 
 
 	if (ctx != NULL) {
@@ -481,20 +481,20 @@ vmod_dns_stop(struct vmod_named_director *obj)
 	VTAILQ_FOREACH(dir, &obj->active_dirs, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		AZ(pthread_join(dir->thread, NULL));
-		assert(dir->status == DNS_ST_DONE);
+		assert(dir->status == NAMED_ST_DONE);
 		dir->thread = 0;
-		dir->status = DNS_ST_READY;
+		dir->status = NAMED_ST_READY;
 	}
 
 	VTAILQ_FOREACH_SAFE(dir, &obj->purged_dirs, list, d2) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		Lck_Lock(&dir->mtx);
-		assert(dir->status == DNS_ST_STALE ||
-		    dir->status == DNS_ST_DONE);
+		assert(dir->status == NAMED_ST_STALE ||
+		    dir->status == NAMED_ST_DONE);
 		Lck_Unlock(&dir->mtx);
 		AZ(pthread_join(dir->thread, NULL));
-		assert(dir->status == DNS_ST_DONE);
-		dir->status = DNS_ST_READY;
+		assert(dir->status == NAMED_ST_DONE);
+		dir->status = NAMED_ST_READY;
 		vmod_dns_free(NULL, dir);
 		VTAILQ_REMOVE(&dir->obj->purged_dirs, dir, list);
 	}
@@ -523,7 +523,7 @@ vmod_dns_start(struct vmod_named_director *obj)
 	Lck_Lock(&obj->mtx);
 	VTAILQ_FOREACH(dir, &obj->active_dirs, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
-		assert(dir->status == DNS_ST_READY);
+		assert(dir->status == NAMED_ST_READY);
 		AZ(dir->thread);
 		AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread,
 		    dir));
@@ -547,12 +547,12 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 			AZ(dir);
 			dir = d;
 		}
-		if (dir != d && d->status == DNS_ST_ACTIVE &&
+		if (dir != d && d->status == NAMED_ST_ACTIVE &&
 		    obj->usage_tmo > 0 &&
 		    ctx->now - d->last_used > obj->usage_tmo) {
 			LOG(ctx, SLT_VCL_Log, d, "%s", "timeout");
 			Lck_Lock(&d->mtx);
-			d->status = DNS_ST_STALE;
+			d->status = NAMED_ST_STALE;
 			AZ(pthread_cond_signal(&d->cond));
 			Lck_Unlock(&d->mtx);
 			VTAILQ_REMOVE(&d->obj->active_dirs, d, list);
@@ -562,11 +562,11 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 
 	VTAILQ_FOREACH_SAFE(d, &obj->purged_dirs, list, d2) {
 		CHECK_OBJ_NOTNULL(d, DNS_DIRECTOR_MAGIC);
-		if (d->status == DNS_ST_DONE) {
+		if (d->status == NAMED_ST_DONE) {
 			AZ(pthread_join(d->thread, NULL));
 			Lck_Lock(&d->mtx);
 			d->thread = 0;
-			d->status = DNS_ST_READY;
+			d->status = NAMED_ST_READY;
 			Lck_Unlock(&d->mtx);
 			vmod_dns_free(ctx, d);
 			VTAILQ_REMOVE(&dir->obj->purged_dirs, d, list);

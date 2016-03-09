@@ -47,11 +47,11 @@ struct dir_entry {
 	unsigned		mark;
 };
 
-enum dns_status_e {
-	DNS_ST_READY	= 0,
-	DNS_ST_ACTIVE	= 1,
-	DNS_ST_STALE	= 2,
-	DNS_ST_DONE	= 3,
+enum named_status_e {
+	NAMED_ST_READY	= 0,
+	NAMED_ST_ACTIVE	= 1,
+	NAMED_ST_STALE	= 2,
+	NAMED_ST_DONE	= 3,
 };
 
 struct dns_director {
@@ -70,7 +70,7 @@ struct dns_director {
 	const char			*port;
 	struct director			dir;
 	unsigned			mark;
-	volatile enum dns_status_e	status;
+	volatile enum named_status_e	status;
 };
 
 struct vmod_named_director {
