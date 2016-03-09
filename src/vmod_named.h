@@ -27,7 +27,7 @@
  *
  * Data structures
  *
- * Locking order is always vmod_named_director.mtx and then dns_director.mtx
+ * Locking order is always vmod_named_director.mtx and then named_domain.mtx
  * when both are needed.
  */
 
@@ -41,7 +41,7 @@ struct dns_entry {
 };
 
 struct dir_entry {
-	struct dns_director	*dir;
+	struct named_domain	*dom;
 	VTAILQ_ENTRY(dir_entry)	dir_list;
 	struct dns_entry	*entry;
 	unsigned		mark;
@@ -54,16 +54,16 @@ enum named_status_e {
 	NAMED_ST_DONE	= 3,
 };
 
-struct dns_director {
+struct named_domain {
 	unsigned			magic;
-#define DNS_DIRECTOR_MAGIC		0x1bfe1345
+#define NAMED_DOMAIN_MAGIC		0x1bfe1345
 	struct vmod_named_director	*obj;
 	pthread_t			thread;
 	struct lock			mtx;
 	pthread_cond_t			cond;
 	pthread_cond_t			resolve;
 	VCL_TIME			last_used;
-	VTAILQ_ENTRY(dns_director)	list;
+	VTAILQ_ENTRY(named_domain)	list;
 	VTAILQ_HEAD(,dir_entry)		entries;
 	struct dir_entry		*current;
 	char				*addr;
@@ -85,8 +85,8 @@ struct vmod_named_director {
 	VCL_DURATION				usage_tmo;
 	VCL_DURATION				first_tmo;
 	VTAILQ_ENTRY(vmod_named_director)	list;
-	VTAILQ_HEAD(,dns_director)		active_dirs;
-	VTAILQ_HEAD(,dns_director)		purged_dirs;
+	VTAILQ_HEAD(,named_domain)		active_domains;
+	VTAILQ_HEAD(,named_domain)		purged_domains;
 	VTAILQ_HEAD(,dns_entry)			entries;
 	const char				*vcl_conf;
 	struct vcl				*vcl;
