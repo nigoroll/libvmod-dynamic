@@ -55,14 +55,14 @@
 		if ((ctx)->vsl != NULL)				\
 			VSLb((ctx)->vsl, slt,			\
 			    "vmod-named: %s %s %s " fmt,	\
-			    (dir)->dns->vcl_conf,		\
-			    (dir)->dns->vcl_name, (dir)->addr,	\
+			    (dir)->obj->vcl_conf,		\
+			    (dir)->obj->vcl_name, (dir)->addr,	\
 			    __VA_ARGS__);			\
 		else						\
 			VSL(slt, 0,				\
 			    "vmod-named: %s %s %s " fmt, 	\
-			    (dir)->dns->vcl_conf,		\
-			    (dir)->dns->vcl_name, (dir)->addr,	\
+			    (dir)->obj->vcl_conf,		\
+			    (dir)->obj->vcl_name, (dir)->addr,	\
 			    __VA_ARGS__);			\
 	} while (0)
 
@@ -103,7 +103,7 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 	Lck_Lock(&dir->mtx);
 
 	if (dir->status < DNS_ST_ACTIVE) {
-		deadline = VTIM_real() + dir->dns->first_tmo;
+		deadline = VTIM_real() + dir->obj->first_tmo;
 		ret = Lck_CondWait(&dir->resolve, &dir->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
 	}
@@ -190,7 +190,7 @@ vmod_dns_del(VRT_CTX, struct dir_entry *e)
 
 	if (ctx != NULL) {
 		Lck_AssertHeld(&dir->mtx);
-		Lck_AssertHeld(&dir->dns->mtx);
+		Lck_AssertHeld(&dir->obj->mtx);
 	}
 
 	if (e == dir->current)
@@ -205,7 +205,7 @@ vmod_dns_del(VRT_CTX, struct dir_entry *e)
 	if (b->refcount > 0)
 		return;
 
-	VTAILQ_REMOVE(&dir->dns->entries, b, dns_list);
+	VTAILQ_REMOVE(&dir->obj->entries, b, dns_list);
 	if (ctx) {
 		AN(ctx->vcl);
 		VRT_delete_backend(ctx, &b->backend);
@@ -238,7 +238,7 @@ vmod_dns_find(struct dns_director *dir, struct suckaddr *sa)
 	struct dns_entry *b;
 
 	CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
-	CHECK_OBJ_NOTNULL(dir->dns, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(dir->obj, VMOD_NAMED_DIRECTOR_MAGIC);
 
 	/* search this director's backends */
 	VTAILQ_FOREACH(e, &dir->entries, dir_list) {
@@ -254,7 +254,7 @@ vmod_dns_find(struct dns_director *dir, struct suckaddr *sa)
 	}
 
 	/* search the rest of the backends */
-	VTAILQ_FOREACH(b, &dir->dns->entries, dns_list) {
+	VTAILQ_FOREACH(b, &dir->obj->entries, dns_list) {
 		CHECK_OBJ_NOTNULL(b->backend, DIRECTOR_MAGIC);
 		if (!VSA_Compare(b->ip_suckaddr, sa)) {
 			vmod_dns_ref(dir, b);
@@ -276,9 +276,9 @@ vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 	int af;
 
 	CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
-	CHECK_OBJ_NOTNULL(dir->dns, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(dir->obj, VMOD_NAMED_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&dir->mtx);
-	Lck_AssertHeld(&dir->dns->mtx);
+	Lck_AssertHeld(&dir->obj->mtx);
 
 	if (vmod_dns_find(dir, sa))
 		return (0);
@@ -296,7 +296,7 @@ vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 
 	vsb = VSB_new_auto();
 	AN(vsb);
-	VSB_printf(vsb, "%s(%s)", dir->dns->vcl_name, b->ip_addr);
+	VSB_printf(vsb, "%s(%s)", dir->obj->vcl_name, b->ip_addr);
 	AZ(VSB_finish(vsb));
 
 	b->vcl_name = strdup(VSB_data(vsb));
@@ -307,7 +307,7 @@ vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 	vrt.port = dir->port;
 	vrt.hosthdr = dir->addr;
 	vrt.vcl_name = b->vcl_name;
-	vrt.probe = dir->dns->probe;
+	vrt.probe = dir->obj->probe;
 
 	switch (af) {
 	case AF_INET:
@@ -327,7 +327,7 @@ vmod_dns_add(VRT_CTX, struct dns_director *dir, struct suckaddr *sa)
 
 	vmod_dns_ref(dir, b);
 
-	VTAILQ_INSERT_TAIL(&dir->dns->entries, b, dns_list);
+	VTAILQ_INSERT_TAIL(&dir->obj->entries, b, dns_list);
 	return (1);
 }
 
@@ -343,13 +343,13 @@ vmod_dns_update(struct dns_director *dir, struct addrinfo *addr)
 	AN(addr);
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-	ctx.vcl = dir->dns->vcl;
+	ctx.vcl = dir->obj->vcl;
 
-	Lck_Lock(&dir->dns->mtx);
+	Lck_Lock(&dir->obj->mtx);
 	Lck_Lock(&dir->mtx);
 
 	dir->mark++;
-	acl = dir->dns->whitelist;
+	acl = dir->obj->whitelist;
 
 	while (addr) {
 		switch (addr->ai_family) {
@@ -372,7 +372,7 @@ vmod_dns_update(struct dns_director *dir, struct addrinfo *addr)
 			vmod_dns_del(&ctx, e);
 
 	Lck_Unlock(&dir->mtx);
-	Lck_Unlock(&dir->dns->mtx);
+	Lck_Unlock(&dir->obj->mtx);
 }
 
 static void*
@@ -391,9 +391,9 @@ vmod_dns_lookup_thread(void *obj)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_family = AF_UNSPEC;
 
-	while (dir->dns->active && dir->status <= DNS_ST_ACTIVE) {
+	while (dir->obj->active && dir->status <= DNS_ST_ACTIVE) {
 
-		ret = getaddrinfo(dir->addr, dir->dns->port, &hints, &res);
+		ret = getaddrinfo(dir->addr, dir->obj->port, &hints, &res);
 
 		if (ret == 0) {
 			vmod_dns_update(dir, res);
@@ -411,12 +411,12 @@ vmod_dns_lookup_thread(void *obj)
 		}
 
 		/* Check status again after the blocking call */
-		if (!dir->dns->active || dir->status == DNS_ST_STALE) {
+		if (!dir->obj->active || dir->status == DNS_ST_STALE) {
 			Lck_Unlock(&dir->mtx);
 			break;
 		}
 
-		deadline = VTIM_real() + dir->dns->ttl;
+		deadline = VTIM_real() + dir->obj->ttl;
 		ret = Lck_CondWait(&dir->cond, &dir->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
 
@@ -439,7 +439,7 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 
 
 	if (ctx != NULL) {
-		Lck_AssertHeld(&dir->dns->mtx);
+		Lck_AssertHeld(&dir->obj->mtx);
 		LOG(ctx, SLT_VCL_Log, dir, "%s", "deleted");
 	}
 
@@ -456,16 +456,16 @@ vmod_dns_free(VRT_CTX, struct dns_director *dir)
 }
 
 static void
-vmod_dns_stop(struct vmod_named_director *dns)
+vmod_dns_stop(struct vmod_named_director *obj)
 {
 	struct dns_director *dir, *d2;
 	struct vrt_ctx ctx;
 
 	ASSERT_CLI();
-	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
 
-	Lck_Lock(&dns->mtx);
-	VTAILQ_FOREACH(dir, &dns->active_dirs, list) {
+	Lck_Lock(&obj->mtx);
+	VTAILQ_FOREACH(dir, &obj->active_dirs, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		Lck_Lock(&dir->mtx);
 		AN(dir->thread);
@@ -478,7 +478,7 @@ vmod_dns_stop(struct vmod_named_director *dns)
 	 * required to access a (struct dns_director *)->status.
 	 */
 
-	VTAILQ_FOREACH(dir, &dns->active_dirs, list) {
+	VTAILQ_FOREACH(dir, &obj->active_dirs, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		AZ(pthread_join(dir->thread, NULL));
 		assert(dir->status == DNS_ST_DONE);
@@ -486,7 +486,7 @@ vmod_dns_stop(struct vmod_named_director *dns)
 		dir->status = DNS_ST_READY;
 	}
 
-	VTAILQ_FOREACH_SAFE(dir, &dns->purged_dirs, list, d2) {
+	VTAILQ_FOREACH_SAFE(dir, &obj->purged_dirs, list, d2) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		Lck_Lock(&dir->mtx);
 		assert(dir->status == DNS_ST_STALE ||
@@ -496,71 +496,71 @@ vmod_dns_stop(struct vmod_named_director *dns)
 		assert(dir->status == DNS_ST_DONE);
 		dir->status = DNS_ST_READY;
 		vmod_dns_free(NULL, dir);
-		VTAILQ_REMOVE(&dir->dns->purged_dirs, dir, list);
+		VTAILQ_REMOVE(&dir->obj->purged_dirs, dir, list);
 	}
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-	ctx.vcl = dns->vcl;
-	VRT_rel_vcl(&ctx, &dns->vclref);
-	Lck_Unlock(&dns->mtx);
+	ctx.vcl = obj->vcl;
+	VRT_rel_vcl(&ctx, &obj->vclref);
+	Lck_Unlock(&obj->mtx);
 }
 
 static void
-vmod_dns_start(struct vmod_named_director *dns)
+vmod_dns_start(struct vmod_named_director *obj)
 {
 	struct dns_director *dir;
 	struct vrt_ctx ctx;
 
 	ASSERT_CLI();
-	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
-	AZ(dns->vclref);
+	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	AZ(obj->vclref);
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-	ctx.vcl = dns->vcl;
+	ctx.vcl = obj->vcl;
 	/* XXX: name it "named director %s" instead */
-	dns->vclref = VRT_ref_vcl(&ctx, "vmod named");
+	obj->vclref = VRT_ref_vcl(&ctx, "vmod named");
 
-	Lck_Lock(&dns->mtx);
-	VTAILQ_FOREACH(dir, &dns->active_dirs, list) {
+	Lck_Lock(&obj->mtx);
+	VTAILQ_FOREACH(dir, &obj->active_dirs, list) {
 		CHECK_OBJ_NOTNULL(dir, DNS_DIRECTOR_MAGIC);
 		assert(dir->status == DNS_ST_READY);
 		AZ(dir->thread);
 		AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread,
 		    dir));
 	}
-	Lck_Unlock(&dns->mtx);
+	Lck_Unlock(&obj->mtx);
 }
 
 static struct dns_director *
-vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
+vmod_dns_search(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 {
 	struct dns_director *dir, *d, *d2;
 
-	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
-	Lck_AssertHeld(&dns->mtx);
+	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	Lck_AssertHeld(&obj->mtx);
 	AN(addr);
 
 	dir = NULL;
-	VTAILQ_FOREACH_SAFE(d, &dns->active_dirs, list, d2) {
+	VTAILQ_FOREACH_SAFE(d, &obj->active_dirs, list, d2) {
 		CHECK_OBJ_NOTNULL(d, DNS_DIRECTOR_MAGIC);
 		if (!strcmp(d->addr, addr)) {
 			AZ(dir);
 			dir = d;
 		}
 		if (dir != d && d->status == DNS_ST_ACTIVE &&
-		    dns->usage_tmo > 0 &&
-		    ctx->now - d->last_used > dns->usage_tmo) {
+		    obj->usage_tmo > 0 &&
+		    ctx->now - d->last_used > obj->usage_tmo) {
 			LOG(ctx, SLT_VCL_Log, d, "%s", "timeout");
 			Lck_Lock(&d->mtx);
 			d->status = DNS_ST_STALE;
 			AZ(pthread_cond_signal(&d->cond));
 			Lck_Unlock(&d->mtx);
-			VTAILQ_REMOVE(&d->dns->active_dirs, d, list);
-			VTAILQ_INSERT_TAIL(&d->dns->purged_dirs, d, list);
+			VTAILQ_REMOVE(&d->obj->active_dirs, d, list);
+			VTAILQ_INSERT_TAIL(&d->obj->purged_dirs, d, list);
 		}
 	}
 
-	VTAILQ_FOREACH_SAFE(d, &dns->purged_dirs, list, d2) {
+	VTAILQ_FOREACH_SAFE(d, &obj->purged_dirs, list, d2) {
 		CHECK_OBJ_NOTNULL(d, DNS_DIRECTOR_MAGIC);
 		if (d->status == DNS_ST_DONE) {
 			AZ(pthread_join(d->thread, NULL));
@@ -569,7 +569,7 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 			d->status = DNS_ST_READY;
 			Lck_Unlock(&d->mtx);
 			vmod_dns_free(ctx, d);
-			VTAILQ_REMOVE(&dir->dns->purged_dirs, d, list);
+			VTAILQ_REMOVE(&dir->obj->purged_dirs, d, list);
 		}
 	}
 
@@ -577,27 +577,27 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 }
 
 static struct dns_director *
-vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
+vmod_dns_get(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 {
 	struct dns_director *dir;
 
-	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
-	Lck_AssertHeld(&dns->mtx);
+	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	Lck_AssertHeld(&obj->mtx);
 	AN(addr);
 
-	dir = vmod_dns_search(ctx, dns, addr);
+	dir = vmod_dns_search(ctx, obj, addr);
 	if (dir != NULL)
 		return (dir);
 
 	ALLOC_OBJ(dir, DNS_DIRECTOR_MAGIC);
 	VTAILQ_INIT(&dir->entries);
 	REPLACE(dir->addr, addr);
-	dir->port = dns->port;
-	dir->dns = dns;
+	dir->port = obj->port;
+	dir->obj = obj;
 
 	INIT_OBJ(&dir->dir, DIRECTOR_MAGIC);
 	dir->dir.name = "dns";
-	dir->dir.vcl_name = dir->dns->vcl_name;
+	dir->dir.vcl_name = dir->obj->vcl_name;
 	dir->dir.healthy = vmod_dns_healthy;
 	dir->dir.resolve = vmod_dns_resolve;
 	dir->dir.priv = dir;
@@ -608,7 +608,7 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 
 	AZ(pthread_create(&dir->thread, NULL, &vmod_dns_lookup_thread, dir));
 
-	VTAILQ_INSERT_TAIL(&dns->active_dirs, dir, list);
+	VTAILQ_INSERT_TAIL(&obj->active_dirs, dir, list);
 
 	return dir;
 }
@@ -620,7 +620,7 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 int __match_proto__(vmod_event_f)
 vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 {
-	struct vmod_named_director *dns;
+	struct vmod_named_director *obj;
 	unsigned active;
 
 	(void)priv;
@@ -655,15 +655,15 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 
 	active = e == VCL_EVENT_WARM ? 1 : 0;
 
-	/* No locking required for the fields dns->active and dns->vcl */
-	VTAILQ_FOREACH(dns, &objects, list)
-		if (dns->vcl == ctx->vcl) {
-			xxxassert(dns->active != active);
-			dns->active = active;
+	/* No locking required for the fields obj->active and obj->vcl */
+	VTAILQ_FOREACH(obj, &objects, list)
+		if (obj->vcl == ctx->vcl) {
+			xxxassert(obj->active != active);
+			obj->active = active;
 			if (active)
-				vmod_dns_start(dns);
+				vmod_dns_start(obj);
 			else
-				vmod_dns_stop(dns);
+				vmod_dns_stop(obj);
 		}
 
 	return (0);
@@ -671,7 +671,7 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 
 VCL_VOID __match_proto__()
 vmod_director__init(VRT_CTX,
-    struct vmod_named_director **dnsp,
+    struct vmod_named_director **objp,
     const char *vcl_name,
     VCL_STRING port,
     VCL_PROBE probe,
@@ -680,83 +680,83 @@ vmod_director__init(VRT_CTX,
     VCL_DURATION usage_timeout,
     VCL_DURATION first_lookup_timeout)
 {
-	struct vmod_named_director *dns;
+	struct vmod_named_director *obj;
 
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	AN(dnsp);
-	AZ(*dnsp);
+	AN(objp);
+	AZ(*objp);
 	AN(vcl_name);
 	AN(port);
 	CHECK_OBJ_ORNULL(probe, VRT_BACKEND_PROBE_MAGIC);
 	CHECK_OBJ_ORNULL(whitelist, VRT_ACL_MAGIC);
 	xxxassert(ttl > 0);
 
-	ALLOC_OBJ(dns, VMOD_NAMED_DIRECTOR_MAGIC);
-	AN(dns);
-	VTAILQ_INIT(&dns->active_dirs);
-	VTAILQ_INIT(&dns->purged_dirs);
-	VTAILQ_INIT(&dns->entries);
-	REPLACE(dns->vcl_name, vcl_name);
-	REPLACE(dns->port, port);
+	ALLOC_OBJ(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	AN(obj);
+	VTAILQ_INIT(&obj->active_dirs);
+	VTAILQ_INIT(&obj->purged_dirs);
+	VTAILQ_INIT(&obj->entries);
+	REPLACE(obj->vcl_name, vcl_name);
+	REPLACE(obj->port, port);
 
-	dns->vcl_conf = VCL_Name(ctx->vcl);
-	dns->vcl = ctx->vcl;
-	dns->active = 0;
-	dns->probe = probe;
-	dns->whitelist = whitelist;
-	dns->ttl = ttl;
-	dns->usage_tmo = usage_timeout;
-	dns->first_tmo = first_lookup_timeout;
+	obj->vcl_conf = VCL_Name(ctx->vcl);
+	obj->vcl = ctx->vcl;
+	obj->active = 0;
+	obj->probe = probe;
+	obj->whitelist = whitelist;
+	obj->ttl = ttl;
+	obj->usage_tmo = usage_timeout;
+	obj->first_tmo = first_lookup_timeout;
 
-	Lck_New(&dns->mtx, lck_dir);
+	Lck_New(&obj->mtx, lck_dir);
 
-	VTAILQ_INSERT_TAIL(&objects, dns, list);
-	*dnsp = dns;
+	VTAILQ_INSERT_TAIL(&objects, obj, list);
+	*objp = obj;
 }
 
 VCL_VOID __match_proto__()
-vmod_director__fini(struct vmod_named_director **dnsp)
+vmod_director__fini(struct vmod_named_director **objp)
 {
-	struct vmod_named_director *dns;
+	struct vmod_named_director *obj;
 
 	ASSERT_CLI();
-	AN(dnsp);
-	dns = *dnsp;
-	*dnsp = NULL;
+	AN(objp);
+	obj = *objp;
+	*objp = NULL;
 
-	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
-	AZ(dns->active);
+	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	AZ(obj->active);
 
-	VTAILQ_REMOVE(&objects, dns, list);
+	VTAILQ_REMOVE(&objects, obj, list);
 
 	/* Backends will be deleted by the VCL, pass a NULL struct ctx */
-	while (!VTAILQ_EMPTY(&dns->purged_dirs)) {
-		vmod_dns_free(NULL, VTAILQ_FIRST(&dns->purged_dirs));
-		VTAILQ_REMOVE(&dns->purged_dirs,
-		    VTAILQ_FIRST(&dns->purged_dirs), list);
+	while (!VTAILQ_EMPTY(&obj->purged_dirs)) {
+		vmod_dns_free(NULL, VTAILQ_FIRST(&obj->purged_dirs));
+		VTAILQ_REMOVE(&obj->purged_dirs,
+		    VTAILQ_FIRST(&obj->purged_dirs), list);
 	}
 
-	while (!VTAILQ_EMPTY(&dns->active_dirs)) {
-		vmod_dns_free(NULL, VTAILQ_FIRST(&dns->active_dirs));
-		VTAILQ_REMOVE(&dns->active_dirs,
-		    VTAILQ_FIRST(&dns->active_dirs), list);
+	while (!VTAILQ_EMPTY(&obj->active_dirs)) {
+		vmod_dns_free(NULL, VTAILQ_FIRST(&obj->active_dirs));
+		VTAILQ_REMOVE(&obj->active_dirs,
+		    VTAILQ_FIRST(&obj->active_dirs), list);
 	}
 
-	assert(VTAILQ_EMPTY(&dns->entries));
+	assert(VTAILQ_EMPTY(&obj->entries));
 
-	Lck_Delete(&dns->mtx);
-	free(dns->vcl_name);
-	FREE_OBJ(dns);
+	Lck_Delete(&obj->mtx);
+	free(obj->vcl_name);
+	FREE_OBJ(obj);
 }
 
 VCL_BACKEND __match_proto__(td_named_director_backend)
-vmod_director_backend(VRT_CTX, struct vmod_named_director *dns, VCL_STRING host)
+vmod_director_backend(VRT_CTX, struct vmod_named_director *obj, VCL_STRING host)
 {
 	struct dns_director *dir;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(dns, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
 
 	if ((host == NULL || *host == '\0') && ctx->http_bereq != NULL)
 		host = VRT_GetHdr(ctx, &HDR_BEREQ_HOST);
@@ -767,10 +767,10 @@ vmod_director_backend(VRT_CTX, struct vmod_named_director *dns, VCL_STRING host)
 	if (host == NULL || *host == '\0')
 		return (NULL);
 
-	Lck_Lock(&dns->mtx);
-	dir = vmod_dns_get(ctx, dns, host);
+	Lck_Lock(&obj->mtx);
+	dir = vmod_dns_get(ctx, obj, host);
 	dir->last_used = ctx->now;
-	Lck_Unlock(&dns->mtx);
+	Lck_Unlock(&obj->mtx);
 
 	return (&dir->dir);
 }

@@ -57,7 +57,7 @@ enum dns_status_e {
 struct dns_director {
 	unsigned			magic;
 #define DNS_DIRECTOR_MAGIC		0x1bfe1345
-	struct vmod_named_director	*dns;
+	struct vmod_named_director	*obj;
 	pthread_t			thread;
 	struct lock			mtx;
 	pthread_cond_t			cond;
