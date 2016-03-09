@@ -91,7 +91,7 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
     struct busyobj *bo)
 {
 	struct named_domain *dom;
-	struct dir_entry *next;
+	struct named_ref *next;
 	double deadline;
 	int ret;
 
@@ -119,7 +119,7 @@ vmod_dns_resolve(const struct director *d, struct worker *wrk,
 		if (next != NULL)
 			next = VTAILQ_NEXT(next, dir_list);
 		if (next == NULL)
-			next = VTAILQ_FIRST(&dom->entries);
+			next = VTAILQ_FIRST(&dom->refs);
 	} while (next != dom->current &&
 	    !next->entry->backend->healthy(next->entry->backend, NULL, NULL));
 
@@ -140,7 +140,7 @@ vmod_dns_healthy(const struct director *d, const struct busyobj *bo,
     double *changed)
 {
 	struct named_domain *dom;
-	struct dir_entry *e;
+	struct named_ref *r;
 	unsigned retval = 0;
 	double c;
 
@@ -153,10 +153,10 @@ vmod_dns_healthy(const struct director *d, const struct busyobj *bo,
 		*changed = 0;
 
 	/* One healthy backend is enough for the director to be healthy */
-	VTAILQ_FOREACH(e, &dom->entries, dir_list) {
-		CHECK_OBJ_NOTNULL(e->entry->backend, DIRECTOR_MAGIC);
-		AN(e->entry->backend->healthy);
-		retval = e->entry->backend->healthy(e->entry->backend, bo, &c);
+	VTAILQ_FOREACH(r, &dom->refs, dir_list) {
+		CHECK_OBJ_NOTNULL(r->entry->backend, DIRECTOR_MAGIC);
+		AN(r->entry->backend->healthy);
+		retval = r->entry->backend->healthy(r->entry->backend, bo, &c);
 		if (changed != NULL && c > *changed)
 			*changed = c;
 		if (retval)
@@ -173,31 +173,31 @@ vmod_dns_healthy(const struct director *d, const struct busyobj *bo,
  */
 
 static void
-vmod_dns_del(VRT_CTX, struct dir_entry *e)
+vmod_dns_del(VRT_CTX, struct named_ref *r)
 {
 	struct named_domain *dom;
 	struct dns_entry *b;
 
-	AN(e);
+	AN(r);
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(e->dom, NAMED_DOMAIN_MAGIC);
+	CHECK_OBJ_NOTNULL(r->dom, NAMED_DOMAIN_MAGIC);
 
-	b = e->entry;
+	b = r->entry;
 	AN(b);
 	CHECK_OBJ_NOTNULL(b->backend, DIRECTOR_MAGIC);
 
-	dom = e->dom;
+	dom = r->dom;
 
 	if (ctx != NULL) {
 		Lck_AssertHeld(&dom->mtx);
 		Lck_AssertHeld(&dom->obj->mtx);
 	}
 
-	if (e == dom->current)
-		dom->current = VTAILQ_NEXT(e, dir_list);
+	if (r == dom->current)
+		dom->current = VTAILQ_NEXT(r, dir_list);
 
-	VTAILQ_REMOVE(&dom->entries, e, dir_list);
-	free(e);
+	VTAILQ_REMOVE(&dom->refs, r, dir_list);
+	free(r);
 
 	AN(b->refcount);
 	b->refcount--;
@@ -219,36 +219,36 @@ vmod_dns_del(VRT_CTX, struct dir_entry *e)
 static void
 vmod_dns_ref(struct named_domain *dom, struct dns_entry *b)
 {
-	struct dir_entry *e;
+	struct named_ref *r;
 
-	e = malloc(sizeof *e);
-	memset(e, 0, sizeof *e);
-	AN(e);
-	e->dom = dom;
-	e->entry = b;
-	e->mark = dom->mark;
+	r = malloc(sizeof *r);
+	memset(r, 0, sizeof *r);
+	AN(r);
+	r->dom = dom;
+	r->entry = b;
+	r->mark = dom->mark;
 	b->refcount++;
-	VTAILQ_INSERT_TAIL(&dom->entries, e, dir_list);
+	VTAILQ_INSERT_TAIL(&dom->refs, r, dir_list);
 }
 
 static unsigned
 vmod_dns_find(struct named_domain *dom, struct suckaddr *sa)
 {
-	struct dir_entry *e;
+	struct named_ref *r;
 	struct dns_entry *b;
 
 	CHECK_OBJ_NOTNULL(dom, NAMED_DOMAIN_MAGIC);
 	CHECK_OBJ_NOTNULL(dom->obj, VMOD_NAMED_DIRECTOR_MAGIC);
 
 	/* search this director's backends */
-	VTAILQ_FOREACH(e, &dom->entries, dir_list) {
-		if (e->mark == dom->mark)
+	VTAILQ_FOREACH(r, &dom->refs, dir_list) {
+		if (r->mark == dom->mark)
 			continue;
 
-		b = e->entry;
+		b = r->entry;
 		CHECK_OBJ_NOTNULL(b->backend, DIRECTOR_MAGIC);
 		if (!VSA_Compare(b->ip_suckaddr, sa)) {
-			e->mark = dom->mark;
+			r->mark = dom->mark;
 			return (1);
 		}
 	}
@@ -335,7 +335,7 @@ static void
 vmod_dns_update(struct named_domain *dom, struct addrinfo *addr)
 {
 	struct suckaddr *sa;
-	struct dir_entry *e, *e2;
+	struct named_ref *r, *r2;
 	struct vrt_ctx ctx;
 	VCL_ACL acl;
 	unsigned match;
@@ -367,9 +367,9 @@ vmod_dns_update(struct named_domain *dom, struct addrinfo *addr)
 		addr = addr->ai_next;
 	}
 
-	VTAILQ_FOREACH_SAFE(e, &dom->entries, dir_list, e2)
-		if (e->mark != dom->mark)
-			vmod_dns_del(&ctx, e);
+	VTAILQ_FOREACH_SAFE(r, &dom->refs, dir_list, r2)
+		if (r->mark != dom->mark)
+			vmod_dns_del(&ctx, r);
 
 	Lck_Unlock(&dom->mtx);
 	Lck_Unlock(&dom->obj->mtx);
@@ -443,8 +443,8 @@ vmod_dns_free(VRT_CTX, struct named_domain *dom)
 	}
 
 	Lck_Lock(&dom->mtx);
-	while (!VTAILQ_EMPTY(&dom->entries))
-		vmod_dns_del(ctx, VTAILQ_FIRST(&dom->entries));
+	while (!VTAILQ_EMPTY(&dom->refs))
+		vmod_dns_del(ctx, VTAILQ_FIRST(&dom->refs));
 	Lck_Unlock(&dom->mtx);
 
 	AZ(pthread_cond_destroy(&dom->resolve));
@@ -589,7 +589,7 @@ vmod_dns_get(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 		return (dom);
 
 	ALLOC_OBJ(dom, NAMED_DOMAIN_MAGIC);
-	VTAILQ_INIT(&dom->entries);
+	VTAILQ_INIT(&dom->refs);
 	REPLACE(dom->addr, addr);
 	dom->port = obj->port;
 	dom->obj = obj;

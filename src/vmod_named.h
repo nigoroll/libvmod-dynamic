@@ -40,9 +40,9 @@ struct dns_entry {
 	unsigned			refcount;
 };
 
-struct dir_entry {
+struct named_ref {
 	struct named_domain	*dom;
-	VTAILQ_ENTRY(dir_entry)	dir_list;
+	VTAILQ_ENTRY(named_ref)	dir_list;
 	struct dns_entry	*entry;
 	unsigned		mark;
 };
@@ -64,8 +64,8 @@ struct named_domain {
 	pthread_cond_t			resolve;
 	VCL_TIME			last_used;
 	VTAILQ_ENTRY(named_domain)	list;
-	VTAILQ_HEAD(,dir_entry)		entries;
-	struct dir_entry		*current;
+	VTAILQ_HEAD(,named_ref)		refs;
+	struct named_ref		*current;
 	char				*addr;
 	const char			*port;
 	struct director			dir;
