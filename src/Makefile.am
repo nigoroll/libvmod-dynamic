@@ -21,6 +21,7 @@ libvmod_named_la_LDFLAGS = \
 	-shared
 
 libvmod_named_la_SOURCES = \
+	vmod_named.h \
 	vmod_named.c
 
 nodist_libvmod_named_la_SOURCES = \
