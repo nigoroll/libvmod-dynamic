@@ -31,9 +31,9 @@
  * when both are needed.
  */
 
-struct dns_entry {
-	struct director			*backend;
-	VTAILQ_ENTRY(dns_entry)		dns_list;
+struct named_backend {
+	struct director			*dir;
+	VTAILQ_ENTRY(named_backend)	dns_list;
 	struct suckaddr 		*ip_suckaddr;
 	char				*ip_addr;
 	char				*vcl_name;
@@ -43,7 +43,7 @@ struct dns_entry {
 struct named_ref {
 	struct named_domain	*dom;
 	VTAILQ_ENTRY(named_ref)	dir_list;
-	struct dns_entry	*entry;
+	struct named_backend	*be;
 	unsigned		mark;
 };
 
@@ -87,7 +87,7 @@ struct vmod_named_director {
 	VTAILQ_ENTRY(vmod_named_director)	list;
 	VTAILQ_HEAD(,named_domain)		active_domains;
 	VTAILQ_HEAD(,named_domain)		purged_domains;
-	VTAILQ_HEAD(,dns_entry)			entries;
+	VTAILQ_HEAD(,named_backend)		backends;
 	const char				*vcl_conf;
 	struct vcl				*vcl;
 	struct vclref				*vclref;
