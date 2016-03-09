@@ -548,8 +548,8 @@ vmod_dns_search(VRT_CTX, struct vmod_named_director *dns, const char *addr)
 			dir = d;
 		}
 		if (dir != d && d->status == DNS_ST_ACTIVE &&
-		    dns->domain_tmo > 0 &&
-		    ctx->now - d->last_used > dns->domain_tmo) {
+		    dns->usage_tmo > 0 &&
+		    ctx->now - d->last_used > dns->usage_tmo) {
 			LOG(ctx, SLT_VCL_Log, d, "%s", "timeout");
 			Lck_Lock(&d->mtx);
 			d->status = DNS_ST_STALE;
@@ -677,7 +677,7 @@ vmod_director__init(VRT_CTX,
     VCL_PROBE probe,
     VCL_ACL whitelist,
     VCL_DURATION ttl,
-    VCL_DURATION domain_timeout,
+    VCL_DURATION usage_timeout,
     VCL_DURATION first_lookup_timeout)
 {
 	struct vmod_named_director *dns;
@@ -706,7 +706,7 @@ vmod_director__init(VRT_CTX,
 	dns->probe = probe;
 	dns->whitelist = whitelist;
 	dns->ttl = ttl;
-	dns->domain_tmo = domain_timeout;
+	dns->usage_tmo = usage_timeout;
 	dns->first_tmo = first_lookup_timeout;
 
 	Lck_New(&dns->mtx, lck_dir);

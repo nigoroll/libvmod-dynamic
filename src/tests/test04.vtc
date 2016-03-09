@@ -21,7 +21,7 @@ varnish v1 -vcl+backend {
 		new d1 = named.director(
 			port = "${s1_port}",
 			ttl = 100ms,
-			domain_timeout = 200ms);
+			usage_timeout = 200ms);
 	}
 
 	sub vcl_recv {

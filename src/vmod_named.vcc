@@ -71,7 +71,7 @@ $Object director(
 	PROBE probe			= 0,
 	ACL whitelist			= 0,
 	DURATION ttl			= 3600,
-	DURATION domain_timeout		= 7200,
+	DURATION usage_timeout		= 7200,
 	DURATION first_lookup_timeout	= 10)
 
 Description
@@ -84,7 +84,7 @@ Description
 	- *probe* (defaults to none)
 	- *whitelist* - an acl (defaults to none)
 	- *ttl* - delay between lookups (defaults to one hour)
-	- *domain_timeout* - delay until an unused domain and its backends are
+	- *usage_timeout* - delay until an unused domain and its backends are
 	  removed (defaults to two hours)
 	- *first_lookup_timeout* - delay until the director fails to provide a
 	  backend when a domain is requested for the first time (defaults to
