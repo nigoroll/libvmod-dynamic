@@ -610,7 +610,7 @@ named_get(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 
 	VTAILQ_INSERT_TAIL(&obj->active_domains, dom, list);
 
-	return dom;
+	return (dom);
 }
 
 /*--------------------------------------------------------------------
