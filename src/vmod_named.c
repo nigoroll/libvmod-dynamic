@@ -589,6 +589,7 @@ named_get(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 		return (dom);
 
 	ALLOC_OBJ(dom, NAMED_DOMAIN_MAGIC);
+	AN(dom);
 	VTAILQ_INIT(&dom->refs);
 	REPLACE(dom->addr, addr);
 	dom->port = obj->port;
@@ -771,5 +772,6 @@ vmod_director_backend(VRT_CTX, struct vmod_named_director *obj, VCL_STRING host)
 	dom->last_used = ctx->now;
 	Lck_Unlock(&obj->mtx);
 
+	AN(dom);
 	return (&dom->dir);
 }
