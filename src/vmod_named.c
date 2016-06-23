@@ -769,9 +769,9 @@ vmod_director_backend(VRT_CTX, struct vmod_named_director *obj, VCL_STRING host)
 
 	Lck_Lock(&obj->mtx);
 	dom = named_get(ctx, obj, host);
+	AN(dom);
 	dom->last_used = ctx->now;
 	Lck_Unlock(&obj->mtx);
 
-	AN(dom);
 	return (&dom->dir);
 }
