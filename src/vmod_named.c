@@ -550,8 +550,8 @@ named_search(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 			dom = d;
 		}
 		if (dom != d && d->status == NAMED_ST_ACTIVE &&
-		    obj->usage_tmo > 0 &&
-		    ctx->now - d->last_used > obj->usage_tmo) {
+		    obj->domain_usage_tmo > 0 &&
+		    ctx->now - d->last_used > obj->domain_usage_tmo) {
 			LOG(ctx, SLT_VCL_Log, d, "%s", "timeout");
 			Lck_Lock(&d->mtx);
 			d->status = NAMED_ST_STALE;
@@ -684,7 +684,7 @@ vmod_director__init(VRT_CTX,
     VCL_DURATION connect_timeout,
     VCL_DURATION first_byte_timeout,
     VCL_DURATION between_bytes_timeout,
-    VCL_DURATION usage_timeout,
+    VCL_DURATION domain_usage_timeout,
     VCL_DURATION first_lookup_timeout)
 {
 	struct vmod_named_director *obj;
@@ -717,7 +717,7 @@ vmod_director__init(VRT_CTX,
 	obj->connect_tmo = connect_timeout;
 	obj->first_byte_tmo = first_byte_timeout;
 	obj->between_bytes_tmo = between_bytes_timeout;
-	obj->usage_tmo = usage_timeout;
+	obj->domain_usage_tmo = domain_usage_timeout;
 	obj->first_lookup_tmo = first_lookup_timeout;
 
 	Lck_New(&obj->mtx, lck_dir);

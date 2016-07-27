@@ -75,7 +75,7 @@ $Object director(
 	DURATION connect_timeout	= 0,
 	DURATION first_byte_timeout	= 0,
 	DURATION between_bytes_timeout	= 0,
-	DURATION usage_timeout		= 7200,
+	DURATION domain_usage_timeout	= 7200,
 	DURATION first_lookup_timeout	= 10)
 
 Description
@@ -92,8 +92,8 @@ Description
 	- *connect_timeout* (defaults to global *connect_timeout*)
 	- *first_byte_timeout* (defaults to global *first_byte_timeout*)
 	- *between_bytes_timeout* (defaults to global *between_bytes_timeout*)
-	- *usage_timeout* - delay until an unused domain and its backends are
-	  removed (defaults to two hours)
+	- *domain_usage_timeout* - delay until an unused domain and its
+	  backends are removed (defaults to two hours)
 	- *first_lookup_timeout* - delay until the director fails to provide a
 	  backend when a domain is requested for the first time (defaults to
 	  ten seconds)

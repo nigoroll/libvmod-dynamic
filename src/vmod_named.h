@@ -86,7 +86,7 @@ struct vmod_named_director {
 	VCL_DURATION				connect_tmo;
 	VCL_DURATION				first_byte_tmo;
 	VCL_DURATION				between_bytes_tmo;
-	VCL_DURATION				usage_tmo;
+	VCL_DURATION				domain_usage_tmo;
 	VCL_DURATION				first_lookup_tmo;
 	VTAILQ_ENTRY(vmod_named_director)	list;
 	VTAILQ_HEAD(,named_domain)		active_domains;
