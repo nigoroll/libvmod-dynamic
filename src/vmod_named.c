@@ -103,7 +103,7 @@ named_resolve(const struct director *d, struct worker *wrk,
 	Lck_Lock(&dom->mtx);
 
 	if (dom->status < NAMED_ST_ACTIVE) {
-		deadline = VTIM_real() + dom->obj->first_tmo;
+		deadline = VTIM_real() + dom->obj->first_lookup_tmo;
 		ret = Lck_CondWait(&dom->resolve, &dom->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
 	}
@@ -308,6 +308,9 @@ named_add(VRT_CTX, struct named_domain *dom, struct suckaddr *sa)
 	vrt.hosthdr = dom->obj->hosthdr;
 	vrt.vcl_name = b->vcl_name;
 	vrt.probe = dom->obj->probe;
+	vrt.connect_timeout = dom->obj->connect_tmo;
+	vrt.first_byte_timeout = dom->obj->first_byte_tmo;
+	vrt.between_bytes_timeout = dom->obj->between_bytes_tmo;
 
 	switch (af) {
 	case AF_INET:
@@ -678,6 +681,9 @@ vmod_director__init(VRT_CTX,
     VCL_PROBE probe,
     VCL_ACL whitelist,
     VCL_DURATION ttl,
+    VCL_DURATION connect_timeout,
+    VCL_DURATION first_byte_timeout,
+    VCL_DURATION between_bytes_timeout,
     VCL_DURATION usage_timeout,
     VCL_DURATION first_lookup_timeout)
 {
@@ -708,8 +714,11 @@ vmod_director__init(VRT_CTX,
 	obj->probe = probe;
 	obj->whitelist = whitelist;
 	obj->ttl = ttl;
+	obj->connect_tmo = connect_timeout;
+	obj->first_byte_tmo = first_byte_timeout;
+	obj->between_bytes_tmo = between_bytes_timeout;
 	obj->usage_tmo = usage_timeout;
-	obj->first_tmo = first_lookup_timeout;
+	obj->first_lookup_tmo = first_lookup_timeout;
 
 	Lck_New(&obj->mtx, lck_dir);
 

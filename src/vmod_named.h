@@ -83,8 +83,11 @@ struct vmod_named_director {
 	VCL_PROBE				probe;
 	VCL_ACL					whitelist;
 	VCL_DURATION				ttl;
+	VCL_DURATION				connect_tmo;
+	VCL_DURATION				first_byte_tmo;
+	VCL_DURATION				between_bytes_tmo;
 	VCL_DURATION				usage_tmo;
-	VCL_DURATION				first_tmo;
+	VCL_DURATION				first_lookup_tmo;
 	VTAILQ_ENTRY(vmod_named_director)	list;
 	VTAILQ_HEAD(,named_domain)		active_domains;
 	VTAILQ_HEAD(,named_domain)		purged_domains;
