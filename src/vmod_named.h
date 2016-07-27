@@ -79,6 +79,7 @@ struct vmod_named_director {
 	struct lock				mtx;
 	char					*vcl_name;
 	char					*port;
+	const char				*hosthdr;
 	VCL_PROBE				probe;
 	VCL_ACL					whitelist;
 	VCL_DURATION				ttl;

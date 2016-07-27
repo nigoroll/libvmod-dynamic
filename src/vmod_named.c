@@ -305,7 +305,7 @@ named_add(VRT_CTX, struct named_domain *dom, struct suckaddr *sa)
 
 	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
 	vrt.port = dom->port;
-	vrt.hosthdr = dom->addr;
+	vrt.hosthdr = dom->obj->hosthdr;
 	vrt.vcl_name = b->vcl_name;
 	vrt.probe = dom->obj->probe;
 
@@ -674,6 +674,7 @@ vmod_director__init(VRT_CTX,
     struct vmod_named_director **objp,
     const char *vcl_name,
     VCL_STRING port,
+    VCL_STRING hosthdr,
     VCL_PROBE probe,
     VCL_ACL whitelist,
     VCL_DURATION ttl,
@@ -703,6 +704,7 @@ vmod_director__init(VRT_CTX,
 	obj->vcl_conf = VCL_Name(ctx->vcl);
 	obj->vcl = ctx->vcl;
 	obj->active = 0;
+	obj->hosthdr = hosthdr;
 	obj->probe = probe;
 	obj->whitelist = whitelist;
 	obj->ttl = ttl;

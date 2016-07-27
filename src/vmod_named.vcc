@@ -68,6 +68,7 @@ $Event vmod_event
 
 $Object director(
 	STRING port			= http,
+	STRING host_header		= 0,
 	PROBE probe			= 0,
 	ACL whitelist			= 0,
 	DURATION ttl			= 3600,
@@ -81,6 +82,7 @@ Description
 	round robin fashion. It accepts the following parameters:
 
 	- *port* (defaults to ``"http"``)
+	- *host_header* (defaults to none)
 	- *probe* (defaults to none)
 	- *whitelist* - an acl (defaults to none)
 	- *ttl* - delay between lookups (defaults to one hour)
