@@ -54,35 +54,35 @@ this in your environment before running ``./autogen.sh``::
 See also
 ========
 
-If you want to learn more about DNS, you can start with `RFC 1034`__ and other
+If you want to learn more about DNS, you can start with `RFC 1034`_ and other
 RFCs that updated it over time. You may also have DNS already in place, or may
 be interested in setting up a name server in your infrastructure. Below is a
 non-exhaustive list of tools and services, but for free software name servers
-you can have a look at debianadmin__.
+you can have a look at debianadmin_.
 
-__ https://tools.ietf.org/html/rfc1034
-__ http://www.debianadmin.com/open-source-domain-name-systemdns-servers.html
+.. _RFC 1034: https://tools.ietf.org/html/rfc1034
+.. _debianadmin: http://www.debianadmin.com/open-source-domain-name-systemdns-servers.html
 
 DNS in the cloud (in alphabetic order):
 
-* AWS__
-* Azure__
-* `Digital Ocean`__
-* `Google Cloud`__
-* Heroku__
+- AWS_
+- Azure_
+- `Digital Ocean`_
+- `Google Cloud`_
+- Heroku_
 
-__ https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/using-instance-addressing.html
-__ https://azure.microsoft.com/en-us/documentation/articles/dns-overview/
-__ https://www.digitalocean.com/community/tutorials/how-to-set-up-a-host-name-with-digitalocean
-__ https://cloud.google.com/dns/
-__ https://devcenter.heroku.com/articles/zerigo_dns
+.. _AWS: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/using-instance-addressing.html
+.. _Azure: https://azure.microsoft.com/en-us/documentation/articles/dns-overview/
+.. _Digital Ocean: https://www.digitalocean.com/community/tutorials/how-to-set-up-a-host-name-with-digitalocean
+.. _Google Cloud: https://cloud.google.com/dns/
+.. _Heroku: https://devcenter.heroku.com/articles/zerigo_dns
 
 DNS and containers (in alphabetic order):
 
-* `DC/OS (Mesos)`__
-* `Docker Machine` (sort of)
-* Kubernetes__
+* `DC/OS`_ (Mesos)
+* `Docker Machine`_ (sort of)
+* Kubernetes_
 
-__ https://docs.mesosphere.com/1.7/usage/service-discovery/mesos-dns/
-__ https://www.npmjs.com/package/docker-machine-dns
-__ http://kubernetes.io/docs/admin/dns/
+.. _DC/OS: https://docs.mesosphere.com/1.7/usage/service-discovery/mesos-dns/
+.. _Docker Machine: https://www.npmjs.com/package/docker-machine-dns
+.. _Kubernetes: http://kubernetes.io/docs/admin/dns/
