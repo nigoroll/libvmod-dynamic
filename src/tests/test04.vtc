@@ -15,10 +15,10 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import ${vmod_named};
+	import ${vmod_dynamic};
 
 	sub vcl_init {
-		new d1 = named.director(
+		new d1 = dynamic.director(
 			port = "${s1_port}",
 			ttl = 100ms,
 			domain_usage_timeout = 200ms);
@@ -35,8 +35,8 @@ varnish v1 -vcl+backend {
 } -start
 
 logexpect l1 -v v1 {
-	expect * * VCL_Log "vmod-named: vcl1 d1 localhost timeout"
-	expect * * VCL_Log "vmod-named: vcl1 d1 localhost deleted"
+	expect * * VCL_Log "vmod-dynamic: vcl1 d1 localhost timeout"
+	expect * * VCL_Log "vmod-dynamic: vcl1 d1 localhost deleted"
 } -start
 
 client c1 {

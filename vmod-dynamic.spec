@@ -1,4 +1,4 @@
-%global vmod    named
+%global vmod    dynamic
 %global vmoddir %{_libdir}/varnish/vmods
 
 Name:           vmod-%{vmod}
@@ -19,7 +19,7 @@ Requires:       varnish >= 4.1.2
 
 
 %description
-A VMOD to create named director, that is to say relying on DNS to dynamically
+A VMOD to create dynamic director, that is to say relying on DNS to dynamically
 create backends.
 
 

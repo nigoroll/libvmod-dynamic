@@ -48,19 +48,19 @@
 #include <cache/cache_director.h>
 
 #include "vcc_if.h"
-#include "vmod_named.h"
+#include "vmod_dynamic.h"
 
 #define LOG(ctx, slt, dom, fmt, ...)				\
 	do {							\
 		if ((ctx)->vsl != NULL)				\
 			VSLb((ctx)->vsl, slt,			\
-			    "vmod-named: %s %s %s " fmt,	\
+			    "vmod-dynamic: %s %s %s " fmt,	\
 			    (dom)->obj->vcl_conf,		\
 			    (dom)->obj->vcl_name, (dom)->addr,	\
 			    __VA_ARGS__);			\
 		else						\
 			VSL(slt, 0,				\
-			    "vmod-named: %s %s %s " fmt, 	\
+			    "vmod-dynamic: %s %s %s " fmt, 	\
 			    (dom)->obj->vcl_conf,		\
 			    (dom)->obj->vcl_name, (dom)->addr,	\
 			    __VA_ARGS__);			\
@@ -73,7 +73,7 @@
  * they can't be accessed at the same time.
  */
 
-struct vmod_named_head objects = VTAILQ_HEAD_INITIALIZER(objects);
+struct vmod_dynamic_head objects = VTAILQ_HEAD_INITIALIZER(objects);
 
 static struct VSC_C_lck *lck_dir, *lck_be;
 
@@ -87,28 +87,28 @@ static const struct gethdr_s HDR_BEREQ_HOST = { HDR_BEREQ, "\005Host:"};
  */
 
 static const struct director * __match_proto__(vdi_resolve_f)
-named_resolve(const struct director *d, struct worker *wrk,
+dynamic_resolve(const struct director *d, struct worker *wrk,
     struct busyobj *bo)
 {
-	struct named_domain *dom;
-	struct named_ref *next;
+	struct dynamic_domain *dom;
+	struct dynamic_ref *next;
 	double deadline;
 	int ret;
 
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
-	CAST_OBJ_NOTNULL(dom, d->priv, NAMED_DOMAIN_MAGIC);
+	CAST_OBJ_NOTNULL(dom, d->priv, DYNAMIC_DOMAIN_MAGIC);
 	(void)wrk;
 	(void)bo;
 
 	Lck_Lock(&dom->mtx);
 
-	if (dom->status < NAMED_ST_ACTIVE) {
+	if (dom->status < DYNAMIC_ST_ACTIVE) {
 		deadline = VTIM_real() + dom->obj->first_lookup_tmo;
 		ret = Lck_CondWait(&dom->resolve, &dom->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
 	}
 
-	if (dom->status > NAMED_ST_ACTIVE) {
+	if (dom->status > DYNAMIC_ST_ACTIVE) {
 		Lck_Unlock(&dom->mtx);
 		return (NULL);
 	}
@@ -136,16 +136,16 @@ named_resolve(const struct director *d, struct worker *wrk,
 }
 
 static unsigned __match_proto__(vdi_healthy_f)
-named_healthy(const struct director *d, const struct busyobj *bo,
+dynamic_healthy(const struct director *d, const struct busyobj *bo,
     double *changed)
 {
-	struct named_domain *dom;
-	struct named_ref *r;
+	struct dynamic_domain *dom;
+	struct dynamic_ref *r;
 	unsigned retval = 0;
 	double c;
 
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
-	CAST_OBJ_NOTNULL(dom, d->priv, NAMED_DOMAIN_MAGIC);
+	CAST_OBJ_NOTNULL(dom, d->priv, DYNAMIC_DOMAIN_MAGIC);
 
 	Lck_Lock(&dom->mtx);
 
@@ -173,14 +173,14 @@ named_healthy(const struct director *d, const struct busyobj *bo,
  */
 
 static void
-named_del(VRT_CTX, struct named_ref *r)
+dynamic_del(VRT_CTX, struct dynamic_ref *r)
 {
-	struct named_domain *dom;
-	struct named_backend *b;
+	struct dynamic_domain *dom;
+	struct dynamic_backend *b;
 
 	AN(r);
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(r->dom, NAMED_DOMAIN_MAGIC);
+	CHECK_OBJ_NOTNULL(r->dom, DYNAMIC_DOMAIN_MAGIC);
 
 	b = r->be;
 	AN(b);
@@ -217,9 +217,9 @@ named_del(VRT_CTX, struct named_ref *r)
 }
 
 static void
-named_ref(struct named_domain *dom, struct named_backend *b)
+dynamic_ref(struct dynamic_domain *dom, struct dynamic_backend *b)
 {
-	struct named_ref *r;
+	struct dynamic_ref *r;
 
 	r = malloc(sizeof *r);
 	memset(r, 0, sizeof *r);
@@ -232,13 +232,13 @@ named_ref(struct named_domain *dom, struct named_backend *b)
 }
 
 static unsigned
-named_find(struct named_domain *dom, struct suckaddr *sa)
+dynamic_find(struct dynamic_domain *dom, struct suckaddr *sa)
 {
-	struct named_ref *r;
-	struct named_backend *b;
+	struct dynamic_ref *r;
+	struct dynamic_backend *b;
 
-	CHECK_OBJ_NOTNULL(dom, NAMED_DOMAIN_MAGIC);
-	CHECK_OBJ_NOTNULL(dom->obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
 	/* search this director's backends */
 	VTAILQ_FOREACH(r, &dom->refs, list) {
@@ -257,7 +257,7 @@ named_find(struct named_domain *dom, struct suckaddr *sa)
 	VTAILQ_FOREACH(b, &dom->obj->backends, list) {
 		CHECK_OBJ_NOTNULL(b->dir, DIRECTOR_MAGIC);
 		if (!VSA_Compare(b->ip_suckaddr, sa)) {
-			named_ref(dom, b);
+			dynamic_ref(dom, b);
 			return (1);
 		}
 	}
@@ -266,21 +266,21 @@ named_find(struct named_domain *dom, struct suckaddr *sa)
 }
 
 static unsigned
-named_add(VRT_CTX, struct named_domain *dom, struct suckaddr *sa)
+dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa)
 {
 	struct vrt_backend vrt;
-	struct named_backend *b;
+	struct dynamic_backend *b;
 	struct vsb *vsb;
 	const unsigned char *ptr = NULL;
 	char ip[INET6_ADDRSTRLEN];
 	int af;
 
-	CHECK_OBJ_NOTNULL(dom, NAMED_DOMAIN_MAGIC);
-	CHECK_OBJ_NOTNULL(dom->obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&dom->mtx);
 	Lck_AssertHeld(&dom->obj->mtx);
 
-	if (named_find(dom, sa))
+	if (dynamic_find(dom, sa))
 		return (0);
 
 	b = malloc(sizeof *b);
@@ -328,17 +328,17 @@ named_add(VRT_CTX, struct named_domain *dom, struct suckaddr *sa)
 	b->dir = VRT_new_backend(ctx, &vrt);
 	AN(b->dir);
 
-	named_ref(dom, b);
+	dynamic_ref(dom, b);
 
 	VTAILQ_INSERT_TAIL(&dom->obj->backends, b, list);
 	return (1);
 }
 
 static void
-named_update(struct named_domain *dom, struct addrinfo *addr)
+dynamic_update(struct dynamic_domain *dom, struct addrinfo *addr)
 {
 	struct suckaddr *sa;
-	struct named_ref *r, *r2;
+	struct dynamic_ref *r, *r2;
 	struct vrt_ctx ctx;
 	VCL_ACL acl;
 	unsigned match;
@@ -364,7 +364,7 @@ named_update(struct named_domain *dom, struct addrinfo *addr)
 			match = acl != NULL ? VRT_acl_match(&ctx, acl, sa) : 1;
 			if (!match)
 				LOG(&ctx, SLT_Error, dom, "%s", "mismatch");
-			if (!match || !named_add(&ctx, dom, sa))
+			if (!match || !dynamic_add(&ctx, dom, sa))
 				free(sa);
 		}
 		addr = addr->ai_next;
@@ -372,34 +372,34 @@ named_update(struct named_domain *dom, struct addrinfo *addr)
 
 	VTAILQ_FOREACH_SAFE(r, &dom->refs, list, r2)
 		if (r->mark != dom->mark)
-			named_del(&ctx, r);
+			dynamic_del(&ctx, r);
 
 	Lck_Unlock(&dom->mtx);
 	Lck_Unlock(&dom->obj->mtx);
 }
 
 static void*
-named_lookup_thread(void *obj)
+dynamic_lookup_thread(void *obj)
 {
-	struct named_domain *dom;
+	struct dynamic_domain *dom;
 	struct addrinfo hints, *res;
 	struct vrt_ctx ctx;
 	double deadline;
 	int ret;
 
-	CAST_OBJ_NOTNULL(dom, obj, NAMED_DOMAIN_MAGIC);
+	CAST_OBJ_NOTNULL(dom, obj, DYNAMIC_DOMAIN_MAGIC);
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_family = AF_UNSPEC;
 
-	while (dom->obj->active && dom->status <= NAMED_ST_ACTIVE) {
+	while (dom->obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
 
 		ret = getaddrinfo(dom->addr, dom->obj->port, &hints, &res);
 
 		if (ret == 0) {
-			named_update(dom, res);
+			dynamic_update(dom, res);
 			freeaddrinfo(res);
 		}
 		else
@@ -408,13 +408,13 @@ named_lookup_thread(void *obj)
 
 		Lck_Lock(&dom->mtx);
 
-		if (dom->status == NAMED_ST_READY) {
+		if (dom->status == DYNAMIC_ST_READY) {
 			AZ(pthread_cond_broadcast(&dom->resolve));
-			dom->status = NAMED_ST_ACTIVE;
+			dom->status = DYNAMIC_ST_ACTIVE;
 		}
 
 		/* Check status again after the blocking call */
-		if (!dom->obj->active || dom->status == NAMED_ST_STALE) {
+		if (!dom->obj->active || dom->status == DYNAMIC_ST_STALE) {
 			Lck_Unlock(&dom->mtx);
 			break;
 		}
@@ -426,19 +426,19 @@ named_lookup_thread(void *obj)
 		Lck_Unlock(&dom->mtx);
 	}
 
-	dom->status = NAMED_ST_DONE;
+	dom->status = DYNAMIC_ST_DONE;
 
 	return (NULL);
 }
 
 static void
-named_free(VRT_CTX, struct named_domain *dom)
+dynamic_free(VRT_CTX, struct dynamic_domain *dom)
 {
 
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(dom, NAMED_DOMAIN_MAGIC);
+	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	AZ(dom->thread);
-	assert(dom->status == NAMED_ST_READY);
+	assert(dom->status == DYNAMIC_ST_READY);
 
 	if (ctx != NULL) {
 		Lck_AssertHeld(&dom->obj->mtx);
@@ -447,7 +447,7 @@ named_free(VRT_CTX, struct named_domain *dom)
 
 	Lck_Lock(&dom->mtx);
 	while (!VTAILQ_EMPTY(&dom->refs))
-		named_del(ctx, VTAILQ_FIRST(&dom->refs));
+		dynamic_del(ctx, VTAILQ_FIRST(&dom->refs));
 	Lck_Unlock(&dom->mtx);
 
 	AZ(pthread_cond_destroy(&dom->resolve));
@@ -458,17 +458,17 @@ named_free(VRT_CTX, struct named_domain *dom)
 }
 
 static void
-named_stop(struct vmod_named_director *obj)
+dynamic_stop(struct vmod_dynamic_director *obj)
 {
-	struct named_domain *dom, *d2;
+	struct dynamic_domain *dom, *d2;
 	struct vrt_ctx ctx;
 
 	ASSERT_CLI();
-	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
 	Lck_Lock(&obj->mtx);
 	VTAILQ_FOREACH(dom, &obj->active_domains, list) {
-		CHECK_OBJ_NOTNULL(dom, NAMED_DOMAIN_MAGIC);
+		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		Lck_Lock(&dom->mtx);
 		AN(dom->thread);
 		AZ(pthread_cond_signal(&dom->cond));
@@ -477,27 +477,27 @@ named_stop(struct vmod_named_director *obj)
 
 	/* NB: After a call to pthread_join we know for sure that the only
 	 * potential contender stopped. Therefore locking is no longer
-	 * required to access a (struct named_domain *)->status.
+	 * required to access a (struct dynamic_domain *)->status.
 	 */
 
 	VTAILQ_FOREACH(dom, &obj->active_domains, list) {
-		CHECK_OBJ_NOTNULL(dom, NAMED_DOMAIN_MAGIC);
+		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		AZ(pthread_join(dom->thread, NULL));
-		assert(dom->status == NAMED_ST_DONE);
+		assert(dom->status == DYNAMIC_ST_DONE);
 		dom->thread = 0;
-		dom->status = NAMED_ST_READY;
+		dom->status = DYNAMIC_ST_READY;
 	}
 
 	VTAILQ_FOREACH_SAFE(dom, &obj->purged_domains, list, d2) {
-		CHECK_OBJ_NOTNULL(dom, NAMED_DOMAIN_MAGIC);
+		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		Lck_Lock(&dom->mtx);
-		assert(dom->status == NAMED_ST_STALE ||
-		    dom->status == NAMED_ST_DONE);
+		assert(dom->status == DYNAMIC_ST_STALE ||
+		    dom->status == DYNAMIC_ST_DONE);
 		Lck_Unlock(&dom->mtx);
 		AZ(pthread_join(dom->thread, NULL));
-		assert(dom->status == NAMED_ST_DONE);
-		dom->status = NAMED_ST_READY;
-		named_free(NULL, dom);
+		assert(dom->status == DYNAMIC_ST_DONE);
+		dom->status = DYNAMIC_ST_READY;
+		dynamic_free(NULL, dom);
 		VTAILQ_REMOVE(&dom->obj->purged_domains, dom, list);
 	}
 
@@ -508,53 +508,53 @@ named_stop(struct vmod_named_director *obj)
 }
 
 static void
-named_start(struct vmod_named_director *obj)
+dynamic_start(struct vmod_dynamic_director *obj)
 {
-	struct named_domain *dom;
+	struct dynamic_domain *dom;
 	struct vrt_ctx ctx;
 
 	ASSERT_CLI();
-	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AZ(obj->vclref);
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = obj->vcl;
-	/* XXX: name it "named director %s" instead */
-	obj->vclref = VRT_ref_vcl(&ctx, "vmod named");
+	/* XXX: name it "dynamic director %s" instead */
+	obj->vclref = VRT_ref_vcl(&ctx, "vmod dynamic");
 
 	Lck_Lock(&obj->mtx);
 	VTAILQ_FOREACH(dom, &obj->active_domains, list) {
-		CHECK_OBJ_NOTNULL(dom, NAMED_DOMAIN_MAGIC);
-		assert(dom->status == NAMED_ST_READY);
+		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+		assert(dom->status == DYNAMIC_ST_READY);
 		AZ(dom->thread);
-		AZ(pthread_create(&dom->thread, NULL, &named_lookup_thread,
+		AZ(pthread_create(&dom->thread, NULL, &dynamic_lookup_thread,
 		    dom));
 	}
 	Lck_Unlock(&obj->mtx);
 }
 
-static struct named_domain *
-named_search(VRT_CTX, struct vmod_named_director *obj, const char *addr)
+static struct dynamic_domain *
+dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 {
-	struct named_domain *dom, *d, *d2;
+	struct dynamic_domain *dom, *d, *d2;
 
-	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->mtx);
 	AN(addr);
 
 	dom = NULL;
 	VTAILQ_FOREACH_SAFE(d, &obj->active_domains, list, d2) {
-		CHECK_OBJ_NOTNULL(d, NAMED_DOMAIN_MAGIC);
+		CHECK_OBJ_NOTNULL(d, DYNAMIC_DOMAIN_MAGIC);
 		if (!strcmp(d->addr, addr)) {
 			AZ(dom);
 			dom = d;
 		}
-		if (dom != d && d->status == NAMED_ST_ACTIVE &&
+		if (dom != d && d->status == DYNAMIC_ST_ACTIVE &&
 		    obj->domain_usage_tmo > 0 &&
 		    ctx->now - d->last_used > obj->domain_usage_tmo) {
 			LOG(ctx, SLT_VCL_Log, d, "%s", "timeout");
 			Lck_Lock(&d->mtx);
-			d->status = NAMED_ST_STALE;
+			d->status = DYNAMIC_ST_STALE;
 			AZ(pthread_cond_signal(&d->cond));
 			Lck_Unlock(&d->mtx);
 			VTAILQ_REMOVE(&d->obj->active_domains, d, list);
@@ -563,14 +563,14 @@ named_search(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 	}
 
 	VTAILQ_FOREACH_SAFE(d, &obj->purged_domains, list, d2) {
-		CHECK_OBJ_NOTNULL(d, NAMED_DOMAIN_MAGIC);
-		if (d->status == NAMED_ST_DONE) {
+		CHECK_OBJ_NOTNULL(d, DYNAMIC_DOMAIN_MAGIC);
+		if (d->status == DYNAMIC_ST_DONE) {
 			AZ(pthread_join(d->thread, NULL));
 			Lck_Lock(&d->mtx);
 			d->thread = 0;
-			d->status = NAMED_ST_READY;
+			d->status = DYNAMIC_ST_READY;
 			Lck_Unlock(&d->mtx);
-			named_free(ctx, d);
+			dynamic_free(ctx, d);
 			VTAILQ_REMOVE(&dom->obj->purged_domains, d, list);
 		}
 	}
@@ -578,20 +578,20 @@ named_search(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 	return (dom);
 }
 
-static struct named_domain *
-named_get(VRT_CTX, struct vmod_named_director *obj, const char *addr)
+static struct dynamic_domain *
+dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 {
-	struct named_domain *dom;
+	struct dynamic_domain *dom;
 
-	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->mtx);
 	AN(addr);
 
-	dom = named_search(ctx, obj, addr);
+	dom = dynamic_search(ctx, obj, addr);
 	if (dom != NULL)
 		return (dom);
 
-	ALLOC_OBJ(dom, NAMED_DOMAIN_MAGIC);
+	ALLOC_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
 	AN(dom);
 	VTAILQ_INIT(&dom->refs);
 	REPLACE(dom->addr, addr);
@@ -601,15 +601,15 @@ named_get(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 	INIT_OBJ(&dom->dir, DIRECTOR_MAGIC);
 	dom->dir.name = "dns";
 	dom->dir.vcl_name = dom->obj->vcl_name;
-	dom->dir.healthy = named_healthy;
-	dom->dir.resolve = named_resolve;
+	dom->dir.healthy = dynamic_healthy;
+	dom->dir.resolve = dynamic_resolve;
 	dom->dir.priv = dom;
 
 	Lck_New(&dom->mtx, lck_be);
 	AZ(pthread_cond_init(&dom->cond, NULL));
 	AZ(pthread_cond_init(&dom->resolve, NULL));
 
-	AZ(pthread_create(&dom->thread, NULL, &named_lookup_thread, dom));
+	AZ(pthread_create(&dom->thread, NULL, &dynamic_lookup_thread, dom));
 
 	VTAILQ_INSERT_TAIL(&obj->active_domains, dom, list);
 
@@ -623,7 +623,7 @@ named_get(VRT_CTX, struct vmod_named_director *obj, const char *addr)
 int __match_proto__(vmod_event_f)
 vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 {
-	struct vmod_named_director *obj;
+	struct vmod_dynamic_director *obj;
 	unsigned active;
 
 	(void)priv;
@@ -634,8 +634,8 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 
 	if (e == VCL_EVENT_LOAD) {
 		if (loadcnt == 0) {
-			lck_dir = Lck_CreateClass("named.director");
-			lck_be = Lck_CreateClass("named.backend");
+			lck_dir = Lck_CreateClass("dynamic.director");
+			lck_be = Lck_CreateClass("dynamic.backend");
 			AN(lck_dir);
 			AN(lck_be);
 		}
@@ -664,9 +664,9 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 			xxxassert(obj->active != active);
 			obj->active = active;
 			if (active)
-				named_start(obj);
+				dynamic_start(obj);
 			else
-				named_stop(obj);
+				dynamic_stop(obj);
 		}
 
 	return (0);
@@ -674,7 +674,7 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 
 VCL_VOID __match_proto__()
 vmod_director__init(VRT_CTX,
-    struct vmod_named_director **objp,
+    struct vmod_dynamic_director **objp,
     const char *vcl_name,
     VCL_STRING port,
     VCL_STRING hosthdr,
@@ -687,7 +687,7 @@ vmod_director__init(VRT_CTX,
     VCL_DURATION domain_usage_timeout,
     VCL_DURATION first_lookup_timeout)
 {
-	struct vmod_named_director *obj;
+	struct vmod_dynamic_director *obj;
 
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -699,7 +699,7 @@ vmod_director__init(VRT_CTX,
 	CHECK_OBJ_ORNULL(whitelist, VRT_ACL_MAGIC);
 	xxxassert(ttl > 0);
 
-	ALLOC_OBJ(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	ALLOC_OBJ(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AN(obj);
 	VTAILQ_INIT(&obj->active_domains);
 	VTAILQ_INIT(&obj->purged_domains);
@@ -727,29 +727,29 @@ vmod_director__init(VRT_CTX,
 }
 
 VCL_VOID __match_proto__()
-vmod_director__fini(struct vmod_named_director **objp)
+vmod_director__fini(struct vmod_dynamic_director **objp)
 {
-	struct vmod_named_director *obj;
+	struct vmod_dynamic_director *obj;
 
 	ASSERT_CLI();
 	AN(objp);
 	obj = *objp;
 	*objp = NULL;
 
-	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AZ(obj->active);
 
 	VTAILQ_REMOVE(&objects, obj, list);
 
 	/* Backends will be deleted by the VCL, pass a NULL struct ctx */
 	while (!VTAILQ_EMPTY(&obj->purged_domains)) {
-		named_free(NULL, VTAILQ_FIRST(&obj->purged_domains));
+		dynamic_free(NULL, VTAILQ_FIRST(&obj->purged_domains));
 		VTAILQ_REMOVE(&obj->purged_domains,
 		    VTAILQ_FIRST(&obj->purged_domains), list);
 	}
 
 	while (!VTAILQ_EMPTY(&obj->active_domains)) {
-		named_free(NULL, VTAILQ_FIRST(&obj->active_domains));
+		dynamic_free(NULL, VTAILQ_FIRST(&obj->active_domains));
 		VTAILQ_REMOVE(&obj->active_domains,
 		    VTAILQ_FIRST(&obj->active_domains), list);
 	}
@@ -761,13 +761,13 @@ vmod_director__fini(struct vmod_named_director **objp)
 	FREE_OBJ(obj);
 }
 
-VCL_BACKEND __match_proto__(td_named_director_backend)
-vmod_director_backend(VRT_CTX, struct vmod_named_director *obj, VCL_STRING host)
+VCL_BACKEND __match_proto__(td_dynamic_director_backend)
+vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj, VCL_STRING host)
 {
-	struct named_domain *dom;
+	struct dynamic_domain *dom;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(obj, VMOD_NAMED_DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
 	if ((host == NULL || *host == '\0') && ctx->http_bereq != NULL)
 		host = VRT_GetHdr(ctx, &HDR_BEREQ_HOST);
@@ -779,7 +779,7 @@ vmod_director_backend(VRT_CTX, struct vmod_named_director *obj, VCL_STRING host)
 		return (NULL);
 
 	Lck_Lock(&obj->mtx);
-	dom = named_get(ctx, obj, host);
+	dom = dynamic_get(ctx, obj, host);
 	AN(dom);
 	dom->last_used = ctx->now;
 	Lck_Unlock(&obj->mtx);

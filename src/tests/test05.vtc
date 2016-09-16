@@ -32,12 +32,12 @@ server s1 -listen 0.0.0.0 0 {
 } -start
 
 varnish v1 -vcl {
-	import ${vmod_named};
+	import ${vmod_dynamic};
 
 	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
 
 	sub vcl_init {
-		new d1 = named.director(port = "${s1_port}");
+		new d1 = dynamic.director(port = "${s1_port}");
 	}
 
 	sub vcl_pipe {

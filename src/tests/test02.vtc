@@ -11,14 +11,14 @@ server s1 {
 } -start
 
 varnish v1 -vcl {
-	import ${vmod_named};
+	import ${vmod_dynamic};
 
 	backend dummy {
 		.host = "${bad_ip}";
 	}
 
 	sub vcl_init {
-		new d1 = named.director(port = "${s1_port}");
+		new d1 = dynamic.director(port = "${s1_port}");
 	}
 
 	sub vcl_recv {

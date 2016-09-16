@@ -1,9 +1,9 @@
 AC_PREREQ(2.59)
 AC_COPYRIGHT([Copyright (c) 2015-2016 Dridi Boukelmoune])
-AC_INIT([libvmod-named], [0.2])
+AC_INIT([libvmod-dynamic], [0.2])
 AC_CONFIG_MACRO_DIR([m4])
 m4_ifndef([VARNISH_VMOD_INCLUDES], AC_MSG_ERROR([Need varnish.m4 -- see README.rst]))
-AC_CONFIG_SRCDIR(src/vmod_named.vcc)
+AC_CONFIG_SRCDIR(src/vmod_dynamic.vcc)
 AM_CONFIG_HEADER(config.h)
 
 AC_CANONICAL_SYSTEM

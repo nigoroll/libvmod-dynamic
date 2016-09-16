@@ -6,7 +6,7 @@ server s1 {
 } -start
 
 varnish v1 -vcl {
-	import ${vmod_named};
+	import ${vmod_dynamic};
 
 	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
 
@@ -15,7 +15,7 @@ varnish v1 -vcl {
 	}
 
 	sub vcl_init {
-		new d1 = named.director(
+		new d1 = dynamic.director(
 			port = "${s1_port}",
 			whitelist = gandalf);
 	}

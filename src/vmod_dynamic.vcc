@@ -24,7 +24,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-$Module named 3 Varnish DNS Director Module
+$Module dynamic 3 Varnish DNS Director Module
 
 DESCRIPTION
 ===========
@@ -37,7 +37,7 @@ resolver.
 Backends are created and deleted depending on the lookup results, you can
 monitor them over time just like regular backends. They will appear in
 ``varnishstat``'s or any other similar tool's output. The counters will be
-named according to the following pattern::
+dynamic according to the following pattern::
 
    VBE.<configname>.<directorname>(<ip>).*
 
@@ -52,7 +52,7 @@ LOGGING
 This module may log ``VCL_Log`` and ``Error`` records following a common
 pattern::
 
-   vmod-named: %s %s %s %s [ %s ]
+   vmod-dynamic: %s %s %s %s [ %s ]
                |  |  |  |    |
                |  |  |  |    +- Additional information
                |  |  |  +------ Event
@@ -113,7 +113,7 @@ Example
 	   }
 
 	   sub vcl_init {
-	   	new www_dir = named.director(
+	   	new www_dir = dynamic.director(
 	   		port = "80",
 	   		probe = www_probe,
 	   		whitelist = www_acl,
@@ -146,7 +146,7 @@ SEE ALSO
 COPYRIGHT
 =========
 
-This document is licensed under the same licence as vmod-named itself. See
+This document is licensed under the same licence as vmod-dynamic itself. See
 LICENCE for details.
 
 Copyright (c) 2015-2016 Dridi Boukelmoune

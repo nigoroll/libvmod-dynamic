@@ -1,4 +1,4 @@
-Source: libvmod-named
+Source: libvmod-dynamic
 Section: web
 Priority: extra
 Maintainer: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
@@ -9,9 +9,9 @@ Build-Depends: debhelper (>= 7),
  varnish (>= 4.1.1),
  libvarnishapi-dev (>= 4.1.1)
 Standards-Version: 3.8.1
-Vcs-Git: git://github.com/varnish/libvmod-named.git
+Vcs-Git: git://github.com/nigoroll/libvmod-named.git
 
-Package: libvmod-named
+Package: libvmod-dynamic
 Architecture: any
 Depends: varnish (>= 4.1.1), ${shlibs:Depends}, ${misc:Depends}, ${Varnish:ABI}
 Description: Named vmod for Varnish

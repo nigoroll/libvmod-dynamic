@@ -27,55 +27,55 @@
  *
  * Data structures
  *
- * Locking order is always vmod_named_director.mtx and then named_domain.mtx
+ * Locking order is always vmod_dynamic_director.mtx and then dynamic_domain.mtx
  * when both are needed.
  */
 
-struct named_backend {
+struct dynamic_backend {
 	struct director			*dir;
-	VTAILQ_ENTRY(named_backend)	list;
+	VTAILQ_ENTRY(dynamic_backend)	list;
 	struct suckaddr 		*ip_suckaddr;
 	char				*ip_addr;
 	char				*vcl_name;
 	unsigned			refcount;
 };
 
-struct named_ref {
-	struct named_domain	*dom;
-	VTAILQ_ENTRY(named_ref)	list;
-	struct named_backend	*be;
+struct dynamic_ref {
+	struct dynamic_domain	*dom;
+	VTAILQ_ENTRY(dynamic_ref)	list;
+	struct dynamic_backend	*be;
 	unsigned		mark;
 };
 
-enum named_status_e {
-	NAMED_ST_READY	= 0,
-	NAMED_ST_ACTIVE	= 1,
-	NAMED_ST_STALE	= 2,
-	NAMED_ST_DONE	= 3,
+enum dynamic_status_e {
+	DYNAMIC_ST_READY	= 0,
+	DYNAMIC_ST_ACTIVE	= 1,
+	DYNAMIC_ST_STALE	= 2,
+	DYNAMIC_ST_DONE	= 3,
 };
 
-struct named_domain {
+struct dynamic_domain {
 	unsigned			magic;
-#define NAMED_DOMAIN_MAGIC		0x1bfe1345
-	struct vmod_named_director	*obj;
+#define DYNAMIC_DOMAIN_MAGIC		0x1bfe1345
+	struct vmod_dynamic_director	*obj;
 	pthread_t			thread;
 	struct lock			mtx;
 	pthread_cond_t			cond;
 	pthread_cond_t			resolve;
 	VCL_TIME			last_used;
-	VTAILQ_ENTRY(named_domain)	list;
-	VTAILQ_HEAD(,named_ref)		refs;
-	struct named_ref		*current;
+	VTAILQ_ENTRY(dynamic_domain)	list;
+	VTAILQ_HEAD(,dynamic_ref)		refs;
+	struct dynamic_ref		*current;
 	char				*addr;
 	const char			*port;
 	struct director			dir;
 	unsigned			mark;
-	volatile enum named_status_e	status;
+	volatile enum dynamic_status_e	status;
 };
 
-struct vmod_named_director {
+struct vmod_dynamic_director {
 	unsigned				magic;
-#define VMOD_NAMED_DIRECTOR_MAGIC		0x8a3e7fd1
+#define VMOD_DYNAMIC_DIRECTOR_MAGIC		0x8a3e7fd1
 	struct lock				mtx;
 	char					*vcl_name;
 	char					*port;
@@ -88,16 +88,16 @@ struct vmod_named_director {
 	VCL_DURATION				between_bytes_tmo;
 	VCL_DURATION				domain_usage_tmo;
 	VCL_DURATION				first_lookup_tmo;
-	VTAILQ_ENTRY(vmod_named_director)	list;
-	VTAILQ_HEAD(,named_domain)		active_domains;
-	VTAILQ_HEAD(,named_domain)		purged_domains;
-	VTAILQ_HEAD(,named_backend)		backends;
+	VTAILQ_ENTRY(vmod_dynamic_director)	list;
+	VTAILQ_HEAD(,dynamic_domain)		active_domains;
+	VTAILQ_HEAD(,dynamic_domain)		purged_domains;
+	VTAILQ_HEAD(,dynamic_backend)		backends;
 	const char				*vcl_conf;
 	struct vcl				*vcl;
 	struct vclref				*vclref;
 	volatile unsigned			active;
 };
 
-VTAILQ_HEAD(vmod_named_head, vmod_named_director) objects;
+VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director) objects;
 
-extern struct vmod_named_head objects;
+extern struct vmod_dynamic_head objects;
