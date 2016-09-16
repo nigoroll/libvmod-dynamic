@@ -1,14 +1,18 @@
-==========
+============
 vmod-dynamic
-==========
+============
 
 Description
 ===========
 
-The purpose of this module is to provide a dynamic director similar to the DNS
-director from Varnish 3. This is not a drop-in replacement, because in Varnish
-3 the director had two modes of execution that aren't compatible with changes
-in the backend and director subsystems introduced by Varnish 4.0.
+_This module does not work with Varnish 5 / master at the moment._
+
+The purpose of this module is to provide a dynamic director similar to
+the DNS director from Varnish 3. It also was previously known as
+`vmod-named`. This is not a drop-in replacement for the DNS director,
+because in Varnish 3 the director had two modes of execution that
+aren't compatible with changes in the backend and director subsystems
+introduced by Varnish 4.0.
 
 Instead a dynamic director relies on dynamic backends, supports white-listing
 and even probes. However, just like the DNS director from Varnish 3 it has
