@@ -632,7 +632,8 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 	AN(ctx);
 	AN(ctx->vcl);
 
-	if (e == VCL_EVENT_LOAD) {
+	switch (e) {
+	case VCL_EVENT_LOAD:
 		if (loadcnt == 0) {
 			lck_dir = Lck_CreateClass("dynamic.director");
 			lck_be = Lck_CreateClass("dynamic.backend");
@@ -641,9 +642,8 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 		}
 		loadcnt++;
 		return (0);
-	}
-
-	if (e == VCL_EVENT_DISCARD) {
+		break;
+	case VCL_EVENT_DISCARD:
 		assert(loadcnt > 0);
 		loadcnt--;
 		if (loadcnt == 0) {
@@ -651,12 +651,16 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 			VSM_Free(lck_be);
 		}
 		return (0);
+		break;
+	case VCL_EVENT_WARM:
+		active = 1;
+		break;
+	case VCL_EVENT_COLD:
+		active = 0;
+		break;
+	default:
+		WRONG("Unhandled vmod event");
 	}
-
-	if (e == VCL_EVENT_USE)
-		return (0);
-
-	active = e == VCL_EVENT_WARM ? 1 : 0;
 
 	/* No locking required for the fields obj->active and obj->vcl */
 	VTAILQ_FOREACH(obj, &objects, list)
