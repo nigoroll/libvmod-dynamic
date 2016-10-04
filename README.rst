@@ -5,8 +5,6 @@ vmod-dynamic
 Description
 ===========
 
-_This module does not work with Varnish 5 / master at the moment._
-
 The purpose of this module is to provide a dynamic director similar to
 the DNS director from Varnish 3. It also was previously known as
 `vmod-named`. This is not a drop-in replacement for the DNS director,
@@ -17,7 +15,7 @@ introduced by Varnish 4.0.
 Instead a dynamic director relies on dynamic backends, supports white-listing
 and even probes. However, just like the DNS director from Varnish 3 it has
 limited capabilities because it relies on the system's resolver. It builds
-against Varnish 4.1.2 and later versions.
+against Varnish 5.0 and later versions.
 
 Further documentation is available in the manual page ``vmod_dynamic(3)``.
 
