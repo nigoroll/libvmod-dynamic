@@ -30,10 +30,15 @@ The module requires the GNU Build System, you may follow these steps::
     ./configure
     make
 
-The test suite may not currently run without global (but minor) changes to
-your system. You can skip the test suite or run it with::
+For the test suite to work, please add this line to your ``/etc/hosts``::
 
-    make check
+	127.0.0.1 www.localhost img.localhost
+
+then run::
+
+	make check
+
+Alternatively, the ``make check`` can also be skipped.
 
 You can then proceed with the installation::
 
