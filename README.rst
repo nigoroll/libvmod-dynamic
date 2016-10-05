@@ -22,11 +22,44 @@ Further documentation is available in the manual page ``vmod_dynamic(3)``.
 Installation
 ============
 
-The module requires the GNU Build System, you may follow these steps::
+The source tree is based on autotools to configure the building, and
+does also have the necessary bits in place to do functional unit tests
+using the ``varnishtest`` tool.
 
-    ./autogen.sh
-    ./configure
-    make
+Building requires the Varnish header files and uses pkg-config to find
+the necessary paths.
+
+Usage::
+
+ ./autogen.sh
+ ./configure
+
+If you have installed Varnish to a non-standard directory, call
+``autogen.sh`` and ``configure`` with ``PKG_CONFIG_PATH`` pointing to
+the appropriate path. For instance, when varnishd configure was called
+with ``--prefix=$PREFIX``, use
+
+::
+
+ export PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig
+ export ACLOCAL_PATH=${PREFIX}/share/aclocal
+
+The module will inherit its prefix from Varnish, unless you specify a
+different ``--prefix`` when running the ``configure`` script for this
+module.
+
+Make targets:
+
+* make - builds the vmod.
+* make install - installs your vmod.
+* make check - runs the unit tests in ``src/tests/*.vtc``.
+* make distcheck - run check and prepare a tarball of the vmod.
+
+If you build a dist tarball, you don't need any of the autotools, only
+pkg-config and Varnish. You can build the module simply by running::
+
+ ./configure
+ make
 
 For the test suite to work, please add this line to your ``/etc/hosts``::
 
@@ -42,7 +75,17 @@ You can then proceed with the installation::
 
     sudo make install
 
-Instead of directly installing the package you can build an RPM instead::
+Installation directories
+------------------------
+
+By default, the vmod ``configure`` script installs the built vmod in the
+directory relevant to the prefix. The vmod installation directory can be
+overridden by passing the ``vmoddir`` variable to ``make install``.
+
+Packaging
+---------
+
+Instead of directly installing the package you can build an RPM::
 
     make dist
     rpmbuild -tb *.tar.gz
@@ -52,11 +95,6 @@ If you need to build an RPM for a different platform you may use ``mock(1)``::
     make dist
     mock --buildsrpm --resultdir . --sources . --spec vmod-querystring.spec
     mock --rebuild   --resultdir . *.src.rpm
-
-If your Varnish installation did not use the default ``/usr`` prefix, you need
-this in your environment before running ``./autogen.sh``::
-
-    export PKG_CONFIG_PATH=/path/to/lib/pkgconfig
 
 See also
 ========
