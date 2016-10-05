@@ -47,7 +47,7 @@
 #include <cache/cache.h>
 #include <cache/cache_director.h>
 
-#include "vcc_if.h"
+#include "vcc_dynamic_if.h"
 #include "vmod_dynamic.h"
 
 #define LOG(ctx, slt, dom, fmt, ...)				\
@@ -633,6 +633,10 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 	AN(ctx->vcl);
 
 	switch (e) {
+#if HAVE_VCL_EVENT_USE
+	case VCL_EVENT_USE:
+		return (0);
+#endif
 	case VCL_EVENT_LOAD:
 		if (loadcnt == 0) {
 			lck_dir = Lck_CreateClass("dynamic.director");
