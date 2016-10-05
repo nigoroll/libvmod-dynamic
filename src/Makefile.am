@@ -1,69 +1,29 @@
-AM_CPPFLAGS = @VMOD_INCLUDES@
-AM_CFLAGS = -Wall -Werror -Wextra
+AM_CFLAGS = $(VARNISHAPI_CFLAGS) -Wall -Werror
+AM_LDFLAGS = $(VARNISHAPI_LIBS) $(VMOD_LDFLAGS)
 
-# VMOD library
-
-vmoddir = @VMOD_DIR@
 vmod_LTLIBRARIES = libvmod_dynamic.la
-
-VCC_FILES = \
-	vcc_if.c \
-	vcc_if.h
-
-DOC_FILES = \
-	vmod_dynamic.rst \
-	vmod_dynamic.man.rst
-
-libvmod_dynamic_la_LDFLAGS = \
-	-module \
-	-export-dynamic \
-	-avoid-version \
-	-shared
 
 libvmod_dynamic_la_SOURCES = \
 	vmod_dynamic.h \
 	vmod_dynamic.c
 
 nodist_libvmod_dynamic_la_SOURCES = \
-	$(VCC_FILES)
-
-$(srcdir)/vmod_dynamic.c: $(VCC_FILES)
-
-$(VCC_FILES) $(DOC_FILES): .vcc
-
-.vcc: vmod_dynamic.vcc
-	@echo vmodtool: @VMODTOOL@ $<
-	@@VMODTOOL@ $<
-	@touch $@
-
-# Documentation
+	vcc_dynamic_if.c \
+	vcc_dynamic_if.h
 
 dist_man_MANS = vmod_dynamic.3
 
-vmod_dynamic.3: vmod_dynamic.man.rst
-	${RST2MAN} $< $@
+@BUILD_VMOD_DYNAMIC@
 
-# Test suite
-
-VMOD_FILE="$(abs_builddir)/.libs/libvmod_dynamic.so"
-
-VTC_LOG_COMPILER = \
-	env PATH="@TEST_PATH@" \
-	varnishtest -v \
-	-Dvmod_dynamic="dynamic from \"$(VMOD_FILE)\""
-
+AM_TESTS_ENVIRONMENT = \
+	PATH="$(VMOD_TEST_PATH)" \
+	LD_LIBRARY_PATH="$(VARNISH_LIBRARY_PATH)"
 TEST_EXTENSIONS = .vtc
+VTC_LOG_COMPILER = varnishtest -v
+AM_VTC_LOG_FLAGS = -Dvmod_dynamic="$(VMOD_DYNAMIC)"
 
 TESTS = @VTC_TESTS@
 
 EXTRA_DIST = \
 	vmod_dynamic.vcc \
 	@VTC_TESTS@
-
-# misc
-
-CLEANFILES = \
-	$(VCC_FILES) \
-	$(DOC_FILES) \
-	$(dist_man_MANS) \
-	.vcc

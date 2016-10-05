@@ -1,10 +1,7 @@
-ACLOCAL_AMFLAGS = -I m4 -I ${LIBVARNISHAPI_DATAROOTDIR}/aclocal
+ACLOCAL_AMFLAGS = -I m4 -I ${VARNISHAPI_DATAROOTDIR}/aclocal
 
 SUBDIRS = src
 
-DISTCHECK_CONFIGURE_FLAGS = \
-	VMOD_DIR='$${libdir}/varnish/vmods'
+dist_doc_DATA = README.rst LICENSE
 
-EXTRA_DIST = README.rst LICENSE vmod-dynamic.spec debian
-
-doc_DATA = README.rst LICENSE
+EXTRA_DIST = vmod-dynamic.spec debian
