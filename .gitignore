@@ -1,35 +1,50 @@
-Makefile
-Makefile.in
+# gnu build system
+# ----------------
+
 .deps/
 .libs/
-*.o
-*.lo
+autom4te.cache/
+build-aux/
+build/
+m4/
+
 *.la
-*~
-*.[1-9]
+*.lo
 *.log
 *.trs
+Makefile
+Makefile.in
+aclocal.m4
+config.h
+config.h.in
+config.log
+config.status
+configure
+libtool
+stamp-h1
 
-/aclocal.m4
-/autom4te.cache/
-/compile
-/config.guess
-/config.h
-/config.h.in
-/config.log
-/config.status
-/config.sub
-/configure
-/depcomp
-/install-sh
-/libtool
-/ltmain.sh
-/missing
-/stamp-h1
-/test-driver
-/m4/
+# cc
+# --
 
-/src/.vcc
-/src/vcc_if.c
-/src/vcc_if.h
-/src/vmod_*rst
+*.o
+
+# vcc
+# ---
+
+.vcc_*
+vcc_*_if.c
+vcc_*_if.h
+
+# manual
+# ------
+
+*.rst
+*.3
+
+# packaging
+# ---------
+
+vmod-querystring-*/
+
+vmod-*.tar.[gx]z
+*.spec
