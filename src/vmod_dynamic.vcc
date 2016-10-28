@@ -53,12 +53,12 @@ This module may log ``VCL_Log`` and ``Error`` records following a common
 pattern::
 
    vmod-dynamic: %s %s %s %s [ %s ]
-               |  |  |  |    |
-               |  |  |  |    +- Additional information
-               |  |  |  +------ Event
-               |  |  +--------- Host name
-               |  +------------ Director name
-               +--------------- VCL name
+                 |  |  |  |    |
+                 |  |  |  |    +- Additional information
+                 |  |  |  +------ Event
+                 |  |  +--------- Host name
+                 |  +------------ Director name
+                 +--------------- VCL name
 
 .. raw:: pdf
 
