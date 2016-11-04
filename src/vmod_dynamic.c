@@ -397,6 +397,15 @@ dynamic_lookup_thread(void *obj)
 	while (dom->obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
 
 		ret = getaddrinfo(dom->addr, dom->obj->port, &hints, &res);
+		/*
+		 * If obj isn't active after the blocking call,
+		 * there's no point going forward
+		 */
+		if (!dom->obj->active) {
+			freeaddrinfo(res);
+			break;
+		}
+
 
 		if (ret == 0) {
 			dynamic_update(dom, res);
