@@ -431,7 +431,7 @@ dynamic_lookup_thread(void *obj)
 		if (ret == 0) {
 			dynamic_update(dom, res);
 			update = VTIM_real();
-			dynamic_timestamp(dom, "Update", results,
+			dynamic_timestamp(dom, "Update", update,
 			    update - lookup, update - results);
 			freeaddrinfo(res);
 		}
