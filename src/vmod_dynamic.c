@@ -410,6 +410,15 @@ dynamic_lookup_thread(void *obj)
 		dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
 
 		ret = getaddrinfo(dom->addr, dom->obj->port, &hints, &res);
+		/*
+		 * If obj isn't active after the blocking call,
+		 * there's no point going forward
+		 */
+		if (!dom->obj->active) {
+			freeaddrinfo(res);
+			break;
+		}
+
 
 		results = VTIM_real();
 		dynamic_timestamp(dom, "Results", results, results - lookup,
