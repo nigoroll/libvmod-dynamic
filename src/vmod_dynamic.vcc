@@ -60,6 +60,11 @@ pattern::
                  |  +------------ Director name
                  +--------------- VCL name
 
+Lookup timestamps are also logged to help troubleshooting, using regular
+``Timestamp`` records with the following pattern for event labels:
+
+    vmod-dynamic <vcl>.<director>(<host>) <Lookup|Results|Update>
+
 .. raw:: pdf
 
    PageBreak

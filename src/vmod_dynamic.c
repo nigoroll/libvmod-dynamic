@@ -378,13 +378,23 @@ dynamic_update(struct dynamic_domain *dom, struct addrinfo *addr)
 	Lck_Unlock(&dom->obj->mtx);
 }
 
+static void
+dynamic_timestamp(struct dynamic_domain *dom, const char *event, double start,
+    double dfirst, double dprev)
+{
+
+	VSL(SLT_Timestamp, 0, "vmod-dynamic %s.%s(%s) %s: %.6f %.6f %.6f",
+	    dom->obj->vcl_conf, dom->obj->vcl_name, dom->addr, event, start,
+	    dfirst, dprev);
+}
+
 static void*
 dynamic_lookup_thread(void *obj)
 {
 	struct dynamic_domain *dom;
 	struct addrinfo hints, *res;
 	struct vrt_ctx ctx;
-	double deadline;
+	double deadline, lookup, results, update;
 	int ret;
 
 	CAST_OBJ_NOTNULL(dom, obj, DYNAMIC_DOMAIN_MAGIC);
@@ -396,10 +406,20 @@ dynamic_lookup_thread(void *obj)
 
 	while (dom->obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
 
+		lookup = VTIM_real();
+		dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
+
 		ret = getaddrinfo(dom->addr, dom->obj->port, &hints, &res);
+
+		results = VTIM_real();
+		dynamic_timestamp(dom, "Results", results, results - lookup,
+		    results - lookup);
 
 		if (ret == 0) {
 			dynamic_update(dom, res);
+			update = VTIM_real();
+			dynamic_timestamp(dom, "Update", results,
+			    update - lookup, update - results);
 			freeaddrinfo(res);
 		}
 		else
