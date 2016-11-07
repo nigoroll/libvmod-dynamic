@@ -415,6 +415,19 @@ dynamic_lookup_thread(void *obj)
 		dynamic_timestamp(dom, "Results", results, results - lookup,
 		    results - lookup);
 
+		/* NB: getaddrinfo is a blocking function called outside of
+		 * critical sections. If the VCL is going cold, proceeding
+		 * further on a successful lookup will create a deadlock.
+		 * If the usage_timeout triggered, there's no point updating
+		 * the backend list because the domain can no longer be
+		 * reached.
+		 */
+		if (!dom->obj->active || dom->status > DYNAMIC_ST_ACTIVE) {
+			if (ret == 0)
+				freeaddrinfo(res);
+			break;
+		}
+
 		if (ret == 0) {
 			dynamic_update(dom, res);
 			update = VTIM_real();
