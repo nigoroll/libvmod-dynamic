@@ -454,6 +454,7 @@ dynamic_lookup_thread(void *obj)
 	}
 
 	dom->status = DYNAMIC_ST_DONE;
+	dynamic_timestamp(dom, "Done", VTIM_real(), 0., 0.);
 
 	return (NULL);
 }

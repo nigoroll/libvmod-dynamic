@@ -61,9 +61,15 @@ pattern::
                  +--------------- VCL name
 
 Lookup timestamps are also logged to help troubleshooting, using regular
-``Timestamp`` records with the following pattern for event labels:
+``Timestamp`` records with the following pattern for event labels::
 
     vmod-dynamic <vcl>.<director>(<host>) <Lookup|Results|Update>
+
+When a lookup thread is terminated, either because the VCL is cooling down
+or the ``domain_usage_timeout`` triggered, ``Timestamp`` records are logged
+with the event::
+
+    vmod-dynamic <vcl>.<director>(<host>) Done
 
 .. raw:: pdf
 
