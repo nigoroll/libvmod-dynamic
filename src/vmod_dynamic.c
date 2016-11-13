@@ -362,6 +362,10 @@ dynamic_update_addr(VRT_CTX, struct dynamic_domain *dom, struct addrinfo *addr,
 	(void)VRT_VSA_GetPtr(sa, &in_addr);
 	AN(in_addr);
 	AN(inet_ntop(addr->ai_family, in_addr, ip, sizeof ip));
+
+	if (dom->obj->debug)
+		LOG(ctx, SLT_Debug, dom, "addr %s", ip);
+
 	match = acl != NULL ? VRT_acl_match(ctx, acl, sa) : 1;
 
 	if (!match)
@@ -394,6 +398,12 @@ dynamic_update_domain(struct dynamic_domain *dom, struct addrinfo *addr)
 		case AF_INET:
 		case AF_INET6:
 			dynamic_update_addr(&ctx, dom, addr, acl);
+			break;
+		default:
+			if (dom->obj->debug)
+				LOG(&ctx, SLT_Debug, dom, "ignored family=%d",
+				    addr->ai_family);
+			break;
 		}
 		addr = addr->ai_next;
 	}
