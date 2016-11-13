@@ -798,7 +798,8 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 }
 
 VCL_BACKEND __match_proto__(td_dynamic_director_backend)
-vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj, VCL_STRING host)
+vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
+    VCL_STRING host)
 {
 	struct dynamic_domain *dom;
 
