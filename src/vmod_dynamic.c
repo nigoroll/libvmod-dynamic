@@ -347,15 +347,36 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa,
 }
 
 static void
-dynamic_update(struct dynamic_domain *dom, struct addrinfo *addr)
+dynamic_update_addr(VRT_CTX, struct dynamic_domain *dom, struct addrinfo *addr,
+    VCL_ACL acl)
 {
 	struct suckaddr *sa;
-	struct dynamic_ref *r, *r2;
-	struct vrt_ctx ctx;
-	VCL_ACL acl;
 	char ip[INET6_ADDRSTRLEN];
 	const unsigned char *in_addr = NULL;
 	unsigned match;
+
+	sa = malloc(vsa_suckaddr_len);
+	AN(sa);
+	AN(VSA_Build(sa, addr->ai_addr, addr->ai_addrlen));
+
+	(void)VRT_VSA_GetPtr(sa, &in_addr);
+	AN(in_addr);
+	AN(inet_ntop(addr->ai_family, in_addr, ip, sizeof ip));
+	match = acl != NULL ? VRT_acl_match(ctx, acl, sa) : 1;
+
+	if (!match)
+		LOG(ctx, SLT_Error, dom, "acl-mismatch %s", ip);
+
+	if (!match || !dynamic_add(ctx, dom, sa, ip, addr->ai_family))
+		free(sa);
+}
+
+static void
+dynamic_update_domain(struct dynamic_domain *dom, struct addrinfo *addr)
+{
+	struct dynamic_ref *r, *r2;
+	struct vrt_ctx ctx;
+	VCL_ACL acl;
 
 	AN(addr);
 
@@ -372,19 +393,7 @@ dynamic_update(struct dynamic_domain *dom, struct addrinfo *addr)
 		switch (addr->ai_family) {
 		case AF_INET:
 		case AF_INET6:
-			sa = malloc(vsa_suckaddr_len);
-			AN(sa);
-			AN(VSA_Build(sa, addr->ai_addr, addr->ai_addrlen));
-			(void)VRT_VSA_GetPtr(sa, &in_addr);
-			AN(in_addr);
-			AN(inet_ntop(addr->ai_family, in_addr, ip, sizeof ip));
-			match = acl != NULL ? VRT_acl_match(&ctx, acl, sa) : 1;
-			if (!match)
-				LOG(&ctx, SLT_Error, dom, "acl-mismatch %s",
-				    ip);
-			if (!match || !dynamic_add(&ctx, dom, sa, ip,
-			    addr->ai_family))
-				free(sa);
+			dynamic_update_addr(&ctx, dom, addr, acl);
 		}
 		addr = addr->ai_next;
 	}
@@ -448,7 +457,7 @@ dynamic_lookup_thread(void *obj)
 		}
 
 		if (ret == 0) {
-			dynamic_update(dom, res);
+			dynamic_update_domain(dom, res);
 			update = VTIM_real();
 			dynamic_timestamp(dom, "Update", update,
 			    update - lookup, update - results);
