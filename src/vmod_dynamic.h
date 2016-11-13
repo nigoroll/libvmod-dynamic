@@ -41,17 +41,17 @@ struct dynamic_backend {
 };
 
 struct dynamic_ref {
-	struct dynamic_domain	*dom;
+	struct dynamic_domain		*dom;
 	VTAILQ_ENTRY(dynamic_ref)	list;
-	struct dynamic_backend	*be;
-	unsigned		mark;
+	struct dynamic_backend		*be;
+	unsigned			mark;
 };
 
 enum dynamic_status_e {
 	DYNAMIC_ST_READY	= 0,
 	DYNAMIC_ST_ACTIVE	= 1,
 	DYNAMIC_ST_STALE	= 2,
-	DYNAMIC_ST_DONE	= 3,
+	DYNAMIC_ST_DONE		= 3,
 };
 
 struct dynamic_domain {
@@ -64,7 +64,7 @@ struct dynamic_domain {
 	pthread_cond_t			resolve;
 	VCL_TIME			last_used;
 	VTAILQ_ENTRY(dynamic_domain)	list;
-	VTAILQ_HEAD(,dynamic_ref)		refs;
+	VTAILQ_HEAD(,dynamic_ref)	refs;
 	struct dynamic_ref		*current;
 	char				*addr;
 	const char			*port;
