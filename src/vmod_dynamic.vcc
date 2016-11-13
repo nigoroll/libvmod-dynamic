@@ -49,8 +49,8 @@ logged with the following event::
 LOGGING
 =======
 
-This module may log ``VCL_Log`` and ``Error`` records following a common
-pattern::
+This module may log ``VCL_Log``, ``Error``, and ``Debug``  records following a
+common pattern::
 
    vmod-dynamic: %s %s %s %s [ %s ]
                  |  |  |  |    |
@@ -144,6 +144,12 @@ $Method BACKEND .backend(STRING host = "")
 Description
 	Pick a backend from the director for a given host name. If the host
 	is not specified, it is picked from either ``bereq`` or ``req``.
+
+$Method VOID .debug(BOOL)
+
+Description
+	Enable or disable debugging for a dynamic director, logging background
+	operations related to backends management.
 
 SEE ALSO
 ========
