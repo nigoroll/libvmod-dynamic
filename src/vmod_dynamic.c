@@ -202,8 +202,15 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 	AN(b->refcount);
 	b->refcount--;
 
+	if (dom->obj->debug)
+		LOG(ctx, SLT_Debug, dom, "delete-reference %s (%d remaining)",
+		    b->vcl_name, b->refcount);
+
 	if (b->refcount > 0)
 		return;
+
+	if (dom->obj->debug)
+		LOG(ctx, SLT_Debug, dom, "delete-backend %s", b->vcl_name);
 
 	VTAILQ_REMOVE(&dom->obj->backends, b, list);
 	if (ctx) {
@@ -217,7 +224,7 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 }
 
 static void
-dynamic_ref(struct dynamic_domain *dom, struct dynamic_backend *b)
+dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 {
 	struct dynamic_ref *r;
 
@@ -229,16 +236,22 @@ dynamic_ref(struct dynamic_domain *dom, struct dynamic_backend *b)
 	r->mark = dom->mark;
 	b->refcount++;
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
+
+	if (dom->obj->debug)
+		LOG(ctx, SLT_Debug, dom, "reference-backend %s (%d)",
+		    b->vcl_name, b->refcount);
 }
 
 static unsigned
 dynamic_find(struct dynamic_domain *dom, struct suckaddr *sa)
 {
-	struct dynamic_ref *r;
 	struct dynamic_backend *b;
+	struct dynamic_ref *r;
+	struct vrt_ctx ctx;
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
+	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 
 	/* search this director's backends */
 	VTAILQ_FOREACH(r, &dom->refs, list) {
@@ -257,7 +270,7 @@ dynamic_find(struct dynamic_domain *dom, struct suckaddr *sa)
 	VTAILQ_FOREACH(b, &dom->obj->backends, list) {
 		CHECK_OBJ_NOTNULL(b->dir, DIRECTOR_MAGIC);
 		if (!VSA_Compare(b->ip_suckaddr, sa)) {
-			dynamic_ref(dom, b);
+			dynamic_ref(&ctx, dom, b);
 			return (1);
 		}
 	}
@@ -328,7 +341,11 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa)
 	b->dir = VRT_new_backend(ctx, &vrt);
 	AN(b->dir);
 
-	dynamic_ref(dom, b);
+	if (dom->obj->debug)
+		LOG(ctx, SLT_Debug, dom, "add-backend %s",
+		    b->vcl_name);
+
+	dynamic_ref(ctx, dom, b);
 
 	VTAILQ_INSERT_TAIL(&dom->obj->backends, b, list);
 	return (1);
@@ -822,4 +839,12 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 	Lck_Unlock(&obj->mtx);
 
 	return (&dom->dir);
+}
+
+VCL_VOID __match_proto__(td_dynamic_director_debug)
+vmod_director_debug(VRT_CTX, struct vmod_dynamic_director *obj,
+    VCL_BOOL enable)
+{
+
+	obj->debug = enable;
 }

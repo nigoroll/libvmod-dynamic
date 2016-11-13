@@ -96,6 +96,7 @@ struct vmod_dynamic_director {
 	struct vcl				*vcl;
 	struct vclref				*vclref;
 	volatile unsigned			active;
+	volatile unsigned			debug;
 };
 
 VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director) objects;
