@@ -279,14 +279,12 @@ dynamic_find(struct dynamic_domain *dom, struct suckaddr *sa)
 }
 
 static unsigned
-dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa)
+dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa,
+    const char *ip, int af)
 {
 	struct vrt_backend vrt;
 	struct dynamic_backend *b;
 	struct vsb *vsb;
-	const unsigned char *ptr = NULL;
-	char ip[INET6_ADDRSTRLEN];
-	int af;
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
@@ -301,9 +299,6 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa)
 	memset(b, 0, sizeof *b);
 	b->ip_suckaddr = sa;
 
-	af = VRT_VSA_GetPtr(sa, &ptr);
-	AN(ptr);
-	AN(inet_ntop(af, ptr, ip, sizeof ip));
 	b->ip_addr = strdup(ip);
 	AN(b->ip_addr);
 
@@ -358,6 +353,8 @@ dynamic_update(struct dynamic_domain *dom, struct addrinfo *addr)
 	struct dynamic_ref *r, *r2;
 	struct vrt_ctx ctx;
 	VCL_ACL acl;
+	char ip[INET6_ADDRSTRLEN];
+	const unsigned char *in_addr = NULL;
 	unsigned match;
 
 	AN(addr);
@@ -378,10 +375,15 @@ dynamic_update(struct dynamic_domain *dom, struct addrinfo *addr)
 			sa = malloc(vsa_suckaddr_len);
 			AN(sa);
 			AN(VSA_Build(sa, addr->ai_addr, addr->ai_addrlen));
+			(void)VRT_VSA_GetPtr(sa, &in_addr);
+			AN(in_addr);
+			AN(inet_ntop(addr->ai_family, in_addr, ip, sizeof ip));
 			match = acl != NULL ? VRT_acl_match(&ctx, acl, sa) : 1;
 			if (!match)
-				LOG(&ctx, SLT_Error, dom, "%s", "mismatch");
-			if (!match || !dynamic_add(&ctx, dom, sa))
+				LOG(&ctx, SLT_Error, dom, "acl-mismatch %s",
+				    ip);
+			if (!match || !dynamic_add(&ctx, dom, sa, ip,
+			    addr->ai_family))
 				free(sa);
 		}
 		addr = addr->ai_next;
