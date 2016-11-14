@@ -66,10 +66,10 @@
 			    __VA_ARGS__);			\
 	} while (0)
 
-#define DBG(ctx, dom, fmt, ...)					\
-	do {							\
-		if ((dom)->obj->debug)				\
-			LOG(ctx, SLT_Debug, fmt, __VA_ARGS__);	\
+#define DBG(ctx, dom, fmt, ...)						\
+	do {								\
+		if ((dom)->obj->debug)					\
+			LOG(ctx, SLT_Debug, dom, fmt, __VA_ARGS__);	\
 	} while (0)
 
 /*--------------------------------------------------------------------
