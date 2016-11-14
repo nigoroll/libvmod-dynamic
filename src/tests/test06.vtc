@@ -1,8 +1,8 @@
 varnishtest "White-listing"
 
 server s1 {
-	txreq
-	rxresp
+	rxreq
+	txresp
 } -start
 
 varnish v1 -vcl {
