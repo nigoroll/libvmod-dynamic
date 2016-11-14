@@ -66,6 +66,12 @@
 			    __VA_ARGS__);			\
 	} while (0)
 
+#define DBG(ctx, dom, fmt, ...)					\
+	do {							\
+		if ((dom)->obj->debug)				\
+			LOG(ctx, SLT_Debug, fmt, __VA_ARGS__);	\
+	} while (0)
+
 /*--------------------------------------------------------------------
  * Global data structures
  *
@@ -202,15 +208,13 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 	AN(b->refcount);
 	b->refcount--;
 
-	if (dom->obj->debug)
-		LOG(ctx, SLT_Debug, dom, "delete-reference %s (%d remaining)",
-		    b->vcl_name, b->refcount);
+	DBG(ctx, dom, "unref-backend %s (%d remaining)", b->vcl_name,
+	    b->refcount);
 
 	if (b->refcount > 0)
 		return;
 
-	if (dom->obj->debug)
-		LOG(ctx, SLT_Debug, dom, "delete-backend %s", b->vcl_name);
+	DBG(ctx, dom, "delete-backend %s", b->vcl_name);
 
 	VTAILQ_REMOVE(&dom->obj->backends, b, list);
 	if (ctx) {
@@ -237,9 +241,7 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 	b->refcount++;
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 
-	if (dom->obj->debug)
-		LOG(ctx, SLT_Debug, dom, "reference-backend %s (%d)",
-		    b->vcl_name, b->refcount);
+	DBG(ctx, dom, "reference-backend %s (%d)", b->vcl_name, b->refcount);
 }
 
 static unsigned
@@ -336,9 +338,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa,
 	b->dir = VRT_new_backend(ctx, &vrt);
 	AN(b->dir);
 
-	if (dom->obj->debug)
-		LOG(ctx, SLT_Debug, dom, "add-backend %s",
-		    b->vcl_name);
+	DBG(ctx, dom, "add-backend %s", b->vcl_name);
 
 	dynamic_ref(ctx, dom, b);
 
@@ -363,8 +363,7 @@ dynamic_update_addr(VRT_CTX, struct dynamic_domain *dom, struct addrinfo *addr,
 	AN(in_addr);
 	AN(inet_ntop(addr->ai_family, in_addr, ip, sizeof ip));
 
-	if (dom->obj->debug)
-		LOG(ctx, SLT_Debug, dom, "addr %s", ip);
+	DBG(ctx, dom, "addr %s", ip);
 
 	match = acl != NULL ? VRT_acl_match(ctx, acl, sa) : 1;
 
@@ -400,9 +399,7 @@ dynamic_update_domain(struct dynamic_domain *dom, struct addrinfo *addr)
 			dynamic_update_addr(&ctx, dom, addr, acl);
 			break;
 		default:
-			if (dom->obj->debug)
-				LOG(&ctx, SLT_Debug, dom, "ignored family=%d",
-				    addr->ai_family);
+			DBG(&ctx, dom, "ignored family=%d", addr->ai_family);
 			break;
 		}
 		addr = addr->ai_next;
