@@ -522,7 +522,13 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
-	Lck_Lock(&obj->mtx);
+	/* NB: At this point we got a COLD event so there are no ongoing
+	 * transactions. It means that remaining threads accessing obj are
+	 * lookup threads. They may modify the backends list for the last
+	 * time but no domain will be added or removed from the lists.
+	 * Long story short: we don't need to lock the object's mutex.
+	 */
+
 	VTAILQ_FOREACH(dom, &obj->active_domains, list) {
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		Lck_Lock(&dom->mtx);
@@ -560,7 +566,6 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = obj->vcl;
 	VRT_rel_vcl(&ctx, &obj->vclref);
-	Lck_Unlock(&obj->mtx);
 }
 
 static void
