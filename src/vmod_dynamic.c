@@ -560,8 +560,8 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 		AZ(pthread_join(dom->thread, NULL));
 		assert(dom->status == DYNAMIC_ST_DONE);
 		dom->status = DYNAMIC_ST_READY;
-		dynamic_free(NULL, dom);
 		VTAILQ_REMOVE(&dom->obj->purged_domains, dom, list);
+		dynamic_free(NULL, dom);
 	}
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
