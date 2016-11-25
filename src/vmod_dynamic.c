@@ -625,6 +625,10 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 		}
 	}
 
+	/* Leave early if there is no work to be done. */
+	if (dom == NULL)
+		return NULL;
+
 	VTAILQ_FOREACH_SAFE(d, &obj->purged_domains, list, d2) {
 		CHECK_OBJ_NOTNULL(d, DYNAMIC_DOMAIN_MAGIC);
 		if (d->status == DYNAMIC_ST_DONE) {
