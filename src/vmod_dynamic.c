@@ -625,6 +625,10 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 		}
 	}
 
+	/* Leave early if there is no work to be done. */
+	if (dom == NULL)
+		return NULL;
+
 	VTAILQ_FOREACH_SAFE(d, &obj->purged_domains, list, d2) {
 		CHECK_OBJ_NOTNULL(d, DYNAMIC_DOMAIN_MAGIC);
 		if (d->status == DYNAMIC_ST_DONE) {
@@ -633,8 +637,8 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 			d->thread = 0;
 			d->status = DYNAMIC_ST_READY;
 			Lck_Unlock(&d->mtx);
-			dynamic_free(ctx, d);
 			VTAILQ_REMOVE(&dom->obj->purged_domains, d, list);
+			dynamic_free(ctx, d);
 		}
 	}
 
@@ -814,15 +818,15 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 
 	/* Backends will be deleted by the VCL, pass a NULL struct ctx */
 	while (!VTAILQ_EMPTY(&obj->purged_domains)) {
-		dynamic_free(NULL, VTAILQ_FIRST(&obj->purged_domains));
 		VTAILQ_REMOVE(&obj->purged_domains,
 		    VTAILQ_FIRST(&obj->purged_domains), list);
+		dynamic_free(NULL, VTAILQ_FIRST(&obj->purged_domains));
 	}
 
 	while (!VTAILQ_EMPTY(&obj->active_domains)) {
-		dynamic_free(NULL, VTAILQ_FIRST(&obj->active_domains));
 		VTAILQ_REMOVE(&obj->active_domains,
 		    VTAILQ_FIRST(&obj->active_domains), list);
+		dynamic_free(NULL, VTAILQ_FIRST(&obj->active_domains));
 	}
 
 	assert(VTAILQ_EMPTY(&obj->backends));
