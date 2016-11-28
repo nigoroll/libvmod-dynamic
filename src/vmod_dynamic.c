@@ -427,6 +427,7 @@ dynamic_timestamp(struct dynamic_domain *dom, const char *event, double start,
 static void*
 dynamic_lookup_thread(void *priv)
 {
+	struct vmod_dynamic_director *obj;
 	struct dynamic_domain *dom;
 	struct addrinfo hints, *res;
 	struct vrt_ctx ctx;
@@ -440,12 +441,14 @@ dynamic_lookup_thread(void *priv)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_family = AF_UNSPEC;
 
-	while (dom->obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
+	obj = dom->obj;
+
+	while (obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
 
 		lookup = VTIM_real();
 		dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
 
-		ret = getaddrinfo(dom->addr, dom->obj->port, &hints, &res);
+		ret = getaddrinfo(dom->addr, obj->port, &hints, &res);
 
 		results = VTIM_real();
 		dynamic_timestamp(dom, "Results", results, results - lookup,
@@ -470,12 +473,12 @@ dynamic_lookup_thread(void *priv)
 		}
 
 		/* Check status again after the blocking call */
-		if (!dom->obj->active || dom->status == DYNAMIC_ST_STALE) {
+		if (!obj->active || dom->status == DYNAMIC_ST_STALE) {
 			Lck_Unlock(&dom->mtx);
 			break;
 		}
 
-		deadline = VTIM_real() + dom->obj->ttl;
+		deadline = VTIM_real() + obj->ttl;
 		ret = Lck_CondWait(&dom->cond, &dom->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
 
