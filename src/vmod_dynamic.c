@@ -803,6 +803,7 @@ VCL_VOID __match_proto__()
 vmod_director__fini(struct vmod_dynamic_director **objp)
 {
 	struct vmod_dynamic_director *obj;
+	struct dynamic_domain *dom, *d2;
 
 	ASSERT_CLI();
 	AN(objp);
@@ -815,16 +816,14 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 	VTAILQ_REMOVE(&objects, obj, list);
 
 	/* Backends will be deleted by the VCL, pass a NULL struct ctx */
-	while (!VTAILQ_EMPTY(&obj->purged_domains)) {
-		dynamic_free(NULL, VTAILQ_FIRST(&obj->purged_domains));
-		VTAILQ_REMOVE(&obj->purged_domains,
-		    VTAILQ_FIRST(&obj->purged_domains), list);
+	VTAILQ_FOREACH_SAFE(dom, &obj->purged_domains, list, d2) {
+		VTAILQ_REMOVE(&obj->purged_domains, dom, list);
+		dynamic_free(NULL, dom);
 	}
 
-	while (!VTAILQ_EMPTY(&obj->active_domains)) {
-		dynamic_free(NULL, VTAILQ_FIRST(&obj->active_domains));
-		VTAILQ_REMOVE(&obj->active_domains,
-		    VTAILQ_FIRST(&obj->active_domains), list);
+	VTAILQ_FOREACH_SAFE(dom, &obj->active_domains, list, d2) {
+		VTAILQ_REMOVE(&obj->active_domains, dom, list);
+		dynamic_free(NULL, dom);
 	}
 
 	assert(VTAILQ_EMPTY(&obj->backends));
