@@ -560,7 +560,7 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 		AZ(pthread_join(dom->thread, NULL));
 		assert(dom->status == DYNAMIC_ST_DONE);
 		dom->status = DYNAMIC_ST_READY;
-		VTAILQ_REMOVE(&dom->obj->purged_domains, dom, list);
+		VTAILQ_REMOVE(&obj->purged_domains, dom, list);
 		dynamic_free(NULL, dom);
 	}
 
@@ -619,8 +619,8 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 			d->status = DYNAMIC_ST_STALE;
 			AZ(pthread_cond_signal(&d->cond));
 			Lck_Unlock(&d->mtx);
-			VTAILQ_REMOVE(&d->obj->active_domains, d, list);
-			VTAILQ_INSERT_TAIL(&d->obj->purged_domains, d, list);
+			VTAILQ_REMOVE(&obj->active_domains, d, list);
+			VTAILQ_INSERT_TAIL(&obj->purged_domains, d, list);
 		}
 	}
 
@@ -632,8 +632,8 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 			d->thread = 0;
 			d->status = DYNAMIC_ST_READY;
 			Lck_Unlock(&d->mtx);
+			VTAILQ_REMOVE(&obj->purged_domains, d, list);
 			dynamic_free(ctx, d);
-			VTAILQ_REMOVE(&dom->obj->purged_domains, d, list);
 		}
 	}
 
@@ -662,7 +662,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 
 	INIT_OBJ(&dom->dir, DIRECTOR_MAGIC);
 	dom->dir.name = "dns";
-	dom->dir.vcl_name = dom->obj->vcl_name;
+	dom->dir.vcl_name = obj->vcl_name;
 	dom->dir.healthy = dynamic_healthy;
 	dom->dir.resolve = dynamic_resolve;
 	dom->dir.priv = dom;
