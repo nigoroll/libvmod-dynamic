@@ -241,7 +241,8 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 	b->refcount++;
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 
-	DBG(ctx, dom, "reference-backend %s (%d)", b->vcl_name, b->refcount);
+	DBG(ctx, dom, "ref-backend %s (%d in total)", b->vcl_name,
+	    b->refcount);
 }
 
 static unsigned
