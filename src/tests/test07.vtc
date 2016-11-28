@@ -1,0 +1,66 @@
+varnishtest "debugging"
+
+server s1 {
+	rxreq
+	txresp
+
+	accept
+	rxreq
+	txresp
+
+	accept
+	rxreq
+	txresp
+} -start
+
+varnish v1 -vcl {
+	import ${vmod_dynamic};
+
+	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+
+	acl ipv4_loopback {
+		"127/24";
+	}
+
+	sub vcl_init {
+		new d1 = dynamic.director(
+			port = "${s1_port}",
+			whitelist = ipv4_loopback,
+			domain_usage_timeout = 1s);
+		d1.debug(true);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend();
+	}
+} -start
+
+logexpect l1 -v v1 -g raw {
+	expect * * Debug	"vmod-dynamic: vcl1 d1 localhost addr 127.0.0.1"
+	expect * * VCL_acl	"^MATCH ipv4_loopback"
+	expect * * Debug	"vmod-dynamic: vcl1 d1 localhost add-backend d1.127.0.0.1."
+	expect * * Debug	"vmod-dynamic: vcl1 d1 localhost ref-backend d1.127.0.0.1. .1 in total."
+	expect * * Debug	"vmod-dynamic: vcl1 d1 img.localhost addr 127.0.0.1"
+	expect * * VCL_acl	"^MATCH ipv4_loopback"
+	expect * * Debug	"vmod-dynamic: vcl1 d1 img.localhost ref-backend d1.127.0.0.1. .2 in total."
+	expect * * VCL_Log	"vmod-dynamic: vcl1 d1 localhost deleted"
+	expect * * Debug	"vmod-dynamic: vcl1 d1 localhost unref-backend d1.127.0.0.1. .1 remaining."
+} -start
+
+client c1 {
+	txreq -hdr "Host: localhost"
+	rxresp
+	expect resp.status == 200
+
+	delay 1.5
+
+	txreq -hdr "Host: img.localhost"
+	rxresp
+	expect resp.status == 200
+
+	txreq -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+} -run
+
+logexpect l1 -wait
