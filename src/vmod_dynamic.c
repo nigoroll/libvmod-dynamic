@@ -425,7 +425,7 @@ dynamic_timestamp(struct dynamic_domain *dom, const char *event, double start,
 }
 
 static void*
-dynamic_lookup_thread(void *obj)
+dynamic_lookup_thread(void *priv)
 {
 	struct dynamic_domain *dom;
 	struct addrinfo hints, *res;
@@ -433,7 +433,7 @@ dynamic_lookup_thread(void *obj)
 	double deadline, lookup, results, update;
 	int ret;
 
-	CAST_OBJ_NOTNULL(dom, obj, DYNAMIC_DOMAIN_MAGIC);
+	CAST_OBJ_NOTNULL(dom, priv, DYNAMIC_DOMAIN_MAGIC);
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 
 	memset(&hints, 0, sizeof hints);
