@@ -183,6 +183,7 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 {
 	struct dynamic_domain *dom;
 	struct dynamic_backend *b;
+	struct vrt_ctx tmp;
 
 	AN(r);
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
@@ -197,6 +198,12 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 	if (ctx != NULL) {
 		Lck_AssertHeld(&dom->mtx);
 		Lck_AssertHeld(&dom->obj->mtx);
+	}
+	else {
+		ASSERT_CLI();
+		INIT_OBJ(&tmp, VRT_CTX_MAGIC);
+		tmp.vcl = dom->obj->vcl;
+		ctx = &tmp;
 	}
 
 	if (r == dom->current)
