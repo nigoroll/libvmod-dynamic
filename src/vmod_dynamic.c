@@ -480,14 +480,11 @@ dynamic_lookup_thread(void *priv)
 		}
 
 		/* Check status again after the blocking call */
-		if (!obj->active || dom->status == DYNAMIC_ST_STALE) {
-			Lck_Unlock(&dom->mtx);
-			break;
+		if (obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
+			deadline = VTIM_real() + obj->ttl;
+			ret = Lck_CondWait(&dom->cond, &dom->mtx, deadline);
+			assert(ret == 0 || ret == ETIMEDOUT);
 		}
-
-		deadline = VTIM_real() + obj->ttl;
-		ret = Lck_CondWait(&dom->cond, &dom->mtx, deadline);
-		assert(ret == 0 || ret == ETIMEDOUT);
 
 		Lck_Unlock(&dom->mtx);
 	}
