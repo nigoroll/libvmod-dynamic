@@ -771,10 +771,23 @@ vmod_director__init(VRT_CTX,
 	AN(objp);
 	AZ(*objp);
 	AN(vcl_name);
-	AN(port);
 	CHECK_OBJ_ORNULL(probe, VRT_BACKEND_PROBE_MAGIC);
 	CHECK_OBJ_ORNULL(whitelist, VRT_ACL_MAGIC);
-	xxxassert(ttl > 0);
+
+	if (port == NULL || *port == '\0' || ttl == 0 ||
+	    domain_usage_timeout == 0 || first_lookup_timeout == 0) {
+		VRT_handling(ctx, VCL_RET_FAIL);
+		// XXX: return?
+	}
+	else {
+		assert(ttl > 0);
+		assert(domain_usage_timeout > 0);
+		assert(first_lookup_timeout > 0);
+	}
+
+	assert(connect_timeout >= 0);
+	assert(first_byte_timeout >= 0);
+	assert(between_bytes_timeout >= 0);
 
 	ALLOC_OBJ(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AN(obj);

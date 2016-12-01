@@ -1,0 +1,37 @@
+varnishtest "Invalid parameters"
+
+server s1 { } -start
+
+varnish v1 -vcl+backend { } -start
+
+varnish v1 -errvcl "initialization" {
+	import ${vmod_dynamic};
+	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	sub vcl_init {
+		new d1 = dynamic.director(port = "");
+	}
+}
+
+varnish v1 -errvcl "initialization" {
+	import ${vmod_dynamic};
+	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	sub vcl_init {
+		new d1 = dynamic.director(ttl = 0s);
+	}
+}
+
+varnish v1 -errvcl "initialization" {
+	import ${vmod_dynamic};
+	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	sub vcl_init {
+		new d1 = dynamic.director(domain_usage_timeout = 0s);
+	}
+}
+
+varnish v1 -errvcl "initialization" {
+	import ${vmod_dynamic};
+	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	sub vcl_init {
+		new d1 = dynamic.director(first_lookup_timeout = 0s);
+	}
+}
