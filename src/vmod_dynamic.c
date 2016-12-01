@@ -738,7 +738,7 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 	/* No locking required for the fields obj->active and obj->vcl */
 	VTAILQ_FOREACH(obj, &objects, list)
 		if (obj->vcl == ctx->vcl) {
-			xxxassert(obj->active != active);
+			assert(obj->active != active);
 			obj->active = active;
 			if (active)
 				dynamic_start(obj);
