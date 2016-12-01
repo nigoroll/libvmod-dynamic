@@ -78,7 +78,7 @@ with the event::
 $Event vmod_event
 
 $Object director(
-	STRING port			= http,
+	STRING port			= "http",
 	STRING host_header		= 0,
 	PROBE probe			= 0,
 	ACL whitelist			= 0,
