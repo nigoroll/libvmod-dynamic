@@ -884,5 +884,6 @@ vmod_director_debug(VRT_CTX, struct vmod_dynamic_director *obj,
     VCL_BOOL enable)
 {
 
+	(void)ctx;
 	obj->debug = enable;
 }
