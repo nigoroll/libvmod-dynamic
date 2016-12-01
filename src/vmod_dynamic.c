@@ -119,6 +119,8 @@ dynamic_resolve(const struct director *d, struct worker *wrk,
 		return (NULL);
 	}
 
+	if (dom->current == NULL)
+		dom->current = VTAILQ_FIRST(&dom->refs);
 	next = dom->current;
 
 	do {

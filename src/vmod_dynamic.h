@@ -64,7 +64,7 @@ struct dynamic_domain {
 	pthread_cond_t			resolve;
 	VCL_TIME			last_used;
 	VTAILQ_ENTRY(dynamic_domain)	list;
-	VTAILQ_HEAD(,dynamic_ref)	refs;
+	VTAILQ_HEAD(, dynamic_ref)	refs;
 	struct dynamic_ref		*current;
 	char				*addr;
 	const char			*port;
