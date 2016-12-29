@@ -524,6 +524,15 @@ dynamic_free(VRT_CTX, struct dynamic_domain *dom)
 }
 
 static void
+kill_dom(struct dynamic_domain *dom)
+{
+	AZ(pthread_join(dom->thread, NULL));
+	assert(dom->status == DYNAMIC_ST_DONE);
+	dom->thread = 0;
+	dom->status = DYNAMIC_ST_READY;
+}
+
+static void
 dynamic_stop(struct vmod_dynamic_director *obj)
 {
 	struct dynamic_domain *dom, *d2;
@@ -554,10 +563,7 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 
 	VTAILQ_FOREACH(dom, &obj->active_domains, list) {
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-		AZ(pthread_join(dom->thread, NULL));
-		assert(dom->status == DYNAMIC_ST_DONE);
-		dom->thread = 0;
-		dom->status = DYNAMIC_ST_READY;
+		kill_dom(dom);
 	}
 
 	VTAILQ_FOREACH_SAFE(dom, &obj->purged_domains, list, d2) {
@@ -566,9 +572,7 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 		assert(dom->status == DYNAMIC_ST_STALE ||
 		    dom->status == DYNAMIC_ST_DONE);
 		Lck_Unlock(&dom->mtx);
-		AZ(pthread_join(dom->thread, NULL));
-		assert(dom->status == DYNAMIC_ST_DONE);
-		dom->status = DYNAMIC_ST_READY;
+		kill_dom(dom);
 		VTAILQ_REMOVE(&obj->purged_domains, dom, list);
 		dynamic_free(NULL, dom);
 	}
