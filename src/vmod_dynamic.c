@@ -571,6 +571,7 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		assert(dom->status == DYNAMIC_ST_STALE ||
 		    dom->status == DYNAMIC_ST_DONE);
+		dynamic_join(dom);
 		VTAILQ_REMOVE(&obj->purged_domains, dom, list);
 		dynamic_free(NULL, dom);
 	}
