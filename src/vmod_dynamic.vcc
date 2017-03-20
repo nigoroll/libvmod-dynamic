@@ -71,6 +71,15 @@ with the event::
 
     vmod-dynamic <vcl>.<director>(<host>) Done
 
+Not all logs belong to HTTP transactions, especially since DNS lookups happen
+in the background. In order to capture all logs from this module the simplest
+way with varnishlog is the following::
+
+    varnishlog -g raw -q '* ~ vmod-dynamic'
+
+It displays any individual record that contains the string ``vmod-dynamic``
+whether it belongs to a transaction or not.
+
 .. raw:: pdf
 
    PageBreak
@@ -155,6 +164,8 @@ SEE ALSO
 ========
 
 ``vcl``\(7),
+``vsl``\(7),
+``vsl-query``\(7),
 ``varnish-cli``\(7),
 ``varnish-counters``\(7),
 ``varnishstat``\(1),
