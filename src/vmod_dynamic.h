@@ -88,6 +88,7 @@ struct vmod_dynamic_director {
 	VCL_DURATION				between_bytes_tmo;
 	VCL_DURATION				domain_usage_tmo;
 	VCL_DURATION				first_lookup_tmo;
+	unsigned				max_connections;
 	VTAILQ_ENTRY(vmod_dynamic_director)	list;
 	VTAILQ_HEAD(,dynamic_domain)		active_domains;
 	VTAILQ_HEAD(,dynamic_domain)		purged_domains;

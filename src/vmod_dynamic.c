@@ -331,6 +331,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa,
 	vrt.connect_timeout = dom->obj->connect_tmo;
 	vrt.first_byte_timeout = dom->obj->first_byte_tmo;
 	vrt.between_bytes_timeout = dom->obj->between_bytes_tmo;
+	vrt.max_connections = dom->obj->max_connections;
 
 	switch (af) {
 	case AF_INET:
@@ -763,7 +764,8 @@ vmod_director__init(VRT_CTX,
     VCL_DURATION first_byte_timeout,
     VCL_DURATION between_bytes_timeout,
     VCL_DURATION domain_usage_timeout,
-    VCL_DURATION first_lookup_timeout)
+    VCL_DURATION first_lookup_timeout,
+    VCL_INT max_connections)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -789,6 +791,7 @@ vmod_director__init(VRT_CTX,
 	assert(connect_timeout >= 0);
 	assert(first_byte_timeout >= 0);
 	assert(between_bytes_timeout >= 0);
+	assert(max_connections >= 0);
 
 	ALLOC_OBJ(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AN(obj);
@@ -810,6 +813,7 @@ vmod_director__init(VRT_CTX,
 	obj->between_bytes_tmo = between_bytes_timeout;
 	obj->domain_usage_tmo = domain_usage_timeout;
 	obj->first_lookup_tmo = first_lookup_timeout;
+	obj->max_connections = (unsigned)max_connections;
 
 	Lck_New(&obj->mtx, lck_dir);
 
