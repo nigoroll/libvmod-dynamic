@@ -96,7 +96,8 @@ $Object director(
 	DURATION first_byte_timeout	= 0,
 	DURATION between_bytes_timeout	= 0,
 	DURATION domain_usage_timeout	= 7200,
-	DURATION first_lookup_timeout	= 10)
+	DURATION first_lookup_timeout	= 10,
+	INT max_connections		= 0)
 
 Description
 	Create a DNS director.
@@ -117,6 +118,7 @@ Description
 	- *first_lookup_timeout* - delay until the director fails to provide a
 	  backend when a domain is requested for the first time (defaults to
 	  ten seconds)
+	- *max_connections* (defaults to zero, unlimited)
 
 Example
 	::
