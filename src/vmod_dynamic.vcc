@@ -171,6 +171,16 @@ If all backends starts as healthy (until the probe proves otherwise) a
 transaction could still fail if the selected backend is actually sick. This
 can be mitigated using the ``retry`` transition in VCL.
 
+There is no support for lookups limited to IPv4 or IPv6 only. However it can
+be achieved by the means of a white list::
+
+    acl ipv4_only { "0.0.0.0"/0; }
+    acl ipv6_only { "::0"/0; }
+
+With that you can restrict backends to the desired IP network, and monitor
+error logs with the ``acl-mismatch`` event. Knowing which addresses were
+rejected, you can fix your domains registration (DNS records, hosts file etc).
+
 SEE ALSO
 ========
 

@@ -1,0 +1,41 @@
+varnishtest "Ipv4- or IPv6-only"
+
+server s1 { } -start
+
+varnish v1 -vcl+backend {
+	import ${vmod_dynamic};
+
+	acl ipv4_only { "0.0.0.0"/0; }
+	acl ipv6_only { "::0"/0; }
+
+	sub vcl_init {
+		new d4 = dynamic.director(whitelist = ipv4_only);
+		new d6 = dynamic.director(whitelist = ipv6_only);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d4.backend("127.0.0.1");
+		set req.backend_hint = d4.backend("::1");
+		set req.backend_hint = d6.backend("127.0.0.1");
+		set req.backend_hint = d6.backend("::1");
+		return (synth(200));
+	}
+} -start
+
+logexpect l4 -g raw -v v1 {expect * 0 Error "d4 ::1 acl-mismatch"} -start
+logexpect l6 -g raw -v v1 {expect * 0 Error "d6 127.0.0.1 acl-mismatch"} -start
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+} -run
+
+logexpect l4 -wait
+logexpect l6 -wait
+
+varnish v1 -expect VBE.vcl1.d4(127.0.0.1).req == 0
+varnish v1 -expect VBE.vcl1.d6(::1).req == 0
+
+varnish v1 -expect !VBE.vcl1.d4(::1).req
+varnish v1 -expect !VBE.vcl1.d6(127.0.0.1).req

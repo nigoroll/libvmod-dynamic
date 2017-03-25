@@ -39,6 +39,7 @@ vcc_*_if.h
 # ------
 
 *.rst
+*.pdf
 *.3
 
 # packaging

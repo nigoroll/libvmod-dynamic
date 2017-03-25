@@ -13,6 +13,11 @@ nodist_libvmod_dynamic_la_SOURCES = \
 
 dist_man_MANS = vmod_dynamic.3
 
+pdf-local: vmod_dynamic.pdf
+
+.rst.pdf:
+	rst2pdf $< $@
+
 @BUILD_VMOD_DYNAMIC@
 
 AM_TESTS_ENVIRONMENT = \
