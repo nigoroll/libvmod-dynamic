@@ -160,6 +160,17 @@ Description
 	Enable or disable debugging for a dynamic director, logging background
 	operations related to backends management.
 
+PITFALLS
+========
+
+When you are using probes, consider setting the ``initial`` value to at least
+as much as the ``threshold``. Otherwise transactions that trigger the first
+lookup of a domain are guaranteed to see all the backends as sick and fail.
+
+If all backends starts as healthy (until the probe proves otherwise) a
+transaction could still fail if the selected backend is actually sick. This
+can be mitigated using the ``retry`` transition in VCL.
+
 SEE ALSO
 ========
 
