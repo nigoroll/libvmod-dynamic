@@ -1,0 +1,33 @@
+varnishtest "hosts check for the test suite"
+
+shell {
+	set -e
+
+	# sanity checks
+	getent hosts 127.0.0.1
+	getent hosts ::1
+
+	# domains checks
+	getent hosts 127.0.0.1 | grep -w localhost
+	getent hosts 127.0.0.1 | grep -w localhost
+	getent hosts 127.0.0.1 | grep -w www.localhost
+	getent hosts 127.0.0.1 | grep -w img.localhost
+
+	getent hosts ::1 | grep -w localhost
+	getent hosts ::1 | grep -w localhost
+	getent hosts ::1 | grep -w www.localhost
+	getent hosts ::1 | grep -w img.localhost
+}
+
+# we also need barrier support in varnishtest
+barrier b1 cond 2
+
+server s1 {
+	barrier b1 sync
+} -start
+
+client c1 -connect ${s1_sock} {
+	barrier b1 sync
+} -run
+
+server s1 -wait

@@ -61,7 +61,21 @@ pkg-config and Varnish. You can build the module simply by running::
  ./configure
  make
 
-For the test suite to work, please add this line to your ``/etc/hosts``::
+For the test suite to work, your best shot is to install nss_wrapper_
+and add it to your environment before you run ``./configure``::
+
+    export LD_PRELOAD=libnss_wrapper.so
+
+.. _nss_wrapper: https://cwrap.org
+
+On multi-lib systems you may run into problems. For example you may be
+building against a 64-bit Varnish, but the test suite may use a 32-bit
+program that will fail to honor the preload. In that case your system
+may support multi-lib preload too::
+
+    export LD_PRELOAD_64=libnss_wrapper.so
+
+If it still doesn't work, you can add this line to your ``/etc/hosts``::
 
 	127.0.0.1 www.localhost img.localhost
 
@@ -69,7 +83,8 @@ then run::
 
 	make check
 
-Alternatively, the ``make check`` can also be skipped.
+Alternatively, the ``make check`` can also be skipped. It is automatically
+skipped if ``./configure`` couldn't determine it would work.
 
 You can then proceed with the installation::
 

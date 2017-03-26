@@ -31,6 +31,22 @@ AC_SUBST([VARNISH_LIBRARY_PATH],
 
 AC_SUBST([VTC_TESTS], "$(cd $srcdir/src && echo tests/*.vtc)")
 
+# Check that either cwrap is properly set up or the global hosts
+# file contains the loop-back domains used in the test suite.
+NSS_WRAPPER_HOSTS="$PWD/$srcdir/src/tests/hosts" \
+LD_LIBRARY_PATH="$VARNISH_LIBRARY_PATH" \
+PATH="$VMOD_TEST_PATH:$PATH" \
+env varnishtest -v $srcdir/src/tests/check-hosts.vtc 1>&5 2>&5 ||
+VTC_TESTS=
+
+AC_MSG_CHECKING([that the test suite works])
+if test -n "$VTC_TESTS"
+then
+	AC_MSG_RESULT([yes])
+else
+	AC_MSG_RESULT([no])
+fi
+
 AS_VERSION_COMPARE([$VARNISH_VERSION], [5.0], [
 	AC_DEFINE([HAVE_VCL_EVENT_USE], [1], [Define if USE events are sent.])])
 

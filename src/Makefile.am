@@ -21,7 +21,8 @@ pdf-local: vmod_dynamic.pdf
 @BUILD_VMOD_DYNAMIC@
 
 AM_TESTS_ENVIRONMENT = \
-	PATH="$(VMOD_TEST_PATH)" \
+	NSS_WRAPPER_HOSTS="$(abs_srcdir)/tests/hosts" \
+	PATH="$(VMOD_TEST_PATH):$(PATH)" \
 	LD_LIBRARY_PATH="$(VARNISH_LIBRARY_PATH)"
 TEST_EXTENSIONS = .vtc
 VTC_LOG_COMPILER = varnishtest -v
