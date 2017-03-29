@@ -1,0 +1,38 @@
+varnishtest proxy_header
+
+# This test is disabled because it needs at least Varnish 5.1 and isn't
+# really easy to conditionally execute.
+
+server s1 {
+	rxreq
+	txresp
+} -start
+
+varnish v1 -proto PROXY -vcl+backend {
+	import std;
+
+	sub vcl_deliver {
+		set resp.http.Client-Port = std.port(client.ip);
+		set resp.http.Remote-Port = std.port(remote.ip);
+	}
+} -start
+
+varnish v2 -vcl+backend {
+	import ${vmod_dynamic};
+
+	sub vcl_init {
+		new d1 = dynamic.director(port = "${v1_port}",
+		    proxy_header = 2);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend("${v1_addr}");
+	}
+} -start
+
+client c1 -connect ${v2_sock} {
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.http.Client-Port != resp.http.Remote-Port
+} -run
