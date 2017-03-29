@@ -332,6 +332,10 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa,
 	vrt.first_byte_timeout = dom->obj->first_byte_tmo;
 	vrt.between_bytes_timeout = dom->obj->between_bytes_tmo;
 	vrt.max_connections = dom->obj->max_connections;
+#if HAVE_BACKEND_PROXY
+	vrt.proxy_header = dom->obj->proxy_header;
+	assert(vrt.proxy_header <= 2);
+#endif
 
 	switch (af) {
 	case AF_INET:
@@ -765,7 +769,8 @@ vmod_director__init(VRT_CTX,
     VCL_DURATION between_bytes_timeout,
     VCL_DURATION domain_usage_timeout,
     VCL_DURATION first_lookup_timeout,
-    VCL_INT max_connections)
+    VCL_INT max_connections,
+    VCL_INT proxy_header)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -792,6 +797,11 @@ vmod_director__init(VRT_CTX,
 	assert(first_byte_timeout >= 0);
 	assert(between_bytes_timeout >= 0);
 	assert(max_connections >= 0);
+#ifdef HAVE_BACKEND_PROXY
+	assert(proxy_header >= 0);
+#else
+	assert(proxy_header == 0);
+#endif
 
 	ALLOC_OBJ(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AN(obj);
@@ -814,6 +824,7 @@ vmod_director__init(VRT_CTX,
 	obj->domain_usage_tmo = domain_usage_timeout;
 	obj->first_lookup_tmo = first_lookup_timeout;
 	obj->max_connections = (unsigned)max_connections;
+	obj->proxy_header = (unsigned)proxy_header;
 
 	Lck_New(&obj->mtx, lck_dir);
 

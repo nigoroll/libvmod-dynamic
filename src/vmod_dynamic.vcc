@@ -97,7 +97,8 @@ $Object director(
 	DURATION between_bytes_timeout	= 0,
 	DURATION domain_usage_timeout	= 7200,
 	DURATION first_lookup_timeout	= 10,
-	INT max_connections		= 0)
+	INT max_connections		= 0,
+	INT proxy_header		= 0)
 
 Description
 	Create a DNS director.
@@ -119,6 +120,12 @@ Description
 	  backend when a domain is requested for the first time (defaults to
 	  ten seconds)
 	- *max_connections* (defaults to zero, unlimited)
+	- *proxy_header* - version of the PROXY protocol to use, or zero
+          to disable it (defaults to zero, valid versions are one or two)
+
+.. raw:: pdf
+
+   PageBreak
 
 Example
 	::
