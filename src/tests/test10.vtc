@@ -1,10 +1,12 @@
 varnishtest "max_connections"
 
 barrier b1 cond 2
+barrier b2 cond 2
 
 server s1 {
 	rxreq
 	barrier b1 sync
+	barrier b2 sync
 	txresp
 } -start
 
@@ -34,10 +36,11 @@ client c1 {
 } -start
 
 client c2 {
+	barrier b1 sync
 	txreq
 	rxresp
 	expect resp.status == 429
-	barrier b1 sync
+	barrier b2 sync
 } -run
 
 client c1 -wait
