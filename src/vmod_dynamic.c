@@ -468,6 +468,13 @@ dynamic_lookup_thread(void *priv)
 		dynamic_timestamp(dom, "Results", results, results - lookup,
 		    results - lookup);
 
+		/*
+		 * If obj isn't active after the blocking call,
+		 * there's no point going forward
+		 */
+		if (!dom->obj->active)
+			break;
+
 		if (ret == 0) {
 			dynamic_update_domain(dom, res);
 			update = VTIM_real();
