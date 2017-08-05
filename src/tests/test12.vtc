@@ -1,0 +1,52 @@
+varnishtest "Host header per backend"
+
+server s1 {
+	rxreq
+	expect req.http.host == www.localhost
+	txresp
+
+	rxreq
+	expect req.http.host == img.localhost
+	txresp
+} -start
+
+varnish v1 -vcl {
+	import ${vmod_dynamic};
+
+	backend dummy {
+	    .host = "${bad_ip}";
+	}
+
+	sub vcl_init {
+	    new d1 = dynamic.director(
+	      port = "${s1_port}",
+	      share = HOST
+	      );
+	}
+
+	sub vcl_recv {
+	    set req.backend_hint = d1.backend();
+	    unset req.http.Host;
+	    return (pass);
+	}
+
+	sub vcl_backend_error {
+	    # the director may resolve ::1 first
+	    return (retry);
+	}
+} -start
+
+client c1 {
+	txreq -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+
+	txreq -hdr "Host: img.localhost" -hdr "Connection: close"
+	rxresp
+	expect resp.status == 200
+} -run
+
+delay 1
+
+varnish v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}).req == 1
+varnish v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}).req == 1

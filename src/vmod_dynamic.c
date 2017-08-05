@@ -265,7 +265,7 @@ dynamic_find(struct dynamic_domain *dom, struct suckaddr *sa)
 	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 
-	/* search this director's backends */
+	/* search this domain's backends */
 	VTAILQ_FOREACH(r, &dom->refs, list) {
 		if (r->mark == dom->mark)
 			continue;
@@ -277,6 +277,9 @@ dynamic_find(struct dynamic_domain *dom, struct suckaddr *sa)
 			return (1);
 		}
 	}
+
+	if (dom->obj->share == HOST)
+		return (0);
 
 	/* search the rest of the backends */
 	VTAILQ_FOREACH(b, &dom->obj->backends, list) {
@@ -316,16 +319,28 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa,
 
 	vsb = VSB_new_auto();
 	AN(vsb);
-	VSB_printf(vsb, "%s(%s)", dom->obj->vcl_name, b->ip_addr);
-	AZ(VSB_finish(vsb));
 
+	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
+	vrt.port = dom->port;
+
+	switch (dom->obj->share) {
+	case DIRECTOR:
+		vrt.hosthdr = dom->obj->hosthdr;
+		VSB_printf(vsb, "%s(%s)", dom->obj->vcl_name, b->ip_addr);
+		break;
+	case HOST:
+		vrt.hosthdr = dom->obj->hosthdr ? dom->obj->hosthdr : dom->addr;
+		VSB_printf(vsb, "%s.%s(%s)", dom->obj->vcl_name, dom->addr,
+		    b->ip_addr);
+		break;
+	default:
+		INCOMPL();
+	}
+	AZ(VSB_finish(vsb));
 	b->vcl_name = strdup(VSB_data(vsb));
 	AN(b->vcl_name);
 	VSB_delete(vsb);
 
-	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
-	vrt.port = dom->port;
-	vrt.hosthdr = dom->obj->hosthdr;
 	vrt.vcl_name = b->vcl_name;
 	vrt.probe = dom->obj->probe;
 	vrt.connect_timeout = dom->obj->connect_tmo;
@@ -755,12 +770,25 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 	return (0);
 }
 
+static inline enum dynamic_share_e
+dynamic_share_parse(const char *share_s)
+{
+	switch (share_s[0]) {
+	case 'D':	return DIRECTOR; break;
+	case 'H':	return HOST; break;
+	default:	INCOMPL();
+	}
+	INCOMPL();
+	NEEDLESS(return(0));
+}
+
 VCL_VOID __match_proto__()
 vmod_director__init(VRT_CTX,
     struct vmod_dynamic_director **objp,
     const char *vcl_name,
     VCL_STRING port,
     VCL_STRING hosthdr,
+    VCL_ENUM share_s,
     VCL_PROBE probe,
     VCL_ACL whitelist,
     VCL_DURATION ttl,
@@ -815,6 +843,7 @@ vmod_director__init(VRT_CTX,
 	obj->vcl = ctx->vcl;
 	obj->active = 0;
 	obj->hosthdr = hosthdr;
+	obj->share = dynamic_share_parse(share_s);
 	obj->probe = probe;
 	obj->whitelist = whitelist;
 	obj->ttl = ttl;

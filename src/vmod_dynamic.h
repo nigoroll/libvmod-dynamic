@@ -54,6 +54,11 @@ enum dynamic_status_e {
 	DYNAMIC_ST_DONE		= 3,
 };
 
+enum dynamic_share_e {
+	DIRECTOR,
+	HOST
+};
+
 struct dynamic_domain {
 	unsigned			magic;
 #define DYNAMIC_DOMAIN_MAGIC		0x1bfe1345
@@ -80,6 +85,7 @@ struct vmod_dynamic_director {
 	char					*vcl_name;
 	char					*port;
 	const char				*hosthdr;
+	enum dynamic_share_e			share;
 	VCL_PROBE				probe;
 	VCL_ACL					whitelist;
 	VCL_DURATION				ttl;
