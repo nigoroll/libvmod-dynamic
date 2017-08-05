@@ -81,7 +81,7 @@
 
 struct vmod_dynamic_head objects = VTAILQ_HEAD_INITIALIZER(objects);
 
-static struct VSC_C_lck *lck_dir, *lck_be;
+static struct VSC_lck *lck_dir, *lck_be;
 
 static unsigned loadcnt = 0;
 
@@ -741,8 +741,8 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 		assert(loadcnt > 0);
 		loadcnt--;
 		if (loadcnt == 0) {
-			VSM_Free(lck_dir);
-			VSM_Free(lck_be);
+			Lck_DestroyClass(&lck_dir);
+			Lck_DestroyClass(&lck_be);
 		}
 		return (0);
 		break;

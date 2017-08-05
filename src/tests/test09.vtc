@@ -22,8 +22,8 @@ varnish v1 -vcl+backend {
 	}
 } -start
 
-logexpect l4 -g raw -v v1 {expect * 0 Error "d4 ::1 acl-mismatch"} -start
-logexpect l6 -g raw -v v1 {expect * 0 Error "d6 127.0.0.1 acl-mismatch"} -start
+logexpect l4 -v v1 -g raw {expect * 0 Error "d4 ::1 acl-mismatch"} -start
+logexpect l6 -v v1 -g raw {expect * 0 Error "d6 127.0.0.1 acl-mismatch"} -start
 
 client c1 {
 	txreq
