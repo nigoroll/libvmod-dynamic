@@ -1,7 +1,9 @@
 #-
 # Copyright (c) 2015-2016 Dridi Boukelmoune
+# Copyright 2017 UPLEX - Nils Goroll Systemoptimierung
 #
-# Author: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
+# Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
+#	   Nils Goroll <nils.goroll@uplex.de>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -89,6 +91,7 @@ $Event vmod_event
 $Object director(
 	STRING port			= "http",
 	STRING host_header		= 0,
+	ENUM { DIRECTOR, HOST } share	= "DIRECTOR",
 	PROBE probe			= 0,
 	ACL whitelist			= 0,
 	DURATION ttl			= 3600,
@@ -107,6 +110,7 @@ Description
 	round robin fashion. It accepts the following parameters:
 
 	- *port* (defaults to ``"http"``)
+	- *share* (defaults to ``"DIRECTOR"``)
 	- *host_header* (defaults to none)
 	- *probe* (defaults to none)
 	- *whitelist* - an acl (defaults to none)
@@ -121,7 +125,7 @@ Description
 	  ten seconds)
 	- *max_connections* (defaults to zero, unlimited)
 	- *proxy_header* - version of the PROXY protocol to use, or zero
-          to disable it (defaults to zero, valid versions are one or two)
+	  to disable it (defaults to zero, valid versions are one or two)
 
 .. raw:: pdf
 

@@ -1,0 +1,98 @@
+varnishtest "share = HOST and probe hostname"
+
+# probe polling test from varnish-cache v00017.vtc
+
+barrier b1 cond 2
+
+server s1 {
+	# probe
+	rxreq
+	expect req.http.host == www.localhost
+	expect req.http.Connection == close
+	txresp
+
+	close
+	accept
+
+	# req
+	rxreq
+	expect req.http.X-Varnish == 1002
+	expect req.http.host == www.localhost
+	txresp
+
+	close
+	accept
+
+	# probe
+	rxreq
+	expect req.http.host == img.localhost
+	expect req.http.Connection == close
+	txresp
+
+	close
+	accept
+
+	# req
+	rxreq
+	expect req.http.X-Varnish == 1004
+	expect req.http.host == img.localhost
+	txresp
+
+	barrier b1 sync
+} -start
+
+varnish v1 -arg "-p vcc_allow_inline_c=true" -vcl {
+	import ${vmod_dynamic};
+
+	backend dummy {
+	    .host = "${bad_ip}";
+	}
+
+	probe simple {
+	    .initial = 3;
+	    .timeout = 1s;
+	    .interval = 10s;
+	}
+
+	sub vcl_init {
+	    new d1 = dynamic.director(
+	      port = "${s1_port}",
+	      share = HOST,
+	      probe = simple
+	      );
+	}
+
+	sub vcl_recv {
+	    set req.backend_hint = d1.backend();
+	    unset req.http.Host;
+	    # let the probe win the race for the backend
+	    C{
+		#include <unistd.h>
+		(void)sleep(1);
+	    }C
+	    return (pass);
+	}
+
+	sub vcl_backend_error {
+	    # the director may resolve ::1 first
+	    return (retry);
+	}
+} -start
+
+client c1 {
+	txreq -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+
+	txreq -hdr "Host: img.localhost"
+	rxresp
+	expect resp.status == 200
+} -run
+
+barrier b1 sync
+
+varnish v1 -cliexpect "d1\\.www\\.localhost.*4/8" "backend.list"
+varnish v1 -cliexpect "d1\\.img\\.localhost.*4/8" "backend.list"
+
+varnish v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}).req == 1
+varnish v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}).req == 1
