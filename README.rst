@@ -2,6 +2,8 @@
 vmod-dynamic
 ============
 
+This branch is for varnish version 5.1
+
 Description
 ===========
 
