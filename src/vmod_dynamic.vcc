@@ -26,27 +26,94 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-$Module dynamic 3 Varnish DNS Director Module
+$Module dynamic 3 Varnish dynamic backends module
+
+.. role:: ref(emphasis)
 
 DESCRIPTION
 ===========
 
-This module provides a DNS director implementation with limited capabilities.
-It currently relies on the default timeouts. DNS lookups are operated by
-background threads, one per DNS director domain, and rely on your system's
-resolver.
+This module provides a varnish director for dynamic creation of
+backends based on calls to the system's network address resolution
+services, which, in turn, typically use information from the
+``/etc/hosts`` file and the Domain Name Service (DNS), but can be
+configured to use other sources like LDAP (see :ref:`nsswitch.conf(5)`).
 
-Backends are created and deleted depending on the lookup results, you can
-monitor them over time just like regular backends. They will appear in
-``varnishstat``'s or any other similar tool's output. The counters will be
-dynamic according to the following pattern::
+While standard varnish backends defined in VCL may also be defined in
+terms of host names, changes of the name service information will only
+be picked up with a VCL reload.
+
+In contrast, for dynamic backends provided by this module,
+
+* name resolution information will be refreshed by background threads
+  after a configurable time to live (ttl)
+
+* resolution to multiple network addresses is supported
+
+.. _ref_vmod_dynamic_share:
+
+BACKEND SHARING
+===============
+
+By default (``share = "DIRECTOR"`` parameter), backends are shared per
+director: Only one backend per director instance and ip address is
+created.
+
+The ``share = "HOST"`` parameter allows to limit sharing to backends
+created for the same hostname (``host`` argument to the ``.backend()``
+method).
+
+.. _ref_vmod_dynamic_probe:
+
+PROBING
+=======
+
+A probe to be used with dynamically created backends can be
+specified. Note that with ``share = "DIRECTOR"``, a ``Host:`` header
+is only sent with probes if the ``host_header`` argument is provided
+during director initialization (or because a custom probe ``request``
+contains one).
+
+With ``share = "HOST"``, the ``Host:`` header for probes defaults to
+the backend's hostname (``host`` argument to the ``.backend()``
+method).
+
+Consider setting the ``initial`` attribute of probes at least as high
+as the ``threshold`` attribute. Otherwise transactions that trigger
+the first lookup of a domain will see a sick backend and fail.
+
+Irrespective of the ``initial`` attribute, transactions may still fail
+for backends which are actually sick. This can be mitigated using the
+``retry`` transition in VCL.
+
+TTLs from DNS
+=============
+
+A frequent use case of the dynamic director is to use the DNS TTL as
+the TTL of dynamic backends. Because there is no standard library
+function returning this information, the dynamic director currently
+supports this setup in coorperation other services supporting caching
+of dynamic DNS TTLs:
+
+* install and configure a system name service caching service like
+  :ref:`nscd(8)`
+
+* use the *ttl* director initialization parameter as a minimum ttl.
+
+STATISTICS
+==========
+
+Dynamic backends are created and deleted on demand and can be
+monitored just like VCL-defined backends. Their statistics will appear
+in VSM-tools like ``varnishstat`` as:
+
+* for ``share = "DIRECTOR"``::
 
    VBE.<configname>.<directorname>(<ip>).*
 
-When a lookup fails, the backends are left untouched and the error will be
-logged with the following event::
+* for ``share = "HOST"``::
 
-   getaddrinfo <errno> (<reason>)
+   VBE.<configname>.<directorname>.<host>(<ip>).*
 
 LOGGING
 =======
@@ -86,6 +153,11 @@ whether it belongs to a transaction or not.
 
    PageBreak
 
+When a lookup fails, the backends are left untouched and the error will be
+logged with the following event::
+
+   getaddrinfo <errno> (<reason>)
+
 $Event vmod_event
 
 $Object director(
@@ -107,22 +179,53 @@ Description
 	Create a DNS director.
 
 	The director creates backends with DNS lookups and chooses them in a
-	round robin fashion. It accepts the following parameters:
+	round robin fashion. It accepts the following
 
+Parameters:
 	- *port* (defaults to ``"http"``)
+
+	  The port to conncet to
+
 	- *share* (defaults to ``"DIRECTOR"``)
+
+	  Backend sharing scope, see :ref:`ref_vmod_dynamic_share`
+
 	- *host_header* (defaults to none)
+
+	  `host_header` attribute for dynamically created backends.
+	  See also :ref:`ref_vmod_dynamic_probe`
+
 	- *probe* (defaults to none)
+
+	  Probe to use. See also :ref:`ref_vmod_dynamic_probe`
+
 	- *whitelist* - an acl (defaults to none)
+
+	  Only name resolution results matching the acl will be used.
+
 	- *ttl* - delay between lookups (defaults to one hour)
+
+	  Minimum backend lifetime before address resultion is
+	  re-checked
+
+	- *domain_usage_timeout*
+
+	  Delay until an unused domain and its backends are removed
+	  (defaults to two hours)
+
+	- *first_lookup_timeout*
+
+	  Delay until the director fails lookup when a domain is
+	  requested for the first time and there is no response from
+	  the name service (defaults to ten seconds)
+
+Parameters to set attributes of backends
+
+	See varnish documentation for details
+
 	- *connect_timeout* (defaults to global *connect_timeout*)
 	- *first_byte_timeout* (defaults to global *first_byte_timeout*)
 	- *between_bytes_timeout* (defaults to global *between_bytes_timeout*)
-	- *domain_usage_timeout* - delay until an unused domain and its
-	  backends are removed (defaults to two hours)
-	- *first_lookup_timeout* - delay until the director fails to provide a
-	  backend when a domain is requested for the first time (defaults to
-	  ten seconds)
 	- *max_connections* (defaults to zero, unlimited)
 	- *proxy_header* - version of the PROXY protocol to use, or zero
 	  to disable it (defaults to zero, valid versions are one or two)
@@ -176,14 +279,6 @@ Description
 PITFALLS
 ========
 
-When you are using probes, consider setting the ``initial`` value to at least
-as much as the ``threshold``. Otherwise transactions that trigger the first
-lookup of a domain are guaranteed to see all the backends as sick and fail.
-
-If all backends starts as healthy (until the probe proves otherwise) a
-transaction could still fail if the selected backend is actually sick. This
-can be mitigated using the ``retry`` transition in VCL.
-
 There is no support for lookups limited to IPv4 or IPv6 only. However it can
 be achieved by the means of a white list::
 
@@ -197,13 +292,15 @@ rejected, you can fix your domains registration (DNS records, hosts file etc).
 SEE ALSO
 ========
 
-``vcl``\(7),
-``vsl``\(7),
-``vsl-query``\(7),
-``varnish-cli``\(7),
-``varnish-counters``\(7),
-``varnishstat``\(1),
-``getaddrinfo``\(3)
+* :ref:`vcl(7)`
+* :ref:`vsl(7)`
+* :ref:`vsl-query(7)`
+* :ref:`varnish-cli(7)`
+* :ref:`varnish-counters(7)`
+* :ref:`varnishstat(1)`
+* :ref:`getaddrinfo(3)`
+* :ref:`nscd(8)`
+* :ref:`nsswitch.conf(5)`
 
 COPYRIGHT
 =========
@@ -211,4 +308,5 @@ COPYRIGHT
 This document is licensed under the same licence as vmod-dynamic itself. See
 LICENCE for details.
 
-Copyright (c) 2015-2016 Dridi Boukelmoune
+* Copyright (c) 2015-2016 Dridi Boukelmoune
+* Copyright 2017 UPLEX - Nils Goroll Systemoptimierung
