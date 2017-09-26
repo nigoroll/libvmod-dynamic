@@ -2,7 +2,7 @@
 vmod-dynamic
 ============
 
-This branch is for varnish version from 4.0 to 5.0
+This branch is for varnish version from 5.0
 
 Description
 ===========
