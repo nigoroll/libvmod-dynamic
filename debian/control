@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 7.0.50~),
  python-docutils,
  varnish (>= 4.1.1),
  libvarnishapi-dev (>= 4.1.1) | varnish-dev (>= 4.1.8)
-Standards-Version: 3.8.1
+Standards-Version: 3.9.4
 Vcs-Git: git://github.com/nigoroll/libvmod-named.git
 
 Package: libvmod-dynamic
