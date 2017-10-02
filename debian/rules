@@ -8,5 +8,10 @@ override_dh_gencontrol:
 		dh_gencontrol ; \
 	fi
 
+override_dh_install:
+	dh_install;
+	# Emptying the dependency libs in .la files
+	sed -i "/dependency_libs/ s/'.*'/''/" `find . -iname '*.la'`;
+
 %:
 	dh $@
