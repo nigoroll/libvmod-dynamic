@@ -2,6 +2,6 @@ ACLOCAL_AMFLAGS = -I m4 -I ${VARNISHAPI_DATAROOTDIR}/aclocal
 
 SUBDIRS = src
 
-dist_doc_DATA = README.rst LICENSE
+dist_doc_DATA = README.rst
 
 EXTRA_DIST = vmod-dynamic.spec debian
