@@ -3,7 +3,8 @@ Section: web
 Priority: extra
 Maintainer: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
 Build-Depends: debhelper (>= 7),
- build-essential,
+ automake (>= 1.11),
+ libtool,
  pkg-config,
  python-docutils,
  varnish (>= 4.1.1),
