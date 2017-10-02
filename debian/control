@@ -15,4 +15,6 @@ Vcs-Git: git://github.com/nigoroll/libvmod-named.git
 Package: libvmod-dynamic
 Architecture: any
 Depends: varnish (>= 4.1.1), ${shlibs:Depends}, ${misc:Depends}, ${Varnish:ABI}
-Description: Named vmod for Varnish
+Description: Dynamic vmod for Varnish
+ A VMOD to create dynamic director, that is to say relying on DNS to dynamically
+ create backends.
