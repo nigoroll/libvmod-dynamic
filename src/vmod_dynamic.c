@@ -1,8 +1,10 @@
 /*-
  * Copyright (c) 2015-2016 Varnish Software AS
+ * Copyright 2017 UPLEX - Nils Goroll Systemoptimierung
  * All rights reserved.
  *
- * Author: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
+ * Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
+ *	    Nils Goroll <nils.goroll@uplex.de>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
