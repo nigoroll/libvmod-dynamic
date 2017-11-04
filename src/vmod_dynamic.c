@@ -38,14 +38,15 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <vcl.h>
-#include <vrt.h>
-#include <vsa.h>
-#include <vtim.h>
+#include <string.h>
 
 #include <cache/cache.h>
 #include <cache/cache_director.h>
+
+#include <vsb.h>
+#include <vcl.h>
+#include <vsa.h>
+#include <vtim.h>
 
 #include "vcc_dynamic_if.h"
 #include "vmod_dynamic.h"
