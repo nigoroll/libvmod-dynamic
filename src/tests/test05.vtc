@@ -1,5 +1,7 @@
 varnishtest "Implicit domain name on backend selection"
 
+shell "getent hosts localhost www.localhost img.localhost || true"
+
 server s1 -listen 0.0.0.0 0 {
 	rxreq
 	expect req.method == GET

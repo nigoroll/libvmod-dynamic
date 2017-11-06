@@ -1,5 +1,7 @@
 varnishtest "VCL discarded with backends referenced more than once"
 
+shell "getent hosts localhost www.localhost img.localhost || true"
+
 # inspired by v00006.vtc
 
 server s1 {

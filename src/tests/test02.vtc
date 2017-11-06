@@ -1,5 +1,7 @@
 varnishtest "Different host names can share backends"
 
+shell "getent hosts localhost www.localhost img.localhost || true"
+
 server s1 {
 	rxreq
 	expect req.http.host == www.localhost
