@@ -1,8 +1,5 @@
 varnishtest proxy_header
 
-# This test is disabled because it needs at least Varnish 5.1 and isn't
-# really easy to conditionally execute.
-
 server s1 {
 	rxreq
 	txresp
