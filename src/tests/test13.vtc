@@ -1,5 +1,7 @@
 varnishtest "share = HOST and probe hostname"
 
+shell "getent hosts localhost www.localhost img.localhost || true"
+
 # probe polling test from varnish-cache v00017.vtc
 
 barrier b1 cond 2
