@@ -1,22 +1,28 @@
+# -D MUST pass in _version and _release, and SHOULD -pass in dist.
+
 %global vmod    dynamic
 %global vmoddir %{_libdir}/varnish/vmods
 
 Name:           vmod-%{vmod}
-Version:        0.2
-Release:        1%{?dist}
+Version:        %{_version}
+Release:        %{_release}%{?dist}
 Group:          System Environment/Libraries
 Summary:        DNS director for Varnish Cache
-URL:            https://www.varnish-cache.org/vmod/%{vmod}
+URL:            https://github.com/nigoroll/libvmod-dynamic
 License:        BSD
 
-Source:         lib%{name}-%{version}.tar.gz
+Source:         %{name}-%{version}.tar.gz
 
-BuildRequires:  python
-BuildRequires:  varnish >= 4.1.2
-BuildRequires:  varnish-libs-devel >= 4.1.2
+BuildRequires:  varnish-devel >= 5.2.0
+BuildRequires:  pkgconfig
+BuildRequires:  make
+BuildRequires:  gcc
+BuildRequires:  python-docutils >= 0.6
 
-Requires:       varnish >= 4.1.2
+# varnish from varnish5 at packagecloud
+Requires:       varnish >= 5.2.0
 
+Provides: %{name}, %{name}-debuginfo
 
 %description
 A VMOD to create dynamic director, that is to say relying on DNS to dynamically
@@ -24,7 +30,7 @@ create backends.
 
 
 %prep
-%setup -qn lib%{name}-%{version}
+%setup -qn %{name}-%{version}
 
 
 %build
@@ -36,6 +42,8 @@ make %{?_smp_mflags}
 %make_install
 rm %{buildroot}%{vmoddir}/libvmod_%{vmod}.la
 
+# Only use the version-specific docdir created by %doc below
+rm -rf %{buildroot}%{_docdir}
 
 %check
 make %{?_smp_mflags} check
@@ -44,7 +52,7 @@ make %{?_smp_mflags} check
 %files
 %{vmoddir}/libvmod_%{vmod}.so
 %{_mandir}/man?/*
-%{_docdir}/*
+%doc README.rst COPYING LICENSE
 
 
 %changelog
