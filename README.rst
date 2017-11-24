@@ -84,19 +84,35 @@ By default, the vmod ``configure`` script installs the built vmod in the
 directory relevant to the prefix. The vmod installation directory can be
 overridden by passing the ``vmoddir`` variable to ``make install``.
 
-Packaging
----------
+RPMs
+----
 
-Instead of directly installing the package you can build an RPM::
+Binary, debuginfo and source RPMs for VMOD dynamic are available at
+packagecloud::
 
-    make dist
-    rpmbuild -tb *.tar.gz
+	https://packagecloud.io/uplex/varnish
 
-If you need to build an RPM for a different platform you may use ``mock(1)``::
+The packages are built for Enterprise Linux 7 (el7), and hence will
+run on compatible distros (such as RHEL7, Fedora, CentOS 7 and Amazon
+Linux).
 
-    make dist
-    mock --buildsrpm --resultdir . --sources . --spec vmod-querystring.spec
-    mock --rebuild   --resultdir . *.src.rpm
+To set up your YUM repository for the RPMs, follow these instructions::
+
+	https://packagecloud.io/uplex/varnish/install#manual-rpm
+
+You will also need these additional repositories:
+
+* EPEL7
+
+  * ``yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm``
+
+* Official Varnish packages from packagecloud (since version 5.2.0)
+
+  * Follow the instructions at: https://packagecloud.io/varnishcache/varnish52/install#manual-rpm
+
+If you have problems or questions concerning the RPMs, post an issue
+to one of the source repository web sites, or contact
+<varnish-support@uplex.de>.
 
 See also
 ========
