@@ -56,6 +56,10 @@ make %{?_smp_mflags} check
 
 
 %changelog
+* Fri Nov 24 2017 Geoff Simmons <geoff[AT]uplex.de> - 0.3-1
+- Rework RPM packaging for publication at packagecloud.
+- Previous changelog entry is incorrect, *this* is version 0.3.
+
 * Fri Feb 19 2016 Dridi Boukelmoune <dridi.boukelmoune[AT]gmail.com> - 0.3-1
 - RPM spec cleanup.
 
