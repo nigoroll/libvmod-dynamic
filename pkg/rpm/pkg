@@ -1,0 +1,59 @@
+#! /bin/bash -ex
+
+# Build script for a VMOD dynamic el7 RPM
+# to be run in the rpmbuild/centos7 docker container.
+
+# Env variables VERSION and RELEASE MUST be set in the docker invocation.
+# DIST is set by the rpmbuild/centos7 container.
+
+# The directory mounted to /srv MUST contain these files:
+# - this script (named pkg)
+# - VMOD dynamic tarball (vmod-dynamic-$VERSION.tar.gz)
+# - RPM spec file (vmod-dynamic.spec)
+# - yum repo config for varnish5@packagecloud (varnishcache_varnish5.repo)
+#   (see https://packagecloud.io/varnishcache/varnish5/install#manual-rpm)
+
+# At the end of the run, binary, source and debuginfo RPMs are in the
+# directory mounted to /srv.
+
+if [ -z $VERSION ]; then
+   echo "Env variable VERSION MUST be set"
+   exit 1
+fi
+
+if [ -z $RELEASE ]; then
+   echo "Env variable RELEASE MUST be set"
+   exit 1
+fi
+
+# delete the peculiar macros from the rpmbuild/centos7 image
+rm /home/builder/.rpmmacros
+
+# set up the build environment
+cd /home/builder
+mkdir -p rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+cp /srv/vmod-dynamic.spec rpmbuild/SPECS
+cp /srv/vmod-dynamic-${VERSION}.tar.gz rpmbuild/SOURCES
+# required for the VMODs vtc tests
+sudo sh -c 'echo "127.0.0.1 www.localhost img.localhost" >> /etc/hosts'
+
+# install epel7 repo
+sudo yum install -y -q \
+     https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+# set up varnish repo
+sudo cp /srv/varnishcache_varnish5.repo /etc/yum.repos.d/
+
+sudo yum -q makecache -y --disablerepo='*' --enablerepo='varnishcache_varnish5'
+
+# build requirements
+sudo yum install -y -q varnish-devel pkgconfig make gcc python-docutils
+
+# build RPMs
+rpmbuild -ba -D "dist .${DIST}" \
+         -D "_version ${VERSION}" \
+         -D "_release ${RELEASE}" \
+         rpmbuild/SPECS/vmod-dynamic.spec
+
+sudo cp rpmbuild/RPMS/*/* /srv
+sudo cp rpmbuild/SRPMS/* /srv
