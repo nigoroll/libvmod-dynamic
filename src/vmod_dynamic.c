@@ -91,6 +91,12 @@ static unsigned loadcnt = 0;
 static const struct gethdr_s HDR_REQ_HOST = { HDR_REQ, "\005Host:"};
 static const struct gethdr_s HDR_BEREQ_HOST = { HDR_BEREQ, "\005Host:"};
 
+struct dyn_vsc_seg {
+	unsigned	magic;
+#define DYN_VSC_SEG_MAGIC 0x72f16c02
+	struct vsc_seg	*vsc_seg;
+};
+
 /*--------------------------------------------------------------------
  * Director implementation
  */
@@ -717,13 +723,21 @@ int v_matchproto_(vmod_event_f)
 vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 {
 	struct vmod_dynamic_director *obj;
+	struct dyn_vsc_seg *vcl_vsc_seg;
 	unsigned active;
-
-	(void)priv;
 
 	ASSERT_CLI();
 	AN(ctx);
 	AN(ctx->vcl);
+	AN(priv);
+
+	if (priv->priv == NULL) {
+		ALLOC_OBJ(vcl_vsc_seg, DYN_VSC_SEG_MAGIC);
+		AN(vcl_vsc_seg);
+		priv->priv = vcl_vsc_seg;
+	}
+	else
+		CAST_OBJ(vcl_vsc_seg, priv->priv, DYN_VSC_SEG_MAGIC);
 
 	switch (e) {
 #if HAVE_VCL_EVENT_USE
@@ -732,8 +746,10 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 #endif
 	case VCL_EVENT_LOAD:
 		if (loadcnt == 0) {
-			lck_dir = Lck_CreateClass("dynamic.director");
-			lck_be = Lck_CreateClass("dynamic.backend");
+			lck_dir = Lck_CreateClass(&vcl_vsc_seg->vsc_seg,
+			    "dynamic.director");
+			lck_be = Lck_CreateClass(&vcl_vsc_seg->vsc_seg,
+			    "dynamic.backend");
 			AN(lck_dir);
 			AN(lck_be);
 		}
@@ -744,8 +760,7 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 		assert(loadcnt > 0);
 		loadcnt--;
 		if (loadcnt == 0) {
-			Lck_DestroyClass(&lck_dir);
-			Lck_DestroyClass(&lck_be);
+			Lck_DestroyClass(&vcl_vsc_seg->vsc_seg);
 		}
 		return (0);
 		break;
