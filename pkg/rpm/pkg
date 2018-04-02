@@ -10,8 +10,13 @@
 # - this script (named pkg)
 # - VMOD dynamic tarball (vmod-dynamic-$VERSION.tar.gz)
 # - RPM spec file (vmod-dynamic.spec)
-# - yum repo config for varnish5@packagecloud (varnishcache_varnish5.repo)
-#   (see https://packagecloud.io/varnishcache/varnish5/install#manual-rpm)
+# - yum repo config for varnish60@packagecloud (varnishcache_varnish60.repo)
+#   (see https://packagecloud.io/varnishcache/varnish60/install#manual-rpm)
+
+# So this is a sample docker invocation:
+#
+# $ docker run -t -v $PWD:/srv -e VERSION=1.2.3 -e RELEASE=4711 \
+#	rpmbuild/centos7 /srv/pkg
 
 # At the end of the run, binary, source and debuginfo RPMs are in the
 # directory mounted to /srv.
@@ -42,9 +47,9 @@ sudo yum install -y -q \
      https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 
 # set up varnish repo
-sudo cp /srv/varnishcache_varnish5.repo /etc/yum.repos.d/
+sudo cp /srv/varnishcache_varnish60.repo /etc/yum.repos.d/
 
-sudo yum -q makecache -y --disablerepo='*' --enablerepo='varnishcache_varnish5'
+sudo yum -q makecache -y --disablerepo='*' --enablerepo='varnishcache_varnish60'
 
 # build requirements
 sudo yum install -y -q varnish-devel pkgconfig make gcc python-docutils

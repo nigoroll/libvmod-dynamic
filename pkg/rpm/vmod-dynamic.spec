@@ -13,14 +13,14 @@ License:        BSD
 
 Source:         %{name}-%{version}.tar.gz
 
-BuildRequires:  varnish-devel >= 5.2.0
+BuildRequires:  varnish-devel >= 6.0.0
 BuildRequires:  pkgconfig
 BuildRequires:  make
 BuildRequires:  gcc
 BuildRequires:  python-docutils >= 0.6
 
-# varnish from varnish5 at packagecloud
-Requires:       varnish >= 5.2.0
+# varnish from varnish60 at packagecloud
+Requires:       varnish >= 6.0.0
 
 Provides: %{name}, %{name}-debuginfo
 
@@ -56,6 +56,9 @@ make %{?_smp_mflags} check
 
 
 %changelog
+* Mon Apr 02 2018 Geoff Simmons <geoff[AT]uplex.de> - 0.4-1
+- Compatibility with Varnish 6.0.0.
+
 * Fri Nov 24 2017 Geoff Simmons <geoff[AT]uplex.de> - 0.3-1
 - Rework RPM packaging for publication at packagecloud.
 - Previous changelog entry is incorrect, *this* is version 0.3.

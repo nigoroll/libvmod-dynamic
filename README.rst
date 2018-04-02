@@ -110,6 +110,8 @@ You will also need these additional repositories:
 
   * Follow the instructions at: https://packagecloud.io/varnishcache/varnish52/install#manual-rpm
 
+  * Or (for version 6.0.0): https://packagecloud.io/varnishcache/varnish60/install#manual-rpm
+
 If you have problems or questions concerning the RPMs, post an issue
 to one of the source repository web sites, or contact
 <varnish-support@uplex.de>.
