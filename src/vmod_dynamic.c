@@ -97,23 +97,33 @@ struct dyn_vsc_seg {
 	struct vsc_seg	*vsc_seg;
 };
 
+static VCL_BACKEND v_matchproto_(vdi_resolve_f)
+dynamic_resolve(VRT_CTX, VCL_BACKEND);
+static VCL_BOOL v_matchproto_(vdi_healthy_f)
+dynamic_healthy(VRT_CTX, VCL_BACKEND, VCL_TIME *);
+
+static const struct director_methods vmod_dynamic_methods[1] = {{
+	.magic =	DIRECTOR_METHODS_MAGIC,
+	.type =		"dynamic",
+	.healthy =	dynamic_healthy,
+	.resolve =	dynamic_resolve
+}};
+
 /*--------------------------------------------------------------------
  * Director implementation
  */
 
-static const struct director * v_matchproto_(vdi_resolve_f)
-dynamic_resolve(const struct director *d, struct worker *wrk,
-    struct busyobj *bo)
+static VCL_BACKEND v_matchproto_(vdi_resolve_f)
+dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
 	struct dynamic_ref *next;
 	double deadline;
 	int ret;
 
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, d->priv, DYNAMIC_DOMAIN_MAGIC);
-	(void)wrk;
-	(void)bo;
 
 	Lck_Lock(&dom->mtx);
 
@@ -138,12 +148,12 @@ dynamic_resolve(const struct director *d, struct worker *wrk,
 		if (next == NULL)
 			next = VTAILQ_FIRST(&dom->refs);
 	} while (next != dom->current &&
-	    !next->be->dir->healthy(next->be->dir, NULL, NULL));
+		 !VRT_Healthy(ctx, next->be->dir, NULL));
 
 	dom->current = next;
 
 	if (next != NULL &&
-	    !next->be->dir->healthy(next->be->dir, NULL, NULL))
+	    !VRT_Healthy(ctx, next->be->dir, NULL))
 		next = NULL;
 
 	Lck_Unlock(&dom->mtx);
@@ -152,9 +162,8 @@ dynamic_resolve(const struct director *d, struct worker *wrk,
 	return (next == NULL ? NULL : next->be->dir);
 }
 
-static unsigned v_matchproto_(vdi_healthy_f)
-dynamic_healthy(const struct director *d, const struct busyobj *bo,
-    double *changed)
+static VCL_BOOL v_matchproto_(vdi_healthy_f)
+dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 {
 	struct dynamic_domain *dom;
 	struct dynamic_ref *r;
@@ -172,8 +181,7 @@ dynamic_healthy(const struct director *d, const struct busyobj *bo,
 	/* One healthy backend is enough for the director to be healthy */
 	VTAILQ_FOREACH(r, &dom->refs, list) {
 		CHECK_OBJ_NOTNULL(r->be->dir, DIRECTOR_MAGIC);
-		AN(r->be->dir->healthy);
-		retval = r->be->dir->healthy(r->be->dir, bo, &c);
+		retval = VRT_Healthy(ctx, r->be->dir, &c);
 		if (changed != NULL && c > *changed)
 			*changed = c;
 		if (retval)
@@ -698,10 +706,9 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 	dom->obj = obj;
 
 	INIT_OBJ(&dom->dir, DIRECTOR_MAGIC);
-	dom->dir.name = "dns";
 	dom->dir.vcl_name = obj->vcl_name;
-	dom->dir.healthy = dynamic_healthy;
-	dom->dir.resolve = dynamic_resolve;
+	dom->dir.methods = vmod_dynamic_methods;
+	dom->dir.admin_health = VDI_AH_PROBE;
 	dom->dir.priv = dom;
 
 	Lck_New(&dom->mtx, lck_be);
