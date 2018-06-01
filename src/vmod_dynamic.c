@@ -102,8 +102,8 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND);
 static VCL_BOOL v_matchproto_(vdi_healthy_f)
 dynamic_healthy(VRT_CTX, VCL_BACKEND, VCL_TIME *);
 
-static const struct director_methods vmod_dynamic_methods[1] = {{
-	.magic =	DIRECTOR_METHODS_MAGIC,
+static const struct vdi_methods vmod_dynamic_methods[1] = {{
+	.magic =	VDI_METHODS_MAGIC,
 	.type =		"dynamic",
 	.healthy =	dynamic_healthy,
 	.resolve =	dynamic_resolve
