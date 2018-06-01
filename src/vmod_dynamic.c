@@ -705,11 +705,8 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 	dom->port = obj->port;
 	dom->obj = obj;
 
-	INIT_OBJ(&dom->dir, DIRECTOR_MAGIC);
-	dom->dir.vcl_name = obj->vcl_name;
-	dom->dir.methods = vmod_dynamic_methods;
-	dom->dir.admin_health = VDI_AH_PROBE;
-	dom->dir.priv = dom;
+	dom->dir = VRT_AddDirector(ctx, vmod_dynamic_methods, dom,
+	    "%s", obj->vcl_name);
 
 	Lck_New(&dom->mtx, lck_be);
 	AZ(pthread_cond_init(&dom->cond, NULL));
@@ -944,7 +941,7 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 	dom->last_used = ctx->now;
 	Lck_Unlock(&obj->mtx);
 
-	return (&dom->dir);
+	return (dom->dir);
 }
 
 VCL_VOID v_matchproto_(td_dynamic_director_debug)

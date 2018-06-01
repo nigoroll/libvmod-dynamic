@@ -32,7 +32,7 @@
  */
 
 struct dynamic_backend {
-	struct director			*dir;
+	VCL_BACKEND			dir;
 	VTAILQ_ENTRY(dynamic_backend)	list;
 	struct suckaddr 		*ip_suckaddr;
 	char				*ip_addr;
@@ -73,7 +73,7 @@ struct dynamic_domain {
 	struct dynamic_ref		*current;
 	char				*addr;
 	const char			*port;
-	struct director			dir;
+	VCL_BACKEND			dir;
 	unsigned			mark;
 	volatile enum dynamic_status_e	status;
 };
