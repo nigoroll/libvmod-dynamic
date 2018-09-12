@@ -2,16 +2,19 @@ Source: libvmod-dynamic
 Section: web
 Priority: extra
 Maintainer: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
-Build-Depends: debhelper (>= 7),
- build-essential,
+Build-Depends: debhelper (>= 7.0.50~),
+ automake (>= 1.11),
+ libtool,
  pkg-config,
  python-docutils,
  varnish (>= 4.1.1),
- libvarnishapi-dev (>= 4.1.1)
-Standards-Version: 3.8.1
+ libvarnishapi-dev (>= 4.1.1) | varnish-dev (>= 4.1.8)
+Standards-Version: 3.9.4
 Vcs-Git: git://github.com/nigoroll/libvmod-named.git
 
 Package: libvmod-dynamic
 Architecture: any
 Depends: varnish (>= 4.1.1), ${shlibs:Depends}, ${misc:Depends}, ${Varnish:ABI}
-Description: Named vmod for Varnish
+Description: Dynamic vmod for Varnish
+ A VMOD to create dynamic director, that is to say relying on DNS to dynamically
+ create backends.
