@@ -9,6 +9,7 @@ barrier b1 cond 2
 server s1 {
 	# probe
 	rxreq
+	expect req.http.X-Varnish == <undef>
 	expect req.http.host == www.localhost
 	expect req.http.Connection == close
 	txresp
@@ -18,7 +19,7 @@ server s1 {
 
 	# req
 	rxreq
-	expect req.http.X-Varnish == 1002
+	expect req.http.X-Varnish > 0
 	expect req.http.host == www.localhost
 	txresp
 
@@ -27,6 +28,7 @@ server s1 {
 
 	# probe
 	rxreq
+	expect req.http.X-Varnish == <undef>
 	expect req.http.host == img.localhost
 	expect req.http.Connection == close
 	txresp
@@ -36,7 +38,7 @@ server s1 {
 
 	# req
 	rxreq
-	expect req.http.X-Varnish == 1004
+	expect req.http.X-Varnish > 0
 	expect req.http.host == img.localhost
 	txresp
 
