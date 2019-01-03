@@ -57,9 +57,7 @@ delay 2
 
 varnish v1 -vcl+backend ""
 varnish v1 -cli "vcl.discard vcl1"
-varnish v1 -expect n_vcl == 2
 varnish v1 -expect n_vcl_avail == 1
-varnish v1 -expect n_vcl_discard == 1
 
 client c2 {
 	txreq -hdr "Host: s1"
@@ -76,3 +74,5 @@ varnish v1 -cli "vcl.list"
 varnish v1 -cli "vcl.list"
 
 varnish v1 -expect n_vcl == 1
+varnish v1 -expect n_vcl_avail == 1
+varnish v1 -expect n_vcl_discard == 0
