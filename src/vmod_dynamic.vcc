@@ -158,7 +158,7 @@ logged with the following event::
 
    getaddrinfo <errno> (<reason>)
 
-$Event vmod_event
+$Event event
 
 $Object director(
 	STRING port			= "http",
