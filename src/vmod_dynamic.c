@@ -834,17 +834,28 @@ vmod_director__init(VRT_CTX,
 	CHECK_OBJ_ORNULL(probe, VRT_BACKEND_PROBE_MAGIC);
 	CHECK_OBJ_ORNULL(whitelist, VRT_ACL_MAGIC);
 
-	if (port == NULL || *port == '\0' || ttl == 0 ||
-	    domain_usage_timeout == 0 || first_lookup_timeout == 0) {
-		VRT_handling(ctx, VCL_RET_FAIL);
-		// XXX: return?
-	}
-	else {
-		assert(ttl > 0);
-		assert(domain_usage_timeout > 0);
-		assert(first_lookup_timeout > 0);
-	}
+	if (port == NULL || *port == '\0') {
+		VRT_fail(ctx, "dynamic.director(): port may not be empty");
+                return;
+        }
+	if (ttl == 0) {
+		VRT_fail(ctx, "dynamic.director(): ttl may not be 0s");
+                return;
+        }
+	if (domain_usage_timeout == 0) {
+		VRT_fail(ctx, "dynamic.director(): domain_usage_timeout may "
+                    "not be 0s");
+                return;
+        }
+	if (first_lookup_timeout == 0) {
+		VRT_fail(ctx, "dynamic.director(): first_lookup_timeout may "
+                    "not be 0s");
+                return;
+        }
 
+        assert(ttl > 0);
+        assert(domain_usage_timeout > 0);
+        assert(first_lookup_timeout > 0);
 	assert(connect_timeout >= 0);
 	assert(first_byte_timeout >= 0);
 	assert(between_bytes_timeout >= 0);

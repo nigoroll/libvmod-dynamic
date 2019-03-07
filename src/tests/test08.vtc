@@ -6,7 +6,7 @@ server s1 { } -start
 
 varnish v1 -vcl+backend { } -start
 
-varnish v1 -errvcl "initialization" {
+varnish v1 -errvcl "dynamic.director(): port may not be empty" {
 	import ${vmod_dynamic};
 	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
 	sub vcl_init {
@@ -14,7 +14,7 @@ varnish v1 -errvcl "initialization" {
 	}
 }
 
-varnish v1 -errvcl "initialization" {
+varnish v1 -errvcl "dynamic.director(): ttl may not be 0s" {
 	import ${vmod_dynamic};
 	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
 	sub vcl_init {
@@ -22,7 +22,7 @@ varnish v1 -errvcl "initialization" {
 	}
 }
 
-varnish v1 -errvcl "initialization" {
+varnish v1 -errvcl "dynamic.director(): domain_usage_timeout may not be 0s" {
 	import ${vmod_dynamic};
 	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
 	sub vcl_init {
@@ -30,7 +30,7 @@ varnish v1 -errvcl "initialization" {
 	}
 }
 
-varnish v1 -errvcl "initialization" {
+varnish v1 -errvcl "dynamic.director(): first_lookup_timeout may not be 0s" {
 	import ${vmod_dynamic};
 	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
 	sub vcl_init {
