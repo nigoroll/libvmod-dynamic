@@ -2,7 +2,7 @@
 vmod-dynamic
 ============
 
-This branch is for varnish 6.1 and master
+This branch is for varnish 6.1, 6.2 and master
 
 Description
 ===========
