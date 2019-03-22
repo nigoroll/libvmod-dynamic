@@ -703,6 +703,8 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 	dom->dir.healthy = dynamic_healthy;
 	dom->dir.resolve = dynamic_resolve;
 	dom->dir.priv = dom;
+	dom->dir.admin_health =
+	    obj->probe != NULL ? VDI_AH_PROBE : VDI_AH_HEALTHY;
 
 	Lck_New(&dom->mtx, lck_be);
 	AZ(pthread_cond_init(&dom->cond, NULL));
