@@ -698,7 +698,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 	dom->obj = obj;
 
 	INIT_OBJ(&dom->dir, DIRECTOR_MAGIC);
-	dom->dir.name = "dns";
+	dom->dir.name = "dynamic";
 	dom->dir.vcl_name = obj->vcl_name;
 	dom->dir.healthy = dynamic_healthy;
 	dom->dir.resolve = dynamic_resolve;
