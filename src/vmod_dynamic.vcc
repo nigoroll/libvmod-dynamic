@@ -228,7 +228,8 @@ $Object director(
 	INT proxy_header			= 0,
 	BLOB resolver				= NULL,
 	ENUM { cfg, dns, min, max } ttl_from	= "cfg",
-	DURATION retry_after			= 30)
+	DURATION retry_after			= 30,
+	BACKEND via				= NULL)
 
 Description
 	Create a DNS director.
@@ -321,6 +322,10 @@ Parameters to set attributes of backends
 	- *max_connections* (defaults to zero, unlimited)
 	- *proxy_header* - version of the PROXY protocol to use, or zero
 	  to disable it (defaults to zero, valid versions are one or two)
+	- *via* backend to make the connection through with an
+	  additional PROXY protocol header containing the actual
+	  address to connect to. Primary use case is SSL/TLS onloading
+	  via haproxy.
 
 .. raw:: pdf
 
