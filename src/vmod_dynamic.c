@@ -404,7 +404,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	}
 	vrt.endpoint = &ep;
 
-	b->dir = VRT_new_backend(ctx, &vrt);
+	b->dir = VRT_new_backend(ctx, &vrt, dom->obj->via);
 	AN(b->dir);
 
 	DBG(ctx, dom, "add-backend %s", b->vcl_name);
@@ -848,7 +848,8 @@ vmod_director__init(VRT_CTX,
     VCL_INT proxy_header,
     VCL_BLOB resolver,
     VCL_ENUM ttl_from_s,
-    VCL_DURATION retry_after)
+    VCL_DURATION retry_after,
+    VCL_BACKEND via)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -928,6 +929,8 @@ vmod_director__init(VRT_CTX,
 			    ttl_from_s);
 		obj->resolver = &res_gai;
 	}
+
+	obj->via = via;
 
 	Lck_New(&obj->mtx, lck_dir);
 
