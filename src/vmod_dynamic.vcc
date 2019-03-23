@@ -264,11 +264,15 @@ Example
 
    PageBreak
 
-$Method BACKEND .backend(STRING host = "")
+$Method BACKEND .backend(STRING host = "", STRING port = "")
 
 Description
-	Pick a backend from the director for a given host name. If the host
-	is not specified, it is picked from either ``bereq`` or ``req``.
+	Return a backend from the director for a given host name and port.
+
+	If the host is not specified, it is picked from either
+	``bereq`` or ``req``.
+
+	If the port is not speficied, it is taken from the director.
 
 $Method VOID .debug(BOOL)
 

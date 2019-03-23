@@ -57,16 +57,16 @@
 	do {							\
 		if ((ctx)->vsl != NULL)				\
 			VSLb((ctx)->vsl, slt,			\
-			    "vmod-dynamic: %s %s %s " fmt,	\
+			    "vmod-dynamic: %s %s %s:%s " fmt,	\
 			    (dom)->obj->vcl_conf,		\
 			    (dom)->obj->vcl_name, (dom)->addr,	\
-			    __VA_ARGS__);			\
+			    dom_port(dom), __VA_ARGS__);		\
 		else						\
 			VSL(slt, 0,				\
-			    "vmod-dynamic: %s %s %s " fmt, 	\
+			    "vmod-dynamic: %s %s %s:%s " fmt,	\
 			    (dom)->obj->vcl_conf,		\
 			    (dom)->obj->vcl_name, (dom)->addr,	\
-			    __VA_ARGS__);			\
+			    dom_port(dom), __VA_ARGS__);		\
 	} while (0)
 
 #define DBG(ctx, dom, fmt, ...)						\
@@ -74,6 +74,8 @@
 		if ((dom)->obj->debug)					\
 			LOG(ctx, SLT_Debug, dom, fmt, __VA_ARGS__);	\
 	} while (0)
+
+#define dom_port(dom) (dom->port ? dom->port : dom->obj->port)
 
 /*--------------------------------------------------------------------
  * Global data structures
@@ -330,7 +332,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, struct suckaddr *sa,
 	AN(vsb);
 
 	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
-	vrt.port = dom->port;
+	vrt.port = dom_port(dom);
 
 	switch (dom->obj->share) {
 	case DIRECTOR:
@@ -457,9 +459,9 @@ dynamic_timestamp(struct dynamic_domain *dom, const char *event, double start,
     double dfirst, double dprev)
 {
 
-	VSL(SLT_Timestamp, 0, "vmod-dynamic %s.%s(%s) %s: %.6f %.6f %.6f",
-	    dom->obj->vcl_conf, dom->obj->vcl_name, dom->addr, event, start,
-	    dfirst, dprev);
+	VSL(SLT_Timestamp, 0, "vmod-dynamic %s.%s(%s:%s) %s: %.6f %.6f %.6f",
+	    dom->obj->vcl_conf, dom->obj->vcl_name, dom->addr, dom_port(dom),
+	    event, start, dfirst, dprev);
 }
 
 static void*
@@ -486,7 +488,7 @@ dynamic_lookup_thread(void *priv)
 		lookup = VTIM_real();
 		dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
 
-		ret = getaddrinfo(dom->addr, obj->port, &hints, &res);
+		ret = getaddrinfo(dom->addr, dom_port(dom), &hints, &res);
 
 		results = VTIM_real();
 		dynamic_timestamp(dom, "Results", results, results - lookup,
@@ -550,7 +552,8 @@ dynamic_free(VRT_CTX, struct dynamic_domain *dom)
 	AZ(pthread_cond_destroy(&dom->resolve));
 	AZ(pthread_cond_destroy(&dom->cond));
 	Lck_Delete(&dom->mtx);
-	free(dom->addr);
+	REPLACE(dom->addr, NULL);
+	REPLACE(dom->port, NULL);
 	FREE_OBJ(dom);
 }
 
@@ -639,7 +642,8 @@ dynamic_start(struct vmod_dynamic_director *obj)
 }
 
 static struct dynamic_domain *
-dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
+dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
+    const char *port)
 {
 	struct dynamic_domain *dom, *d, *d2;
 
@@ -647,10 +651,14 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 	Lck_AssertHeld(&obj->mtx);
 	AN(addr);
 
+	if (port != NULL)
+		AN(*port);
+
 	dom = NULL;
 	VTAILQ_FOREACH_SAFE(d, &obj->active_domains, list, d2) {
 		CHECK_OBJ_NOTNULL(d, DYNAMIC_DOMAIN_MAGIC);
-		if (!strcmp(d->addr, addr)) {
+		if (!strcmp(d->addr, addr) &&
+		    (port == NULL || !strcmp(dom_port(d), port))) {
 			AZ(dom);
 			dom = d;
 		}
@@ -680,7 +688,8 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 }
 
 static struct dynamic_domain *
-dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
+dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
+    const char *port)
 {
 	struct dynamic_domain *dom;
 
@@ -688,7 +697,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 	Lck_AssertHeld(&obj->mtx);
 	AN(addr);
 
-	dom = dynamic_search(ctx, obj, addr);
+	dom = dynamic_search(ctx, obj, addr, port);
 	if (dom != NULL)
 		return (dom);
 
@@ -696,7 +705,8 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr)
 	AN(dom);
 	VTAILQ_INIT(&dom->refs);
 	REPLACE(dom->addr, addr);
-	dom->port = obj->port;
+	REPLACE(dom->port, port);
+
 	dom->obj = obj;
 
 	INIT_OBJ(&dom->dir, DIRECTOR_MAGIC);
@@ -919,7 +929,7 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 
 VCL_BACKEND v_matchproto_(td_dynamic_director_backend)
 vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
-    VCL_STRING host)
+    VCL_STRING host, VCL_STRING port)
 {
 	struct dynamic_domain *dom;
 
@@ -935,8 +945,10 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 	if (host == NULL || *host == '\0')
 		return (NULL);
 
+	if (port != NULL && *port == '\0')
+		port = NULL;
 	Lck_Lock(&obj->mtx);
-	dom = dynamic_get(ctx, obj, host);
+	dom = dynamic_get(ctx, obj, host, port);
 	AN(dom);
 	dom->last_used = ctx->now;
 	Lck_Unlock(&obj->mtx);
