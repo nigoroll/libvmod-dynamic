@@ -72,7 +72,7 @@ struct dynamic_domain {
 	VTAILQ_HEAD(, dynamic_ref)	refs;
 	struct dynamic_ref		*current;
 	char				*addr;
-	const char			*port;
+	char				*port;
 	VCL_BACKEND			dir;
 	unsigned			mark;
 	volatile enum dynamic_status_e	status;
