@@ -1,7 +1,5 @@
 varnishtest "Invalid parameters"
 
-shell "getent hosts localhost www.localhost img.localhost || true"
-
 server s1 { } -start
 
 varnish v1 -vcl+backend { } -start
