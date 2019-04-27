@@ -1,6 +1,6 @@
 varnishtest "Ipv4- or IPv6-only"
 
-shell "getent hosts localhost www.localhost img.localhost || true"
+feature cmd "getent services http"
 
 server s1 { } -start
 
