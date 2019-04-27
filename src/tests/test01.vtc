@@ -1,6 +1,6 @@
 varnishtest "Smoke test"
 
-shell "getent hosts localhost www.localhost img.localhost || true"
+feature cmd "getent hosts localhost"
 
 server s1 {
        rxreq

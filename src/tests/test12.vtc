@@ -1,6 +1,6 @@
 varnishtest "Host header per backend"
 
-shell "getent hosts localhost www.localhost img.localhost || true"
+feature cmd "getent hosts www.localhost img.localhost"
 
 server s1 {
 	rxreq

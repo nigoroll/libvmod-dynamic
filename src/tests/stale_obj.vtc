@@ -1,6 +1,6 @@
 varnishtest "#45 regression: std.healthy on stale object"
 
-shell "getent hosts localhost www.localhost img.localhost || true"
+feature cmd "getent hosts localhost"
 
 server s1 {
 	rxreq

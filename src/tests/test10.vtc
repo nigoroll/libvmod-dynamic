@@ -1,7 +1,5 @@
 varnishtest "max_connections"
 
-shell "getent hosts localhost www.localhost img.localhost || true"
-
 barrier b1 cond 2
 barrier b2 cond 2
 
