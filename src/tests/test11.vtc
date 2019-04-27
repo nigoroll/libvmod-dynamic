@@ -1,7 +1,5 @@
 varnishtest proxy_header
 
-shell "getent hosts localhost www.localhost img.localhost || true"
-
 server s1 {
 	rxreq
 	txresp

@@ -1,6 +1,6 @@
 varnishtest "Domain timeout"
 
-shell "getent hosts localhost www.localhost img.localhost || true"
+feature cmd "getent hosts localhost www.localhost img.localhost"
 
 server s1 {
        rxreq
