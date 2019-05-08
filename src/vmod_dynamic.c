@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2015-2016 Varnish Software AS
- * Copyright 2017 UPLEX - Nils Goroll Systemoptimierung
+ * Copyright 2017-2019 UPLEX - Nils Goroll Systemoptimierung
  * All rights reserved.
  *
  * Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
@@ -581,7 +581,6 @@ static void
 dynamic_stop(struct vmod_dynamic_director *obj)
 {
 	struct dynamic_domain *dom, *d2;
-	struct vrt_ctx ctx;
 
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
@@ -618,25 +617,22 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 		dynamic_free(NULL, dom);
 	}
 
-	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-	ctx.vcl = obj->vcl;
-	VRT_rel_vcl(&ctx, &obj->vclref);
+	VRT_VCL_Allow_Discard(&obj->vclref);
 }
 
 static void
-dynamic_start(struct vmod_dynamic_director *obj)
+dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 {
 	struct dynamic_domain *dom;
-	struct vrt_ctx ctx;
+	char buf[128];
 
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AZ(obj->vclref);
 
-	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-	ctx.vcl = obj->vcl;
-	/* XXX: name it "dynamic director %s" instead */
-	obj->vclref = VRT_ref_vcl(&ctx, "vmod dynamic");
+	bprintf(buf, "dynamic director %s", obj->vcl_name);
+	/* name argument is being strdup()ed via REPLACE() */
+	obj->vclref = VRT_VCL_Prevent_Discard(ctx, buf);
 
 	Lck_Lock(&obj->mtx);
 	VTAILQ_FOREACH(dom, &obj->active_domains, list) {
@@ -790,17 +786,18 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 		WRONG("Unhandled vmod event");
 	}
 
-	/* No locking required for the fields obj->active and obj->vcl */
-	VTAILQ_FOREACH(obj, &objects, list)
-		if (obj->vcl == ctx->vcl) {
-			assert(obj->active != active);
-			obj->active = active;
-			if (active)
-				dynamic_start(obj);
-			else
-				dynamic_stop(obj);
-		}
+	/* no locking: guaranteed to happen in the CLI thread */
+	VTAILQ_FOREACH(obj, &objects, list) {
+		if (obj->vcl != ctx->vcl)
+			continue;
 
+		assert(obj->active != active);
+		obj->active = active;
+		if (active)
+			dynamic_start(ctx, obj);
+		else
+			dynamic_stop(obj);
+	}
 	return (0);
 }
 
