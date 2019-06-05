@@ -408,7 +408,7 @@ dynamic_update_addr(VRT_CTX, struct dynamic_domain *dom, struct addrinfo *addr,
 	AN(sa);
 	AN(VSA_Build(sa, addr->ai_addr, addr->ai_addrlen));
 
-	(void)VRT_VSA_GetPtr(sa, &in_addr);
+	(void)VRT_VSA_GetPtr(ctx, sa, &in_addr);
 	AN(in_addr);
 	AN(inet_ntop(addr->ai_family, in_addr, ip, sizeof ip));
 
@@ -839,7 +839,6 @@ vmod_director__init(VRT_CTX,
 	AZ(*objp);
 	AN(vcl_name);
 	CHECK_OBJ_ORNULL(probe, VRT_BACKEND_PROBE_MAGIC);
-	CHECK_OBJ_ORNULL(whitelist, VRT_ACL_MAGIC);
 
 	if (port == NULL || *port == '\0') {
 		VRT_fail(ctx, "dynamic.director(): port may not be empty");
