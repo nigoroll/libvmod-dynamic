@@ -280,6 +280,33 @@ Description
 	Enable or disable debugging for a dynamic director, logging background
 	operations related to backends management.
 
+$Object resolver(
+	BOOL set_from_os=1,
+	INT parallel=4)
+
+Create *parallel* `getdns`_ contexts to be used with XXX
+
+.. _getdns: https://getdnsapi.net/
+
+$Method BOOL .set_resolution_type(ENUM {RECURSING, STUB})
+
+$Method BOOL .clear_namespaces()
+$Method BOOL .add_namespace(ENUM {DNS, LOCALNAMES, NETBIOS, MDNS, NIS})
+$Method BOOL .set_namespaces()
+
+$Method BOOL .clear_transports()
+$Method BOOL .add_transport(ENUM {UDP, TCP, TLS})
+$Method BOOL .set_transports()
+
+$Method BOOL .set_idle_timeout(DURATION)
+
+$Method BOOL .set_limit_outstanding_queries(INT)
+
+$Method BOOL .set_timeout(DURATION)
+
+$Method BOOL .set_follow_redirects(
+		ENUM {REDIRECTS_FOLLOW, REDIRECTS_DO_NOT_FOLLOW})
+
 PITFALLS
 ========
 
