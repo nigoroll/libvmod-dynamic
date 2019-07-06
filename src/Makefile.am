@@ -1,5 +1,5 @@
-AM_CFLAGS = $(VARNISHAPI_CFLAGS) -Wall -Werror
-AM_LDFLAGS = $(VARNISHAPI_LIBS) $(VMOD_LDFLAGS)
+AM_CFLAGS = $(VARNISHAPI_CFLAGS) $(GETDNS_CFLAGS) -Wall -Werror
+AM_LDFLAGS = $(VARNISHAPI_LIBS) $(GETDNS_LIBS) $(VMOD_LDFLAGS)
 
 vmod_LTLIBRARIES = libvmod_dynamic.la
 
@@ -8,7 +8,10 @@ libvmod_dynamic_la_SOURCES = \
 	vmod_dynamic.c
 
 if HAVE_GETDNS
-libvmod_dynamic_la_SOURCES += vmod_resolver.c
+libvmod_dynamic_la_SOURCES += \
+	vmod_resolver.c \
+	dyn_getdns.h \
+	dyn_getdns.c
 else
 libvmod_dynamic_la_SOURCES += vmod_resolver.stub.c
 endif
