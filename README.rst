@@ -28,6 +28,18 @@ The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
 using the ``varnishtest`` tool.
 
+For extended resolver functionality, `getdns`_ is required both during
+installation and at runtime. Before building, install `getdns`_ from
+source or install developer packages, e.g.::
+
+	apt-get install libgetdns-dev
+
+At runtime, only the library itself is required, e.g.::
+
+	apt-get install libgetdns1
+
+.. getdns: https://getdnsapi.net/
+
 Building requires the Varnish header files and uses pkg-config to find
 the necessary paths.
 
