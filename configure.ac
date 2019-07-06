@@ -29,6 +29,12 @@ PKG_CHECK_VAR([LIBVARNISHAPI_LIBDIR], [varnishapi], [libdir])
 AC_SUBST([VARNISH_LIBRARY_PATH],
 	[$LIBVARNISHAPI_LIBDIR:$LIBVARNISHAPI_LIBDIR/varnish])
 
+PKG_CHECK_MODULES([GETDNS], [getdns],
+	[AC_DEFINE([HAVE_GETDNS], [1], [Define if getdns is available.])
+	 AM_CONDITIONAL([HAVE_GETDNS], [true])],
+	[AC_MSG_WARN([extended resolver functions will not be available])
+	 AM_CONDITIONAL([HAVE_GETDNS], [false])])
+
 AC_SUBST([VTC_TESTS], "$(cd $srcdir/src && echo tests/*.vtc)")
 
 AS_VERSION_COMPARE([$VARNISH_VERSION], [5.0], [

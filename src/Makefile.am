@@ -7,6 +7,12 @@ libvmod_dynamic_la_SOURCES = \
 	vmod_dynamic.h \
 	vmod_dynamic.c
 
+if HAVE_GETDNS
+libvmod_dynamic_la_SOURCES += vmod_resolver.c
+else
+libvmod_dynamic_la_SOURCES += vmod_resolver.stub.c
+endif
+
 nodist_libvmod_dynamic_la_SOURCES = \
 	vcc_dynamic_if.c \
 	vcc_dynamic_if.h
