@@ -5,7 +5,9 @@ vmod_LTLIBRARIES = libvmod_dynamic.la
 
 libvmod_dynamic_la_SOURCES = \
 	vmod_dynamic.h \
-	vmod_dynamic.c
+	vmod_dynamic.c \
+	dyn_resolver.h \
+	dyn_resolver_gai.c
 
 if HAVE_GETDNS
 libvmod_dynamic_la_SOURCES += \

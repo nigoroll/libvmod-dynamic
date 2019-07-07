@@ -53,6 +53,7 @@
 
 #include "vcc_dynamic_if.h"
 #include "vmod_dynamic.h"
+#include "dyn_resolver.h"
 
 #define LOG(ctx, slt, dom, fmt, ...)				\
 	do {							\
@@ -412,14 +413,14 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct suckaddr *saa)
 }
 
 static void
-dynamic_update_domain(struct dynamic_domain *dom, struct addrinfo *addr)
+dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
+   void *priv)
 {
 	struct dynamic_ref *r, *r2;
 	struct vrt_ctx ctx;
 	uint8_t sb[vsa_suckaddr_len];
 	struct suckaddr *sa;
-
-	AN(addr);
+	void *state = NULL;
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = dom->obj->vcl;
@@ -429,20 +430,8 @@ dynamic_update_domain(struct dynamic_domain *dom, struct addrinfo *addr)
 
 	dom->mark++;
 
-	while (addr) {
-		switch (addr->ai_family) {
-		case AF_INET:
-		case AF_INET6:
-			sa = VSA_Build(sb, addr->ai_addr, addr->ai_addrlen);
-			if (sa != NULL)
-				dynamic_add(&ctx, dom, sa);
-			break;
-		default:
-			DBG(&ctx, dom, "ignored family=%d", addr->ai_family);
-			break;
-		}
-		addr = addr->ai_next;
-	}
+	while ((sa = res->result(sb, sizeof sb, priv, &state)) != NULL)
+		dynamic_add(&ctx, dom, sa);
 
 	VTAILQ_FOREACH_SAFE(r, &dom->refs, list, r2)
 		if (r->mark != dom->mark)
@@ -462,19 +451,15 @@ dynamic_timestamp(struct dynamic_domain *dom, const char *event, double start,
 	    event, start, dfirst, dprev);
 }
 
-static const struct addrinfo gai_hints = {
-	.ai_socktype = SOCK_STREAM,
-	.ai_family = AF_UNSPEC
-};
-
 static void*
 dynamic_lookup_thread(void *priv)
 {
 	struct vmod_dynamic_director *obj;
 	struct dynamic_domain *dom;
-	struct addrinfo *res;
 	struct vrt_ctx ctx;
 	double deadline, lookup, results, update;
+	const struct res_cb *res = &res_gai;
+	void *res_priv = NULL;
 	int ret;
 
 	CAST_OBJ_NOTNULL(dom, priv, DYNAMIC_DOMAIN_MAGIC);
@@ -487,22 +472,23 @@ dynamic_lookup_thread(void *priv)
 		lookup = VTIM_real();
 		dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
 
-		ret = getaddrinfo(dom->addr, dom_port(dom), &gai_hints, &res);
+		ret = res->lookup(dom->addr, dom_port(dom), &res_priv);
 
 		results = VTIM_real();
 		dynamic_timestamp(dom, "Results", results, results - lookup,
 		    results - lookup);
 
 		if (ret == 0) {
-			dynamic_update_domain(dom, res);
+			dynamic_update_domain(dom, res, res_priv);
 			update = VTIM_real();
 			dynamic_timestamp(dom, "Update", update,
 			    update - lookup, update - results);
-			freeaddrinfo(res);
+			res->fini(&res_priv);
+			AZ(res_priv);
 		}
 		else
-			LOG(&ctx, SLT_Error, dom, "getaddrinfo %d (%s)",
-			    ret, gai_strerror(ret));
+			LOG(&ctx, SLT_Error, dom, "%s %d (%s)",
+			    res->name, ret, res->strerror(ret));
 
 		Lck_Lock(&dom->mtx);
 
@@ -823,7 +809,8 @@ vmod_director__init(VRT_CTX,
     VCL_DURATION domain_usage_timeout,
     VCL_DURATION first_lookup_timeout,
     VCL_INT max_connections,
-    VCL_INT proxy_header)
+    VCL_INT proxy_header,
+    VCL_BLOB resolver)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -890,6 +877,14 @@ vmod_director__init(VRT_CTX,
 	obj->first_lookup_tmo = first_lookup_timeout;
 	obj->max_connections = (unsigned)max_connections;
 	obj->proxy_header = (unsigned)proxy_header;
+
+	if (resolver != NULL) {
+		obj->resolver = dyn_resolver_blob(resolver);
+		if (obj->resolver == NULL)
+			VRT_fail(ctx, "dynamic.director(): "
+			    "invalid resolver argument");
+	}
+
 
 	Lck_New(&obj->mtx, lck_dir);
 
