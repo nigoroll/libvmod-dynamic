@@ -462,22 +462,23 @@ dynamic_timestamp(struct dynamic_domain *dom, const char *event, double start,
 	    event, start, dfirst, dprev);
 }
 
+static const struct addrinfo gai_hints = {
+	.ai_socktype = SOCK_STREAM,
+	.ai_family = AF_UNSPEC
+};
+
 static void*
 dynamic_lookup_thread(void *priv)
 {
 	struct vmod_dynamic_director *obj;
 	struct dynamic_domain *dom;
-	struct addrinfo hints, *res;
+	struct addrinfo *res;
 	struct vrt_ctx ctx;
 	double deadline, lookup, results, update;
 	int ret;
 
 	CAST_OBJ_NOTNULL(dom, priv, DYNAMIC_DOMAIN_MAGIC);
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-
-	memset(&hints, 0, sizeof hints);
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_family = AF_UNSPEC;
 
 	obj = dom->obj;
 
@@ -486,7 +487,7 @@ dynamic_lookup_thread(void *priv)
 		lookup = VTIM_real();
 		dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
 
-		ret = getaddrinfo(dom->addr, dom_port(dom), &hints, &res);
+		ret = getaddrinfo(dom->addr, dom_port(dom), &gai_hints, &res);
 
 		results = VTIM_real();
 		dynamic_timestamp(dom, "Results", results, results - lookup,
