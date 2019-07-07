@@ -38,11 +38,9 @@ varnish v1 -vcl {
 } -start
 
 logexpect l1 -v v1 -g raw {
-	expect * * Debug	"vmod-dynamic: vcl1 d1 localhost:[0-9]+ addr 127.0.0.1"
 	expect * * VCL_acl	"^MATCH ipv4_loopback"
 	expect * * Debug	"vmod-dynamic: vcl1 d1 localhost:[0-9]+ add-backend d1.127.0.0.1."
 	expect * * Debug	"vmod-dynamic: vcl1 d1 localhost:[0-9]+ ref-backend d1.127.0.0.1. .1 in total."
-	expect * * Debug	"vmod-dynamic: vcl1 d1 img.localhost:[0-9]+ addr 127.0.0.1"
 	expect * * VCL_acl	"^MATCH ipv4_loopback"
 	expect * * Debug	"vmod-dynamic: vcl1 d1 img.localhost:[0-9]+ ref-backend d1.127.0.0.1. .2 in total."
 	expect * * VCL_Log	"vmod-dynamic: vcl1 d1 localhost:[0-9]+ deleted"
