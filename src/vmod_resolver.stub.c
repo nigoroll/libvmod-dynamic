@@ -10,6 +10,13 @@ struct VPFX(dynamic_resolver) {
 	int dummy;
 };
 
+struct VPFX(dynamic_resolver) *
+dyn_resolver_blob(VCL_BLOB blob)
+{
+	(void) blob;
+	return (NULL);
+}
+
 VCL_VOID
 vmod_resolver__init(VRT_CTX,
     struct VPFX(dynamic_resolver) **rp, const char *vcl_name,
@@ -28,10 +35,20 @@ vmod_resolver__fini(struct VPFX(dynamic_resolver) **rp)
 	assert(0);
 }
 
+VCL_BLOB
+vmod_resolver_use(VRT_CTX,
+    struct VPFX(dynamic_resolver) *r)
+{
+	(void) ctx;
+	(void) r;
+	return (NULL);
+}
+
 VCL_BOOL
 vmod_resolver_set_resolution_type(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_ENUM type_e)
 {
+	(void) ctx;
 	(void) r;
 	(void) type_e;
 	return (0);
@@ -41,6 +58,7 @@ VCL_BOOL
 vmod_resolver_clear_namespaces(VRT_CTX,
     struct VPFX(dynamic_resolver) *r)
 {
+	(void) ctx;
 	(void) r;
 	return (0);
 }
@@ -49,6 +67,7 @@ VCL_BOOL
 vmod_resolver_add_namespace(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_ENUM namespace_e)
 {
+	(void) ctx;
 	(void) r;
 	(void) namespace_e;
 	return (0);
@@ -58,6 +77,7 @@ VCL_BOOL
 vmod_resolver_set_namespaces(VRT_CTX,
     struct VPFX(dynamic_resolver) *r)
 {
+	(void) ctx;
 	(void) r;
 	return (0);
 }
@@ -66,6 +86,7 @@ VCL_BOOL
 vmod_resolver_clear_transports(VRT_CTX,
     struct VPFX(dynamic_resolver) *r)
 {
+	(void) ctx;
 	(void) r;
 	return (0);
 }
@@ -74,6 +95,7 @@ VCL_BOOL
 vmod_resolver_add_transport(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_ENUM transport_e)
 {
+	(void) ctx;
 	(void) r;
 	(void) transport_e;
 	return (0);
@@ -83,6 +105,7 @@ VCL_BOOL
 vmod_resolver_set_transports(VRT_CTX,
     struct VPFX(dynamic_resolver) *r)
 {
+	(void) ctx;
 	(void) r;
 	return (0);
 }
@@ -91,6 +114,7 @@ VCL_BOOL
 vmod_resolver_set_idle_timeout(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_DURATION d)
 {
+	(void) ctx;
 	(void) r;
 	(void) d;
 	return (0);
@@ -100,6 +124,7 @@ VCL_BOOL
 vmod_resolver_set_limit_outstanding_queries(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_INT limit)
 {
+	(void) ctx;
 	(void) r;
 	(void) limit;
 	return (0);
@@ -109,6 +134,7 @@ VCL_BOOL
 vmod_resolver_set_timeout(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_DURATION d)
 {
+	(void) ctx;
 	(void) r;
 	(void) d;
 	return (0);
@@ -118,6 +144,7 @@ VCL_BOOL
 vmod_resolver_set_follow_redirects(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_ENUM redirects_e)
 {
+	(void) ctx;
 	(void) r;
 	(void) redirects_e;
 	return (0);
