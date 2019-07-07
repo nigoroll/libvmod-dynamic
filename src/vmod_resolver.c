@@ -34,27 +34,24 @@
 #include "vcc_dynamic_if.h"
 
 #include "dyn_getdns.h"
+#include "dyn_resolver.h"
 
-struct VPFX(dynamic_resolver_context);
+struct VPFX(dynamic_resolver) *
+dyn_resolver_blob(VCL_BLOB blob)
+{
+	struct VPFX(dynamic_resolver) *p;
 
-struct VPFX(dynamic_resolver_context) {
-	unsigned					magic;
-#define DYNAMIC_RESOLVER_CONTEXT_MAGIC			0x01631d25
-	VSTAILQ_ENTRY(VPFX(dynamic_resolver_context))	list;
-	getdns_context					*context;
-};
+	if (blob && blob->type == DYNAMIC_RESOLVER_BLOB &&
+	    blob->blob != NULL &&
+	    blob->len == sizeof(struct VPFX(dynamic_resolver))) {
+		CAST_OBJ_NOTNULL(p, TRUST_ME(blob->blob),
+		    DYNAMIC_RESOLVER_MAGIC);
+		return (p);
+	}
+	return (NULL);
+}
 
-struct VPFX(dynamic_resolver) {
-	unsigned					magic;
-#define DYNAMIC_RESOLVER_MAGIC				0x00631d25
-	int						n_contexts;
-	char						*vcl_name;
-	VSTAILQ_HEAD(,VPFX(dynamic_resolver_context))	contexts;
-	pthread_mutex_t				mtx;
-	pthread_cond_t					cond;
-	struct VPFX(dynamic_resolver_context)		*freeptr;
-};
-
+// XXX mem-mgmt callbacks for addrinfo on workspace?!
 VCL_VOID
 vmod_resolver__init(VRT_CTX,
     struct VPFX(dynamic_resolver) **rp, const char *vcl_name,
@@ -156,6 +153,17 @@ vmod_resolver__fini(struct VPFX(dynamic_resolver) **rp)
 	free(r->freeptr);
 	free(r->vcl_name);
 	FREE_OBJ(r);
+}
+
+VCL_BLOB
+vmod_resolver_use(VRT_CTX,
+    struct VPFX(dynamic_resolver) *r)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+
+	return (VRT_blob(ctx, "xresolver.use()", r, sizeof *r,
+	    DYNAMIC_RESOLVER_BLOB));
 }
 
 VCL_BOOL

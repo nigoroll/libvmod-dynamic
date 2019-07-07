@@ -1,0 +1,11 @@
+varnishtest "dynamic.resolver basic"
+
+varnish v1 -vcl {
+	import ${vmod_dynamic};
+
+	backend b { .host = "${bad_ip}"; }
+
+	sub vcl_init {
+		new r1 = dynamic.resolver();
+	}
+} -start
