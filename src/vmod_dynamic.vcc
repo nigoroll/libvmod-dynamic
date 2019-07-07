@@ -173,7 +173,8 @@ $Object director(
 	DURATION domain_usage_timeout	= 7200,
 	DURATION first_lookup_timeout	= 10,
 	INT max_connections		= 0,
-	INT proxy_header		= 0)
+	INT proxy_header		= 0,
+	BLOB resolver			= NULL)
 
 Description
 	Create a DNS director.
@@ -218,6 +219,14 @@ Parameters:
 	  Delay until the director fails lookup when a domain is
 	  requested for the first time and there is no response from
 	  the name service (defaults to ten seconds)
+
+	- *resolver*
+
+	  Use a particular resolver instance created with the
+	  `vmod_dynamic.resolver`_ constructor, if available.
+
+	  The argument to the *resolver* parameter must be the return
+	  value of the `vmod_dynamic.resolver.use` method.
 
 Parameters to set attributes of backends
 
@@ -287,6 +296,11 @@ $Object resolver(
 Create *parallel* `getdns`_ contexts to be used with XXX
 
 .. _getdns: https://getdnsapi.net/
+
+$Method BLOB .use()
+
+return a reference to the `vmod_dynamic.resolver`_ object for use as a
+parameter to the `vmod_dynamic.director`_ constructor.
 
 $Method BOOL .set_resolution_type(ENUM {RECURSING, STUB})
 
