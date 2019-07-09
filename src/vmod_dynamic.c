@@ -458,7 +458,7 @@ dynamic_lookup_thread(void *priv)
 	struct dynamic_domain *dom;
 	struct vrt_ctx ctx;
 	double deadline, lookup, results, update;
-	const struct res_cb *res = &res_gai;
+	const struct res_cb *res;
 	void *res_priv = NULL;
 	int ret;
 
@@ -466,13 +466,15 @@ dynamic_lookup_thread(void *priv)
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 
 	obj = dom->obj;
+	res = obj->resolver;
 
 	while (obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
 
 		lookup = VTIM_real();
 		dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
 
-		ret = res->lookup(dom->addr, dom_port(dom), &res_priv);
+		ret = res->lookup(obj->resolver_inst, dom->addr,
+		    dom_port(dom), &res_priv);
 
 		results = VTIM_real();
 		dynamic_timestamp(dom, "Results", results, results - lookup,
@@ -875,12 +877,14 @@ vmod_director__init(VRT_CTX,
 	obj->proxy_header = (unsigned)proxy_header;
 
 	if (resolver != NULL) {
-		obj->resolver = dyn_resolver_blob(resolver);
-		if (obj->resolver == NULL)
+		obj->resolver = &res_getdns;
+		obj->resolver_inst = dyn_resolver_blob(resolver);
+		if (obj->resolver_inst == NULL)
 			VRT_fail(ctx, "dynamic.director(): "
 			    "invalid resolver argument");
+	} else {
+		obj->resolver = &res_gai;
 	}
-
 
 	Lck_New(&obj->mtx, lck_dir);
 

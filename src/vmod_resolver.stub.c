@@ -6,6 +6,11 @@
 
 #include "vcc_dynamic_if.h"
 
+/* XXX better place? */
+#include "dyn_resolver.h"
+struct res_cb res_getdns = { 0 };
+/* XXX end */
+
 struct VPFX(dynamic_resolver) {
 	int dummy;
 };

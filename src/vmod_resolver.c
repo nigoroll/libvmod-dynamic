@@ -88,7 +88,7 @@ vmod_resolver__init(VRT_CTX,
 		goto err_rctx;
 	}
 
-	VSTAILQ_INIT(&r->contexts);
+	VSLIST_INIT(&r->contexts);
 	for (i = 0; i < parallel; i++) {
 		INIT_OBJ(&rctx[i], DYNAMIC_RESOLVER_CONTEXT_MAGIC);
 		err = getdns_context_create(&rctx[i].context, set_from_os);
@@ -97,7 +97,8 @@ vmod_resolver__init(VRT_CTX,
 			    "error %d (%s)", err, dyn_getdns_strerror(err));
 			break;
 		}
-		VSTAILQ_INSERT_TAIL(&r->contexts, &rctx[i], list);
+		VSLIST_INSERT_HEAD(&r->contexts, &rctx[i], list);
+		rctx[i].resolver = r;
 	}
 
 	if (i < parallel)
@@ -106,7 +107,7 @@ vmod_resolver__init(VRT_CTX,
 	AZ(pthread_mutex_init(&r->mtx, NULL));
 	AZ(pthread_cond_init(&r->cond, NULL));
 
-	VSTAILQ_FOREACH(rctx, &r->contexts, list)
+	VSLIST_FOREACH(rctx, &r->contexts, list)
 		CHECK_OBJ_NOTNULL(rctx, DYNAMIC_RESOLVER_CONTEXT_MAGIC);
 
 	r->n_contexts = parallel;
@@ -143,9 +144,10 @@ vmod_resolver__fini(struct VPFX(dynamic_resolver) **rp)
 	AZ(pthread_cond_destroy(&r->cond));
 	AZ(pthread_mutex_destroy(&r->mtx));
 
-	VSTAILQ_FOREACH(rctx, &r->contexts, list) {
+	VSLIST_FOREACH(rctx, &r->contexts, list) {
 		i++;
 		CHECK_OBJ_NOTNULL(rctx, DYNAMIC_RESOLVER_CONTEXT_MAGIC);
+		assert(rctx->resolver == r);
 		getdns_context_destroy(rctx->context);
 	}
 
