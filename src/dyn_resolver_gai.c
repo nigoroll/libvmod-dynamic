@@ -50,8 +50,10 @@ static const struct addrinfo gai_hints = {
 };
 
 static int
-gai_lookup(const char *node, const char *service, void **priv)
+gai_lookup(struct VPFX(dynamic_resolver) *r,
+    const char *node, const char *service, void **priv)
 {
+	AZ(r);
 	AN(priv);
 	AZ(*priv);
 

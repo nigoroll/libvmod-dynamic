@@ -13,3 +13,6 @@ GETDNS_RETURN(DNSSEC_WITH_STUB_DISALLOWED, "dnssec_with_stub_disallowed")
 GETDNS_RETURN(MEMORY_ERROR, "memory_error")
 GETDNS_RETURN(INVALID_PARAMETER, "invalid_parameter")
 GETDNS_RETURN(NOT_IMPLEMENTED, "not_implemented")
+// EXTENSION
+GETDNS_RETURN(NO_SERVBYNAME, "servbyname(3) failed")
+GETDNS_RETURN(NO_ANSWERS, "no answer")

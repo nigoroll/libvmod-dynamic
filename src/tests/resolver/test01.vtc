@@ -1,0 +1,39 @@
+varnishtest "Smoke test"
+
+feature cmd "getent hosts localhost"
+
+server s1 {
+       rxreq
+       txresp
+} -start
+
+varnish v1 -vcl+backend {
+	import ${vmod_dynamic};
+
+	sub vcl_init {
+		new r1 = dynamic.resolver();
+		new d1 = dynamic.director(
+		    resolver = r1.use());
+		d1.debug(true);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend("varnish-cache.org");
+		set req.http.Host = "varnish-cache.org";
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+} -start
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+} -run
+
+varnish v1 -expect VBE.vcl1.d1(176.58.90.154).req == 1
+varnish v1 -expect LCK.dynamic.director.creat > 0
+varnish v1 -expect LCK.dynamic.backend.creat > 0
