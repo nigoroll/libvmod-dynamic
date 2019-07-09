@@ -33,7 +33,7 @@ struct VPFX(dynamic_resolver);
 // implemented in vmod_resolver.c / vmod_resolver.sub.c
 struct VPFX(dynamic_resolver) * dyn_resolver_blob(VCL_BLOB);
 
-typedef int res_lookup_f(const char *node, const char *service, void **priv);
+typedef int res_lookup_f(struct VPFX(dynamic_resolver) *r, const char *node, const char *service, void **priv);
 typedef struct suckaddr *res_result_f(uint8_t *buf, size_t len, void *priv, void **state);
 typedef void res_fini_f(void **priv);
 typedef const char *res_strerror_f(int);
@@ -47,3 +47,4 @@ struct res_cb {
 };
 
 extern struct res_cb res_gai;
+extern struct res_cb res_getdns;

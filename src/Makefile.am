@@ -13,7 +13,8 @@ if HAVE_GETDNS
 libvmod_dynamic_la_SOURCES += \
 	vmod_resolver.c \
 	dyn_getdns.h \
-	dyn_getdns.c
+	dyn_getdns.c \
+	dyn_resolver_getdns.c
 else
 libvmod_dynamic_la_SOURCES += vmod_resolver.stub.c
 endif
