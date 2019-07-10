@@ -127,8 +127,8 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 
 void *getdns_last = &getdns_last;
 
-static struct suckaddr *
-getdns_result(uint8_t *buf, size_t len, void *priv, void **answerp)
+static struct res_info *
+getdns_result(struct res_info *info, void *priv, void **answerp)
 {
 	struct dyn_getdns_state *state;
 	getdns_dict *rr;
@@ -137,8 +137,7 @@ getdns_result(uint8_t *buf, size_t len, void *priv, void **answerp)
 	struct sockaddr_in sa4;
 	struct sockaddr_in6 sa6;
 
-	AN(buf);
-	assert(len >= vsa_suckaddr_len);
+	AN(info);
 	AN(priv);
 	AN(answerp);
 
@@ -171,18 +170,20 @@ getdns_result(uint8_t *buf, size_t len, void *priv, void **answerp)
 		sa4.sin_family = AF_INET;
 		sa4.sin_port = state->port;
 		memcpy(&sa4.sin_addr, addr->data, addr->size);
-		return (VSA_Build(buf, &sa4, sizeof sa4));
+		info->sa = VSA_Build(info->suckbuf, &sa4, sizeof sa4);
+		break;
 	case 16:
 		assert(sizeof sa6.sin6_addr == 16);
 		memset(&sa6, 0, sizeof sa6);
 		sa6.sin6_family = AF_INET6;
 		sa6.sin6_port = state->port;
 		memcpy(&sa6.sin6_addr, addr->data, addr->size);
-		return (VSA_Build(buf, &sa6, sizeof sa6));
+		info->sa = VSA_Build(info->suckbuf, &sa6, sizeof sa6);
+		break;
 	default:
 		INCOMPL();
 	}
-	return (NULL);
+	return (info->sa != NULL ? info : NULL);
 }
 
 static void
