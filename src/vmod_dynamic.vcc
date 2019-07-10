@@ -304,6 +304,16 @@ Description
 
 	If the port is not speficied, it is taken from the director.
 
+$Method BACKEND .service(STRING service)
+
+Description
+	Return a backend from the director for a service name (DNS SRV
+	record).
+
+	This Method is only supported when a `vmod_dynamic.resolver`_
+	object has been passed to the `vmod_dynamic.director`_
+	constructor.
+
 $Method VOID .debug(BOOL)
 
 Description
