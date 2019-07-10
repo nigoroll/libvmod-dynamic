@@ -33,11 +33,20 @@ struct VPFX(dynamic_resolver);
 // implemented in vmod_resolver.c / vmod_resolver.sub.c
 struct VPFX(dynamic_resolver) * dyn_resolver_blob(VCL_BLOB);
 
-typedef int res_lookup_f(struct VPFX(dynamic_resolver) *r, const char *node, const char *service, void **priv);
-typedef struct suckaddr *res_result_f(uint8_t *buf, size_t len, void *priv, void **state);
+// info returned by resolver
+struct res_info {
+	uint8_t	*suckbuf; // vsa_suckaddr_len
+	struct suckaddr	*sa; // == suckbuf on success
+};
+
+typedef int res_lookup_f(struct VPFX(dynamic_resolver) *r,
+    const char *node, const char *service, void **priv);
+typedef struct res_info *res_result_f(struct res_info *,
+    void *priv, void **state);
 typedef void res_fini_f(void **priv);
 typedef const char *res_strerror_f(int);
 
+// resolver callbacks
 struct res_cb {
 	const char	*name;
 	res_lookup_f	*lookup;
