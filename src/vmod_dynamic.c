@@ -1002,6 +1002,21 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 	return (dom->dir);
 }
 
+VCL_BACKEND v_matchproto_(td_dynamic_director_service)
+vmod_director_service(VRT_CTX, struct VPFX(dynamic_director) *obj,
+    VCL_STRING service) {
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
+
+	if (obj->resolver_inst == NULL) {
+		VRT_fail(ctx, "xdynamic.service(): Only supported "
+		    "with a resolver");
+		return (NULL);
+	}
+
+	return (NULL);
+}
+
 VCL_VOID v_matchproto_(td_dynamic_director_debug)
 vmod_director_debug(VRT_CTX, struct vmod_dynamic_director *obj,
     VCL_BOOL enable)
