@@ -48,9 +48,12 @@
 struct dyn_getdns_state {
 	struct VPFX(dynamic_resolver_context)	*context;
 	getdns_dict				*response;
+	getdns_list				*replies;
 	getdns_list				*answers;
+	size_t					n_replies;
 	size_t					n_answers;
-	size_t					answer;	// next to return
+	size_t					reply;  // next to return
+	size_t					answer; // next to return
 	uint16_t				port;
 };
 
@@ -69,6 +72,8 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	char		buf[1024];
 	struct servent	servent_buf[1];
 	struct servent	*servent;
+
+	getdns_dict	*reply;
 
 	AN(r);
 	AN(priv);
@@ -98,15 +103,38 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	ret = getdns_address_sync(c->context, node, NULL, &state->response);
 	errchk(ret);
 
-	ret = getdns_dict_get_list(state->response,
-	    "just_address_answers", &state->answers);
-	errchk(ret);
-
+	// XXX DEBUG
 	char *dbg = getdns_pretty_print_dict(state->response);
 	write(2, dbg, strlen(dbg));
 
-	ret = getdns_list_get_length(state->answers, &state->n_answers);
+	ret = getdns_dict_get_list(state->response,
+	    "/replies_tree", &state->replies);
 	errchk(ret);
+
+	ret = getdns_list_get_length(state->replies,
+	    &state->n_replies);
+	errchk(ret);
+
+	if (state->n_replies == 0) {
+		ret = GETDNS_RETURN_NO_ANSWERS;
+		goto out;
+	}
+
+	do {
+		ret = getdns_list_get_dict(state->replies,
+		    state->reply++, &reply);
+		errchk(ret);
+
+		ret = getdns_dict_get_list(reply,
+		    "/answer", &state->answers);
+		errchk(ret);
+
+		state->answer = 0;
+
+		ret = getdns_list_get_length(state->answers,
+		    &state->n_answers);
+		errchk(ret);
+	} while (state->n_answers == 0 && state->reply < state->n_replies);
 
 	if (state->n_answers == 0)
 		ret = GETDNS_RETURN_NO_ANSWERS;
@@ -136,6 +164,7 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 	getdns_return_t ret;
 	struct sockaddr_in sa4;
 	struct sockaddr_in6 sa6;
+	getdns_dict	*reply;
 
 	AN(info);
 	AN(priv);
@@ -145,7 +174,8 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 		return (NULL);
 
 	state = priv;
-	if (state->answer >= state->n_answers) {
+	if (state->answer >= state->n_answers &&
+	    state->reply >= state->n_replies) {
 		*answerp = getdns_last;
 		return (NULL);
 	} else if (*answerp == NULL) {
@@ -154,10 +184,45 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 
 	assert(*answerp == &state->answer);
 
-	ret = getdns_list_get_dict(state->answers, state->answer++, &rr);
-	AZ(ret);
-	ret = getdns_dict_get_bindata(rr, "address_data", &addr);
-	AZ(ret);
+	do {
+		// advace to next reply when out of answers
+		if (state->answer >= state->n_answers) {
+			ret = getdns_list_get_dict(state->replies,
+			    state->reply++, &reply);
+			if (ret != 0)
+				break;
+
+			ret = getdns_dict_get_list(reply,
+			    "/answer", &state->answers);
+			if (ret != 0)
+				break;
+
+			state->answer = 0;
+
+			ret = getdns_list_get_length(state->answers,
+			    &state->n_answers);
+			if (ret != 0)
+				break;
+		}
+
+		ret = getdns_list_get_dict(state->answers,
+		    state->answer++, &rr);
+		AZ(ret);
+		ret = getdns_dict_get_bindata(rr, "/rdata/ipv6_address", &addr);
+		if (ret == 0)
+			break;
+		ret = getdns_dict_get_bindata(rr, "/rdata/ipv4_address", &addr);
+		if (ret == 0)
+			break;
+	} while (state->answer < state->n_answers ||
+	    state->reply < state->n_replies);
+
+	if (ret != 0) {
+		*answerp = getdns_last;
+		return (NULL);
+	}
+
+	(void) getdns_dict_get_int(rr, "/ttl", &info->ttl);
 
 	/* why dont the getdns folks provide with an interface to
 	 * return a sockaddr ?
