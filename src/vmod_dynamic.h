@@ -59,6 +59,13 @@ enum dynamic_share_e {
 	HOST
 };
 
+enum dynamic_ttl_e {
+	cfg,
+	dns,
+	min,
+	max
+};
+
 struct dynamic_domain {
 	unsigned			magic;
 #define DYNAMIC_DOMAIN_MAGIC		0x1bfe1345
@@ -76,6 +83,7 @@ struct dynamic_domain {
 	struct director			dir;
 	unsigned			mark;
 	volatile enum dynamic_status_e	status;
+	vtim_real			deadline;
 };
 
 struct vmod_dynamic_director {
@@ -107,6 +115,7 @@ struct vmod_dynamic_director {
 	volatile unsigned			debug;
 	const struct res_cb			*resolver;
 	struct VPFX(dynamic_resolver)		*resolver_inst;
+	enum dynamic_ttl_e			ttl_from;
 };
 
 VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director) objects;

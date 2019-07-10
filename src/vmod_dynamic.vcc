@@ -161,20 +161,21 @@ logged with the following event::
 $Event vmod_event
 
 $Object director(
-	STRING port			= "http",
-	STRING host_header		= 0,
-	ENUM { DIRECTOR, HOST } share	= "DIRECTOR",
-	PROBE probe			= 0,
-	ACL whitelist			= 0,
-	DURATION ttl			= 3600,
-	DURATION connect_timeout	= 0,
-	DURATION first_byte_timeout	= 0,
-	DURATION between_bytes_timeout	= 0,
-	DURATION domain_usage_timeout	= 7200,
-	DURATION first_lookup_timeout	= 10,
-	INT max_connections		= 0,
-	INT proxy_header		= 0,
-	BLOB resolver			= NULL)
+	STRING port				= "http",
+	STRING host_header			= 0,
+	ENUM { DIRECTOR, HOST } share		= "DIRECTOR",
+	PROBE probe				= 0,
+	ACL whitelist				= 0,
+	DURATION ttl				= 3600,
+	DURATION connect_timeout		= 0,
+	DURATION first_byte_timeout		= 0,
+	DURATION between_bytes_timeout		= 0,
+	DURATION domain_usage_timeout		= 7200,
+	DURATION first_lookup_timeout		= 10,
+	INT max_connections			= 0,
+	INT proxy_header			= 0,
+	BLOB resolver				= NULL,
+	ENUM { cfg, dns, min, max } ttl_from	= "cfg")
 
 Description
 	Create a DNS director.
@@ -206,8 +207,8 @@ Parameters:
 
 	- *ttl* - delay between lookups (defaults to one hour)
 
-	  Minimum backend lifetime before address resultion is
-	  re-checked
+	  Minimum configured backend lifetime before address resultion
+	  is re-checked, see also *ttl_from*
 
 	- *domain_usage_timeout*
 
@@ -227,6 +228,26 @@ Parameters:
 
 	  The argument to the *resolver* parameter must be the return
 	  value of the `vmod_dynamic.resolver.use` method.
+
+	- *ttl_from*
+
+	  How to determine the minimum backend lifetime before address
+	  resultion is re-checked when a *resolver* is also used:
+
+	  - ``cfg``: Always use the *ttl* argument value (default)
+	  - ``dns``: Always use the ttl from the DNS response(s), falling
+	    back to the *ttl* argument value
+	  - ``min``: Use the minimum of the DNS response and the *ttl*
+	    argument value
+	  - ``max``: Use the maximum of the DNS response and the *ttl*
+	    argument value
+
+	  If there is more than one DNS response, the minimum if taken
+	  as the DNS ttl.
+
+	  For no *resolver*, only "cfg" is valid.
+
+	  For DNS failures, the *ttl* argument is used.
 
 Parameters to set attributes of backends
 
