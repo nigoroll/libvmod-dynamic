@@ -406,7 +406,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 
 static void
 dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
-   void *priv)
+    void *priv, vtim_real now)
 {
 	struct dynamic_ref *r, *r2;
 	struct vrt_ctx ctx;
@@ -414,6 +414,7 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	struct res_info ibuf[1] = {{ .suckbuf = suckbuf }};
 	struct res_info *info;
 	void *state = NULL;
+	vtim_dur ttl = NAN;
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = dom->obj->vcl;
@@ -423,8 +424,11 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 
 	dom->mark++;
 
-	while ((info = res->result(ibuf, priv, &state)) != NULL)
+	while ((info = res->result(ibuf, priv, &state)) != NULL) {
 		dynamic_add(&ctx, dom, info);
+		if (info->ttl != 0 && (isnan(ttl) || info->ttl < ttl))
+			ttl = info->ttl;
+	}
 
 	VTAILQ_FOREACH_SAFE(r, &dom->refs, list, r2)
 		if (r->mark != dom->mark)
@@ -432,6 +436,22 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 
 	Lck_Unlock(&dom->mtx);
 	Lck_Unlock(&dom->obj->mtx);
+
+	// deadline only used by this thread - safe outside lock
+	if (isnan(ttl)) {
+		ttl = dom->obj->ttl;
+	} else if (dom->obj->ttl_from == cfg) {
+		ttl = dom->obj->ttl;
+	} else if (dom->obj->ttl_from == min) {
+		if (dom->obj->ttl < ttl)
+			ttl = dom->obj->ttl;
+	} else if (dom->obj->ttl_from == max) {
+		if (dom->obj->ttl > ttl)
+			ttl = dom->obj->ttl;
+	} else {
+		assert(dom->obj->ttl_from == dns);
+	}
+	dom->deadline = now + ttl;
 }
 
 static void
@@ -450,7 +470,7 @@ dynamic_lookup_thread(void *priv)
 	struct vmod_dynamic_director *obj;
 	struct dynamic_domain *dom;
 	struct vrt_ctx ctx;
-	double deadline, lookup, results, update;
+	vtim_real lookup, results, update;
 	const struct res_cb *res;
 	void *res_priv = NULL;
 	int ret;
@@ -474,16 +494,17 @@ dynamic_lookup_thread(void *priv)
 		    results - lookup);
 
 		if (ret == 0) {
-			dynamic_update_domain(dom, res, res_priv);
+			dynamic_update_domain(dom, res, res_priv, results);
 			update = VTIM_real();
 			dynamic_timestamp(dom, "Update", update,
 			    update - lookup, update - results);
 			res->fini(&res_priv);
 			AZ(res_priv);
-		}
-		else
+		} else {
 			LOG(&ctx, SLT_Error, dom, "%s %d (%s)",
 			    res->name, ret, res->strerror(ret));
+			dom->deadline = results + obj->ttl;
+		}
 
 		Lck_Lock(&dom->mtx);
 
@@ -494,8 +515,8 @@ dynamic_lookup_thread(void *priv)
 
 		/* Check status again after the blocking call */
 		if (obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
-			deadline = VTIM_real() + obj->ttl;
-			ret = Lck_CondWait(&dom->cond, &dom->mtx, deadline);
+			ret = Lck_CondWait(&dom->cond, &dom->mtx,
+			    dom->deadline);
 			assert(ret == 0 || ret == ETIMEDOUT);
 		}
 
@@ -794,6 +815,25 @@ dynamic_share_parse(const char *share_s)
 	NEEDLESS(return(0));
 }
 
+static inline enum dynamic_ttl_e
+dynamic_ttl_parse(const char *ttl_s)
+{
+	switch (ttl_s[0]) {
+	case 'c':	return cfg; break;
+	case 'd':	return dns; break;
+	default:	break;
+	}
+	assert(ttl_s[0] == 'm');
+	switch (ttl_s[1]) {
+	case 'i':	return min; break;
+	case 'a':	return max; break;
+	default:	break;
+	}
+	INCOMPL();
+	NEEDLESS(return(0));
+}
+
+
 VCL_VOID v_matchproto_()
 vmod_director__init(VRT_CTX,
     struct vmod_dynamic_director **objp,
@@ -811,7 +851,8 @@ vmod_director__init(VRT_CTX,
     VCL_DURATION first_lookup_timeout,
     VCL_INT max_connections,
     VCL_INT proxy_header,
-    VCL_BLOB resolver)
+    VCL_BLOB resolver,
+    VCL_ENUM ttl_from_s)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -867,6 +908,7 @@ vmod_director__init(VRT_CTX,
 	obj->first_lookup_tmo = first_lookup_timeout;
 	obj->max_connections = (unsigned)max_connections;
 	obj->proxy_header = (unsigned)proxy_header;
+	obj->ttl_from = dynamic_ttl_parse(ttl_from_s);
 
 	if (resolver != NULL) {
 		obj->resolver = &res_getdns;
@@ -875,6 +917,10 @@ vmod_director__init(VRT_CTX,
 			VRT_fail(ctx, "dynamic.director(): "
 			    "invalid resolver argument");
 	} else {
+		if (obj->ttl_from != cfg)
+			VRT_fail(ctx, "dynamic.director(): "
+			    "ttl_from = %s only valid with resolver",
+			    ttl_from_s);
 		obj->resolver = &res_gai;
 	}
 
