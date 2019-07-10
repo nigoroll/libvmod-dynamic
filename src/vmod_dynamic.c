@@ -308,7 +308,7 @@ dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
 
 /* all parameters owned by caller */
 static void
-dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct suckaddr *saa)
+dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 {
 	struct suckaddr *sa;
 	struct vrt_backend vrt;
@@ -319,23 +319,23 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct suckaddr *saa)
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	AN(saa);
+	AN(info);
 	Lck_AssertHeld(&dom->mtx);
 	Lck_AssertHeld(&dom->obj->mtx);
 
 	if (dom->obj->whitelist != NULL &&
-	    ! VRT_acl_match(ctx, dom->obj->whitelist, saa)) {
-		VTCP_name(saa, addr, sizeof addr, port, sizeof port);
+	    ! VRT_acl_match(ctx, dom->obj->whitelist, info->sa)) {
+		VTCP_name(info->sa, addr, sizeof addr, port, sizeof port);
 		LOG(ctx, SLT_Error, dom, "whitelist mismatch %s:%s",
 		    addr, port);
 		return;
 	}
 
-	if (dynamic_find(dom, saa))
+	if (dynamic_find(dom, info->sa))
 		return;
 
-	VTCP_name(saa, addr, sizeof addr, port, sizeof port);
-	sa = VSA_Clone(saa);
+	VTCP_name(info->sa, addr, sizeof addr, port, sizeof port);
+	sa = VSA_Clone(info->sa);
 
 	b = malloc(sizeof *b);
 	AN(b);
@@ -410,8 +410,9 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 {
 	struct dynamic_ref *r, *r2;
 	struct vrt_ctx ctx;
-	uint8_t sb[vsa_suckaddr_len];
-	struct suckaddr *sa;
+	uint8_t suckbuf[vsa_suckaddr_len];
+	struct res_info ibuf[1] = {{ .suckbuf = suckbuf }};
+	struct res_info *info;
 	void *state = NULL;
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
@@ -422,8 +423,8 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 
 	dom->mark++;
 
-	while ((sa = res->result(sb, sizeof sb, priv, &state)) != NULL)
-		dynamic_add(&ctx, dom, sa);
+	while ((info = res->result(ibuf, priv, &state)) != NULL)
+		dynamic_add(&ctx, dom, info);
 
 	VTAILQ_FOREACH_SAFE(r, &dom->refs, list, r2)
 		if (r->mark != dom->mark)

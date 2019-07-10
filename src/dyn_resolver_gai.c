@@ -63,13 +63,12 @@ gai_lookup(struct VPFX(dynamic_resolver) *r,
 
 void *gai_last = &gai_last;
 
-static struct suckaddr *
-gai_result(uint8_t *buf, size_t len, void *priv, void **state)
+static struct res_info *
+gai_result(struct res_info *info, void *priv, void **state)
 {
 	struct addrinfo *addr;
 
-	AN(buf);
-	assert(len >= vsa_suckaddr_len);
+	AN(info);
 	AN(priv);
 	AN(state);
 
@@ -91,7 +90,9 @@ gai_result(uint8_t *buf, size_t len, void *priv, void **state)
 
 	*state = (addr->ai_next == NULL) ? gai_last : addr->ai_next;
 
-	return (VSA_Build(buf, addr->ai_addr, addr->ai_addrlen));
+	info->sa = VSA_Build(info->suckbuf, addr->ai_addr, addr->ai_addrlen);
+
+	return (info->sa != NULL ? info : NULL);
 }
 
 static void
