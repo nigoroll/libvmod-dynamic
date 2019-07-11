@@ -4,12 +4,12 @@ AM_LDFLAGS = $(VARNISHAPI_LIBS) $(GETDNS_LIBS) $(VMOD_LDFLAGS)
 vmod_LTLIBRARIES = libvmod_dynamic.la
 
 libvmod_dynamic_la_SOURCES = \
-	vmb.h \
 	vmod_dynamic.h \
 	vmod_dynamic.c \
-	vmod_dynamic_service.c \
 	dyn_resolver.h \
-	dyn_resolver_gai.c
+	dyn_resolver_gai.c \
+	vmb.h \
+	vmod_dynamic_service.c
 
 if HAVE_GETDNS
 libvmod_dynamic_la_SOURCES += \
