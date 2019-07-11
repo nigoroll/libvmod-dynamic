@@ -61,6 +61,6 @@ client c1 {
 	expect resp.status == 200
 } -run
 
-varnish v1 -expect VBE.vcl1.d1(${s1_addr}).req == 3
+varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 3
 
 logexpect l1 -wait
