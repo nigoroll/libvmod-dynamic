@@ -1,0 +1,41 @@
+varnishtest "service smoke test"
+
+server s1 {
+       rxreq
+       txresp
+} -start
+
+varnish v1 -vcl+backend {
+	import ${vmod_dynamic};
+
+	sub vcl_init {
+		new r1 = dynamic.resolver();
+		new d1 = dynamic.director(
+		    resolver = r1.use());
+		d1.debug(true);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint =
+		    d1.service("_test._tcp.vmod-dynamic.uplex.de");
+		set req.http.Host = "varnish-cache.org";
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+} -start
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 302
+} -run
+
+varnish v1 -cli "backend.list"
+
+# XXX
+#varnish v1 -expect VBE.vcl1.d1(176.58.90.154).req == 1
+#varnish v1 -expect LCK.dynamic.director.creat > 0
+#varnish v1 -expect LCK.dynamic.backend.creat > 0

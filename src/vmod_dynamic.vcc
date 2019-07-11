@@ -343,6 +343,22 @@ Description
 	object has been passed to the `vmod_dynamic.director`_
 	constructor.
 
+	SRV records contain host (called target) and port
+	information. Dynamic backends are automatically added and
+	maintained based on this information as if
+	`vmod_dynamic.director.backend`_ had been called.
+
+	SRV records also contain *priority* and *weight*
+	information. The `vmod_dynamic.director.service`_ method
+	returns a target (backend) from the lowest *priority* found
+	healthy. If there are multiple healthy targets for the lowest
+	*priority*, one is chosen randomly based on the probabilities
+	defined by the *weight* attributes.
+
+	Note that it highly recommended to use a *probe* argument to
+	the `vmod_dynamic.director`_ to avoid returning unresponsive
+	backends.
+
 $Method VOID .debug(BOOL)
 
 Description
