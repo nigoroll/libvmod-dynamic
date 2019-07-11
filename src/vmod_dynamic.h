@@ -1,8 +1,10 @@
 /*-
  * Copyright (c) 2016 Varnish Software AS
+ * Copyright 2017-2019 UPLEX - Nils Goroll Systemoptimierung
  * All rights reserved.
  *
- * Author: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
+ * Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
+ *	    Nils Goroll <nils.goroll@uplex.de>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -86,6 +88,61 @@ struct dynamic_domain {
 	vtim_real			deadline;
 };
 
+struct service_target {
+	unsigned			magic;
+#define SERVICE_TARGET_MAGIC		0xd15e71c7
+	uint32_t			weight;
+
+	struct dynamic_domain		*dom;
+	VTAILQ_ENTRY(service_target)	list;
+
+	/* not required, debug info only */
+	uint32_t			port;
+	char				*target;
+};
+
+struct service_prio {
+	unsigned			magic;
+#define SERVICE_PRIO_MAGIC		0xd15e71c0
+	uint32_t			priority;
+	unsigned			n_targets;
+	VTAILQ_HEAD(, service_target)	targets;
+	VTAILQ_ENTRY(service_prio)	list;
+};
+
+struct service_prios {
+	unsigned			magic;
+#define SERVICE_PRIOS_MAGIC		0xd15e71c5
+	unsigned			max_targets;
+	VTAILQ_HEAD(, service_prio)	head;
+};
+
+struct dynamic_service {
+	unsigned			magic;
+#define DYNAMIC_SERVICE_MAGIC		0xd15e71ce
+	struct vmod_dynamic_director	*obj;
+
+	char				*service;
+	VTAILQ_ENTRY(dynamic_service)	list;
+	VCL_BACKEND			dir;
+
+	VCL_TIME			last_used;
+	struct lock			mtx;
+	pthread_cond_t			cond;
+	volatile enum dynamic_status_e	status;
+
+	pthread_t			thread;
+	pthread_cond_t			resolve;
+
+	vtim_real			deadline;
+
+	// swapped, membar'ed
+	struct service_prios		*prios;
+	// owned by service_update()
+	struct service_prios		*prios_cold;
+};
+
+
 struct vmod_dynamic_director {
 	unsigned				magic;
 #define VMOD_DYNAMIC_DIRECTOR_MAGIC		0x8a3e7fd1
@@ -107,6 +164,8 @@ struct vmod_dynamic_director {
 	VTAILQ_ENTRY(vmod_dynamic_director)	list;
 	VTAILQ_HEAD(,dynamic_domain)		active_domains;
 	VTAILQ_HEAD(,dynamic_domain)		purged_domains;
+	VTAILQ_HEAD(,dynamic_service)		active_services;
+	VTAILQ_HEAD(,dynamic_service)		purged_services;
 	VTAILQ_HEAD(,dynamic_backend)		backends;
 	const char				*vcl_conf;
 	struct vcl				*vcl;
@@ -121,3 +180,13 @@ struct vmod_dynamic_director {
 VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director) objects;
 
 extern struct vmod_dynamic_head objects;
+
+struct dynamic_domain *
+dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
+const char *port);
+
+// vmod_dynamic_service.c
+struct dynamic_service;
+void service_stop(struct vmod_dynamic_director *obj);
+void service_start(VRT_CTX, struct vmod_dynamic_director *obj);
+void service_fini(struct vmod_dynamic_director *obj);
