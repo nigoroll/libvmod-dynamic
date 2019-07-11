@@ -59,7 +59,15 @@ struct dyn_getdns_state {
 
 #define errchk(ret) if (ret != GETDNS_RETURN_GOOD) goto out
 
-#include <unistd.h>	// DEBUG XXX
+#ifdef DUMP_GETDNS
+#include <unistd.h>
+#define dbg_dump_getdns(r) do {					\
+		char *dbg = getdns_pretty_print_dict(r);		\
+		write(2, dbg, strlen(dbg));				\
+	} while (0)
+#else
+#define dbg_dump_getdns(r) (void)0
+#endif
 
 static int
 getdns_lookup(struct VPFX(dynamic_resolver) *r,
@@ -103,9 +111,7 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	ret = getdns_address_sync(c->context, node, NULL, &state->response);
 	errchk(ret);
 
-	// XXX DEBUG
-	char *dbg = getdns_pretty_print_dict(state->response);
-	write(2, dbg, strlen(dbg));
+	dbg_dump_getdns(state->response);
 
 	ret = getdns_dict_get_list(state->response,
 	    "/replies_tree", &state->replies);
@@ -270,10 +276,211 @@ getdns_fini(void **priv)
 	free(state);
 }
 
+/* ------------------------------------------------------------
+ * srv
+ */
+
+struct dyn_getdns_srv_state {
+	struct VPFX(dynamic_resolver_context)	*context;
+	getdns_dict				*response;
+	getdns_list				*replies;
+	getdns_list				*answers;
+	size_t					n_replies;
+	size_t					n_answers;
+	size_t					reply;  // next to return
+	size_t					answer; // next to return
+};
+
+static int
+getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
+    const char *service, void **priv)
+{
+	struct VPFX(dynamic_resolver_context) *c = NULL;
+	struct dyn_getdns_srv_state *state;
+	getdns_return_t ret = GETDNS_RETURN_GENERIC_ERROR;
+
+	getdns_dict	*reply;
+
+	AN(r);
+	AN(service);
+	AN(priv);
+	AZ(*priv);
+
+	state = malloc(sizeof *state);
+	AN(state);
+	memset(state, 0, sizeof *state);
+
+	c = dyn_getdns_get_context(r);
+	AN(c);
+	AN(c->context);
+	state->context = c;
+
+	ret = getdns_service_sync(c->context, service, NULL, &state->response);
+	errchk(ret);
+
+	dbg_dump_getdns(state->response);
+
+	ret = getdns_dict_get_list(state->response,
+	    "/replies_tree", &state->replies);
+	errchk(ret);
+
+	ret = getdns_list_get_length(state->replies,
+	    &state->n_replies);
+	errchk(ret);
+
+	if (state->n_replies == 0) {
+		ret = GETDNS_RETURN_NO_ANSWERS;
+		goto out;
+	}
+
+	do {
+		ret = getdns_list_get_dict(state->replies,
+		    state->reply++, &reply);
+		errchk(ret);
+
+		ret = getdns_dict_get_list(reply,
+		    "/answer", &state->answers);
+		errchk(ret);
+
+		state->answer = 0;
+
+		ret = getdns_list_get_length(state->answers,
+		    &state->n_answers);
+		errchk(ret);
+	} while (state->n_answers == 0 && state->reply < state->n_replies);
+
+	if (state->n_answers == 0)
+		ret = GETDNS_RETURN_NO_ANSWERS;
+
+  out:
+	if (ret == GETDNS_RETURN_GOOD) {
+		*priv = state;
+		return (ret);
+	}
+
+	if (state->response != NULL)
+		getdns_dict_destroy(state->response);
+	if (c != NULL)
+		dyn_getdns_rel_context(&c);
+	free(state);
+	return (ret);
+}
+
+static struct srv_info *
+getdns_srv_result(struct srv_info *info, void *priv, void **answerp)
+{
+	struct dyn_getdns_srv_state *state;
+	getdns_dict *rr;
+	getdns_bindata *target;
+	uint32_t rrtype;
+	getdns_return_t ret;
+	getdns_dict	*reply;
+
+	AN(info);
+	AN(priv);
+	AN(answerp);
+
+	AZ(info->target);
+	memset(info, 0, sizeof *info);
+
+	if (*answerp == getdns_last)
+		return (NULL);
+
+	state = priv;
+	if (state->answer >= state->n_answers &&
+	    state->reply >= state->n_replies) {
+		*answerp = getdns_last;
+		return (NULL);
+	} else if (*answerp == NULL) {
+		*answerp = &state->answer;
+	}
+
+	assert(*answerp == &state->answer);
+
+	do {
+		// advace to next reply when out of answers
+		if (state->answer >= state->n_answers) {
+			ret = getdns_list_get_dict(state->replies,
+			    state->reply++, &reply);
+			if (ret != 0)
+				break;
+
+			ret = getdns_dict_get_list(reply,
+			    "/answer", &state->answers);
+			if (ret != 0)
+				break;
+
+			state->answer = 0;
+
+			ret = getdns_list_get_length(state->answers,
+			    &state->n_answers);
+			if (ret != 0)
+				break;
+		}
+
+		ret = getdns_list_get_dict(state->answers,
+		    state->answer++, &rr);
+		AZ(ret);
+
+		ret = getdns_dict_get_int(rr, "type", &rrtype);
+		if (ret != 0)
+			continue;
+
+		if (rrtype != GETDNS_RRTYPE_SRV)
+			continue;
+
+		// at least target and port must be present
+		ret = getdns_dict_get_bindata(rr, "/rdata/target", &target);
+		if (ret != 0)
+			continue;
+		ret = getdns_dict_get_int(rr, "/rdata/port", &info->port);
+		if (ret != 0)
+			continue;
+
+		AZ(getdns_convert_dns_name_to_fqdn(target, &info->target));
+		(void) getdns_dict_get_int(rr, "/rdata/priority",
+		    &info->priority);
+		(void) getdns_dict_get_int(rr, "/rdata/weight",
+		    &info->weight);
+		(void) getdns_dict_get_int(rr, "/ttl", &info->ttl);
+
+		return (info);
+	} while (state->answer < state->n_answers ||
+	    state->reply < state->n_replies);
+
+	*answerp = getdns_last;
+	return (NULL);
+}
+
+static void
+getdns_srv_fini(void **priv)
+{
+	struct dyn_getdns_srv_state *state;
+
+	AN(priv);
+	state = *priv;
+	*priv = NULL;
+	AN(state);
+
+	AN(state->context);
+	AN(state->response);
+	AN(state->answers);	// not to be freed, refs response
+
+	getdns_dict_destroy(state->response);
+	dyn_getdns_rel_context(&state->context);
+	free(state);
+}
+
 struct res_cb res_getdns = {
 	.name = "getdns",
+
 	.lookup = getdns_lookup,
 	.result = getdns_result,
 	.fini = getdns_fini,
+
+	.srv_lookup = getdns_srv_lookup,
+	.srv_result = getdns_srv_result,
+	.srv_fini = getdns_srv_fini,
+
 	.strerror = dyn_getdns_strerror
 };
