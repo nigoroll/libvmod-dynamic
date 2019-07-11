@@ -39,7 +39,15 @@ struct res_info {
 	struct suckaddr	*sa; // == suckbuf on success
 	uint32_t		ttl; // 0 for unset
 };
+struct srv_info {
+	char			*target;	// must be freed!
+	uint32_t		port;
+	uint32_t		priority;
+	uint32_t		weight;
+	uint32_t		ttl; // 0 for unset
+};
 
+// A/AAAA
 typedef int res_lookup_f(struct VPFX(dynamic_resolver) *r,
     const char *node, const char *service, void **priv);
 typedef struct res_info *res_result_f(struct res_info *,
@@ -47,12 +55,25 @@ typedef struct res_info *res_result_f(struct res_info *,
 typedef void res_fini_f(void **priv);
 typedef const char *res_strerror_f(int);
 
+// SRV
+typedef int srv_lookup_f(struct VPFX(dynamic_resolver) *r,
+    const char *service, void **priv);
+typedef struct srv_info *srv_result_f(struct srv_info *,
+    void *priv, void **state);
+typedef void srv_fini_f(void **priv);
+
 // resolver callbacks
 struct res_cb {
 	const char	*name;
+
 	res_lookup_f	*lookup;
 	res_result_f	*result;
 	res_fini_f	*fini;
+
+	srv_lookup_f	*srv_lookup;
+	srv_result_f	*srv_result;
+	srv_fini_f	*srv_fini;
+
 	res_strerror_f	*strerror;
 };
 
