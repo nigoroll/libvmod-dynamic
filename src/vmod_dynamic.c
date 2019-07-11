@@ -354,12 +354,13 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	switch (dom->obj->share) {
 	case DIRECTOR:
 		vrt.hosthdr = dom->obj->hosthdr;
-		VSB_printf(vsb, "%s(%s)", dom->obj->vcl_name, b->ip_addr);
+		VSB_printf(vsb, "%s(%s:%s)", dom->obj->vcl_name, b->ip_addr,
+		    vrt.port);
 		break;
 	case HOST:
 		vrt.hosthdr = dom->obj->hosthdr ? dom->obj->hosthdr : dom->addr;
-		VSB_printf(vsb, "%s.%s(%s)", dom->obj->vcl_name, dom->addr,
-		    b->ip_addr);
+		VSB_printf(vsb, "%s.%s(%s:%s)", dom->obj->vcl_name, dom->addr,
+		    b->ip_addr, vrt.port);
 		break;
 	default:
 		INCOMPL();

@@ -101,5 +101,5 @@ barrier b1 sync
 varnish v1 -cliexpect "d1\\.www\\.localhost.*4/8" "backend.list"
 varnish v1 -cliexpect "d1\\.img\\.localhost.*4/8" "backend.list"
 
-varnish v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}).req == 1
-varnish v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}).req == 1
+varnish v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}:${s1_port}).req == 1
+varnish v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}:${s1_port}).req == 1

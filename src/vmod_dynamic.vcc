@@ -100,20 +100,49 @@ of dynamic DNS TTLs:
 
 * use the *ttl* director initialization parameter as a minimum ttl.
 
+.. _ref_vmod_dynamic_names:
+
+NAMES
+=====
+
+Directors and backends created by this vmod follow this naming scheme,
+which will be referred to as *<name>* in the following documentation
+
+* *<directorname>*
+
+  The name of the VCL object created by `vmod_dynamic.director`_
+
+* *<directorname>*\ (\ *<hostname>*\ :\ *<port>*\ )
+
+  A director (internally called *domain*), created as a result of a
+  `vmod_dynamic.director.backend`_ or, indirectly, for targets
+  resulting from a `vmod_dynamic.director.service`_ call.
+
+* *<directorname>*\ (\ *service*\ )
+
+  A director created as a result of a `vmod_dynamic.director.backend`_
+  or `vmod_dynamic.director.service`_ call.
+
+* *<directorname>*\ (\ *address*\ :\ *port*\ )
+
+  A dynamic backend for a *<hostname>*\ :\ *<port>* with DIRECTOR
+  scope sharing
+
+* *<directorname>*\ (\ *hostname*\ .\ *address*\ :\ *port*\ )
+
+  A dynamic backend for a *<hostname>*\ :\ *<port>* with HOST scope
+  sharing
+
+*port* may be represented symbolically (``http`` by default)
+
 STATISTICS
 ==========
 
 Dynamic backends are created and deleted on demand and can be
 monitored just like VCL-defined backends. Their statistics will appear
-in VSM-tools like ``varnishstat`` as:
+in VSM-tools like ``varnishstat`` as::
 
-* for ``share = "DIRECTOR"``::
-
-   VBE.<configname>.<directorname>(<ip>).*
-
-* for ``share = "HOST"``::
-
-   VBE.<configname>.<directorname>.<host>(<ip>).*
+  VBE.<configname>.<name>.*
 
 LOGGING
 =======
@@ -125,20 +154,20 @@ common pattern::
                  |  |  |  |    |
                  |  |  |  |    +- Additional information
                  |  |  |  +------ Event
-                 |  |  +--------- Host name
+                 |  |  +--------- <name> without the <director> part
                  |  +------------ Director name
                  +--------------- VCL name
 
 Lookup timestamps are also logged to help troubleshooting, using regular
 ``Timestamp`` records with the following pattern for event labels::
 
-    vmod-dynamic <vcl>.<director>(<host>) <Lookup|Results|Update>
+    vmod-dynamic <vcl>.<name> <Lookup|Results|Update>
 
 When a lookup thread is terminated, either because the VCL is cooling down
 or the ``domain_usage_timeout`` triggered, ``Timestamp`` records are logged
 with the event::
 
-    vmod-dynamic <vcl>.<director>(<host>) Done
+    vmod-dynamic <vcl>.<name> Done
 
 Not all logs belong to HTTP transactions, especially since DNS lookups happen
 in the background. In order to capture all logs from this module the simplest
@@ -381,8 +410,14 @@ SEE ALSO
 Breaking CHANGES
 ================
 
-With version XXX, ``Error`` logging with ``acl-mismatch`` has been renamed
-to ``whitelist mismatch`` and port information has been added.
+next release
+------------
+
+* ``Error`` logging with ``acl-mismatch`` has been renamed to
+  ``whitelist mismatch`` and port information has been added.
+
+* Port information has been added to director/backend names and the
+  documentation section `ref_vmod_dynamic_names`_ has been added.
 
 COPYRIGHT
 =========

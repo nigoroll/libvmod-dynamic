@@ -36,8 +36,8 @@ client c1 {
 logexpect l4 -wait
 logexpect l6 -wait
 
-varnish v1 -expect VBE.vcl1.d4(127.0.0.1).req == 0
-varnish v1 -expect VBE.vcl1.d6(::1).req == 0
+varnish v1 -expect VBE.vcl1.d4(127.0.0.1:http).req == 0
+varnish v1 -expect VBE.vcl1.d6(::1:http).req == 0
 
-varnish v1 -expect !VBE.vcl1.d4(::1).req
-varnish v1 -expect !VBE.vcl1.d6(127.0.0.1).req
+varnish v1 -expect !VBE.vcl1.d4(::1:http).req
+varnish v1 -expect !VBE.vcl1.d6(127.0.0.1:http).req

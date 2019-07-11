@@ -83,7 +83,7 @@ client c1 {
 	expect_close
 } -run
 
-varnish v1 -expect VBE.vcl1.d1(127.0.0.1).req == 1
-varnish v1 -expect VBE.vcl1.d1(127.0.0.2).req == 1
-varnish v1 -expect VBE.vcl1.d1(127.0.0.3).req == 1
-varnish v1 -expect VBE.vcl1.d1(127.0.0.4).req == 1
+varnish v1 -expect VBE.vcl1.d1(127.0.0.1:${s1_port}).req == 1
+varnish v1 -expect VBE.vcl1.d1(127.0.0.2:${s1_port}).req == 1
+varnish v1 -expect VBE.vcl1.d1(127.0.0.3:${s1_port}).req == 1
+varnish v1 -expect VBE.vcl1.d1(127.0.0.4:${s1_port}).req == 1

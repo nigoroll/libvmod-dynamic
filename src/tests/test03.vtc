@@ -51,7 +51,7 @@ client c1 {
 } -run
 
 delay 0.1
-varnish v1 -expect VBE.vcl1.d1(${s1_addr}).req == 2
+varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
 
 delay 2
 
