@@ -88,7 +88,7 @@
 
 struct vmod_dynamic_head objects = VTAILQ_HEAD_INITIALIZER(objects);
 
-static struct VSC_lck *lck_dir, *lck_be;
+struct VSC_lck *lck_dir, *lck_be;
 
 static unsigned loadcnt = 0;
 
@@ -580,6 +580,8 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
+	service_stop(obj);
+
 	/* NB: At this point we got a COLD event so there are no ongoing
 	 * transactions. It means that remaining threads accessing obj are
 	 * lookup threads. They may modify the backends list for the last
@@ -640,6 +642,7 @@ dynamic_start(struct vmod_dynamic_director *obj)
 		AZ(pthread_create(&dom->thread, NULL, &dynamic_lookup_thread,
 		    dom));
 	}
+	service_start(ctx, obj);
 	Lck_Unlock(&obj->mtx);
 }
 
@@ -689,7 +692,7 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	return (dom);
 }
 
-static struct dynamic_domain *
+struct dynamic_domain *
 dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
     const char *port)
 {
@@ -890,6 +893,8 @@ vmod_director__init(VRT_CTX,
 	AN(obj);
 	VTAILQ_INIT(&obj->active_domains);
 	VTAILQ_INIT(&obj->purged_domains);
+	VTAILQ_INIT(&obj->active_services);
+	VTAILQ_INIT(&obj->purged_services);
 	VTAILQ_INIT(&obj->backends);
 	REPLACE(obj->vcl_name, vcl_name);
 	REPLACE(obj->port, port);
@@ -947,6 +952,8 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 
 	VTAILQ_REMOVE(&objects, obj, list);
 
+	service_fini(obj);
+
 	/* Backends will be deleted by the VCL, pass a NULL struct ctx */
 	VTAILQ_FOREACH_SAFE(dom, &obj->purged_domains, list, d2) {
 		VTAILQ_REMOVE(&obj->purged_domains, dom, list);
@@ -992,21 +999,6 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 	Lck_Unlock(&obj->mtx);
 
 	return (&dom->dir);
-}
-
-VCL_BACKEND v_matchproto_(td_dynamic_director_service)
-vmod_director_service(VRT_CTX, struct VPFX(dynamic_director) *obj,
-    VCL_STRING service) {
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-
-	if (obj->resolver_inst == NULL) {
-		VRT_fail(ctx, "xdynamic.service(): Only supported "
-		    "with a resolver");
-		return (NULL);
-	}
-
-	return (NULL);
 }
 
 VCL_VOID v_matchproto_(td_dynamic_director_debug)
