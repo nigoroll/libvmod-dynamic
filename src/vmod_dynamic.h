@@ -190,3 +190,40 @@ struct dynamic_service;
 void service_stop(struct vmod_dynamic_director *obj);
 void service_start(VRT_CTX, struct vmod_dynamic_director *obj);
 void service_fini(struct vmod_dynamic_director *obj);
+
+// generic
+
+// dump details to vsl
+static inline void
+dbg_res_details(struct vsl_log *vsl, const struct vmod_dynamic_director *obj,
+    const struct res_cb *res, void *res_priv)
+{
+	char *details, *line, *save;
+
+	if (obj->debug == 0 || res == NULL || res->details == NULL)
+		return;
+
+	details = res->details(res_priv);
+	if (details == NULL) {
+		line = "(no details)";
+		if (vsl != NULL)
+			VSLb(vsl, SLT_Debug, "vmod-dynamic resolver: %s",
+			    line);
+		else
+			VSL(SLT_Debug, 0, "vmod-dynamic resolver: %s",
+			    line);
+		return;
+	}
+
+	line = strtok_r(details, "\n", &save);
+	while (line != NULL) {
+		if (vsl != NULL)
+			VSLb(vsl, SLT_Debug, "vmod-dynamic resolver: %s",
+			    line);
+		else
+			VSL(SLT_Debug, 0, "vmod-dynamic resolver: %s",
+			    line);
+		line = strtok_r(NULL, "\n", &save);
+	}
+	free(details);
+}

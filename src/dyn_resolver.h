@@ -53,7 +53,6 @@ typedef int res_lookup_f(struct VPFX(dynamic_resolver) *r,
 typedef struct res_info *res_result_f(struct res_info *,
     void *priv, void **state);
 typedef void res_fini_f(void **priv);
-typedef const char *res_strerror_f(int);
 
 // SRV
 typedef int srv_lookup_f(struct VPFX(dynamic_resolver) *r,
@@ -61,6 +60,10 @@ typedef int srv_lookup_f(struct VPFX(dynamic_resolver) *r,
 typedef struct srv_info *srv_result_f(struct srv_info *,
     void *priv, void **state);
 typedef void srv_fini_f(void **priv);
+
+// generic
+typedef const char *res_strerror_f(int);
+typedef char *res_details_f(void *priv); // to be freed by caller
 
 // resolver callbacks
 struct res_cb {
@@ -75,6 +78,7 @@ struct res_cb {
 	srv_fini_f	*srv_fini;
 
 	res_strerror_f	*strerror;
+	res_details_f	*details;
 };
 
 extern struct res_cb res_gai;

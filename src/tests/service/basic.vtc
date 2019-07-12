@@ -1,12 +1,11 @@
 varnishtest "service smoke test"
 
-server s1 {
-       rxreq
-       txresp
-} -start
+# depends on external DNS
 
-varnish v1 -vcl+backend {
+varnish v1 -vcl {
 	import ${vmod_dynamic};
+
+	backend dummy { .host = "${bad_backend}"; }
 
 	sub vcl_init {
 		new r1 = dynamic.resolver();
@@ -21,21 +20,116 @@ varnish v1 -vcl+backend {
 		set req.http.Host = "varnish-cache.org";
 	}
 
+	sub vcl_backend_response {
+		set beresp.http.backend = beresp.backend;
+	}
+
 	sub vcl_backend_error {
-		# the director may resolve ::1 first
-		return (retry);
+		set beresp.http.backend = beresp.backend;
 	}
 } -start
 
-client c1 {
-	txreq
-	rxresp
-	expect resp.status == 302
-} -run
+# vcl1 d1 _test._tcp.vmod-dynamic.uplex.de -> one.test.uplex.de.:80 priority 1 weight 10 ttl 3600
+# vcl1 d1 _test._tcp.vmod-dynamic.uplex.de -> two-a.test.uplex.de.:81 priority 2 weight 25 ttl 3600
+# vcl1 d1 _test._tcp.vmod-dynamic.uplex.de -> two-b.test.uplex.de.:82 priority 2 weight 50 ttl 3600
 
 varnish v1 -cli "backend.list"
 
-# XXX
-#varnish v1 -expect VBE.vcl1.d1(176.58.90.154).req == 1
-#varnish v1 -expect LCK.dynamic.director.creat > 0
-#varnish v1 -expect LCK.dynamic.backend.creat > 0
+# we do not care about failing backend requests here, we only care
+# about the right backend being used
+
+# all healthy (no probe): priority 1 is being used
+client c1 {
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:80)
+} -run
+
+# priority 1 sick: priority 2 is being used
+# test random choice by weight: 1/3 two-a:81 / 2/3 two-b:82
+# the order is deterministic due to VTC using the testeable rng
+# $ grep -E ' c2 +[0-9.]+ +http.*backend' service/basic.log \
+#   | sed 's:^.*backend\: ::' | sort | uniq -c
+#       6 d1(212.12.63.113:81)
+#      14 d1(212.12.63.113:82)
+
+varnish v1 -cliok "backend.set_health *.d1(212.12.63.113:80) sick"
+varnish v1 -cliok "debug.srandom"
+
+client c2 {
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:81)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:81)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:81)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:81)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+} -run
+
+varnish v1 -cliok "backend.set_health *.d1(212.12.63.113:81) sick"
+
+client c2 -repeat 5 -keepalive {
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:82)
+}
+
+varnish v1 -cliok "backend.set_health *.d1(212.12.63.113:80) healthy"
+client c2 {
+	txreq
+	rxresp
+	expect resp.http.backend == d1(212.12.63.113:80)
+} -run

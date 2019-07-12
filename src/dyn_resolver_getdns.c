@@ -64,6 +64,7 @@ struct dyn_getdns_state {
 #define dbg_dump_getdns(r) do {					\
 		char *dbg = getdns_pretty_print_dict(r);		\
 		write(2, dbg, strlen(dbg));				\
+		free(dbg);						\
 	} while (0)
 #else
 #define dbg_dump_getdns(r) (void)0
@@ -471,6 +472,17 @@ getdns_srv_fini(void **priv)
 	free(state);
 }
 
+static char *
+getdns_details(void *priv)
+{
+	struct dyn_getdns_srv_state *state = priv;
+
+	if (state == NULL || state->response == NULL)
+		return (NULL);
+
+	return (getdns_pretty_print_dict(state->response));
+}
+
 struct res_cb res_getdns = {
 	.name = "getdns",
 
@@ -482,5 +494,6 @@ struct res_cb res_getdns = {
 	.srv_result = getdns_srv_result,
 	.srv_fini = getdns_srv_fini,
 
-	.strerror = dyn_getdns_strerror
+	.strerror = dyn_getdns_strerror,
+	.details = getdns_details
 };
