@@ -321,6 +321,50 @@ service_prio(struct service_prios *prios, uint32_t priority)
 	return (prio);
 }
 
+/* we order targets for deterministic testing by target and port.
+ * being at it, we also just add the weight for identical target:port
+ */
+
+static int
+target_cmp(const struct service_target *t, const struct srv_info *i)
+{
+	int ret;
+
+	CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
+	AN(i);
+
+	ret = strcmp(t->target, i->target);
+	if (ret != 0)
+		return (ret);
+	if (t->port == i->port)
+		return (0);
+	return (t->port < i->port ? -1 : 1);
+}
+
+static struct service_target *
+service_target(struct service_prio *prio, const struct srv_info *i)
+{
+	struct service_target *t, *target;
+	int cmp;
+
+	VTAILQ_FOREACH(t, &prio->targets, list) {
+		cmp = target_cmp(t, i);
+		if (cmp == 0)
+			return (t);
+		if (cmp > 0)
+			break;
+	}
+
+	ALLOC_OBJ(target, SERVICE_TARGET_MAGIC);
+
+	if (t)
+		VTAILQ_INSERT_BEFORE(t, target, list);
+	else
+		VTAILQ_INSERT_TAIL(&prio->targets, target, list);
+
+	return (target);
+}
+
 static void
 service_update(struct dynamic_service *srv, const struct res_cb *res,
     void *priv, vtim_real now)
@@ -348,23 +392,37 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 	ALLOC_OBJ(prios, SERVICE_PRIOS_MAGIC);
 	VTAILQ_INIT(&prios->head);
 	while ((info = res->srv_result(ibuf, priv, &state)) != NULL) {
+		DBG(&ctx, srv, "DNS SRV %s:%d priority %d weight %d ttl %d",
+		    info->target, info->port, info->priority,
+		    info->weight, info->ttl);
+
 		if (prio != NULL && prio->priority != info->priority)
 			prio = NULL;
 		if (prio == NULL)
 			prio = service_prio(prios, info->priority);
-		DBG(&ctx, srv, "-> %s:%d priority %d weight %d ttl %d",
-		    info->target, info->port, info->priority,
-		    info->weight, info->ttl);
-		ALLOC_OBJ(target, SERVICE_TARGET_MAGIC);
-		target->weight = info->weight;
-		target->port = info->port;
-		// target is malloc'ed - take it
-		target->target = info->target;
-		info->target = NULL;
-		VTAILQ_INSERT_TAIL(&prio->targets, target, list);
+
+		target = service_target(prio, info);
+
+		if (target->target != NULL) {
+			// existing
+			assert(target->port == info->port);
+			target->weight += info->weight;
+			free(info->target);
+			info->target = NULL;
+		} else {
+			target->port = info->port;
+			target->weight = info->weight;
+			// target is malloc'ed - take it
+			target->target = info->target;
+			info->target = NULL;
+		}
 
 		if (info->ttl != 0 && (isnan(ttl) || info->ttl < ttl))
 			ttl = info->ttl;
+
+		DBG(&ctx, srv, "target %s:%d priority %d weight %d ttl %f",
+		    target->target, target->port, prio->priority,
+		    target->weight, ttl);
 	}
 
 	service_doms(&ctx, srv->obj, prios);
@@ -391,6 +449,8 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 		assert(srv->obj->ttl_from == dns);
 	}
 	srv->deadline = now + ttl;
+
+	DBG(&ctx, srv, "deadline %f ttl %f", srv->deadline, ttl);
 }
 
 static void
