@@ -45,7 +45,8 @@
  * getdns resolver
  */
 
-struct dyn_getdns_addr_state {
+// needs to be first in specific states so a cast works
+struct dyn_getdns_common_state {
 	struct VPFX(dynamic_resolver_context)	*context;
 	getdns_dict				*response;
 	getdns_list				*replies;
@@ -54,10 +55,14 @@ struct dyn_getdns_addr_state {
 	size_t					n_answers;
 	size_t					reply;  // next to return
 	size_t					answer; // next to return
+};
+
+struct dyn_getdns_addr_state {
+	struct dyn_getdns_common_state		common;
 	uint16_t				port;
 };
 
-#define errchk(ret) if (ret != GETDNS_RETURN_GOOD) goto out
+#define errchk(ret) if (ret != GETDNS_RETURN_GOOD) return(ret)
 
 #ifdef DUMP_GETDNS
 #include <unistd.h>
@@ -75,7 +80,8 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
     const char *node, const char *service, void **priv)
 {
 	struct VPFX(dynamic_resolver_context) *c = NULL;
-	struct dyn_getdns_addr_state *state;
+	struct dyn_getdns_addr_state *addrstate;
+	struct dyn_getdns_common_state *state;
 	getdns_return_t ret = GETDNS_RETURN_GENERIC_ERROR;
 
 	char		buf[1024];
@@ -89,21 +95,21 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	AN(priv);
 	AZ(*priv);
 
-	state = malloc(sizeof *state);
-	AN(state);
-	memset(state, 0, sizeof *state);
+	addrstate = malloc(sizeof *addrstate);
+	AN(addrstate);
+	memset(addrstate, 0, sizeof *addrstate);
+	*priv = addrstate;
+	state = &addrstate->common;
 
 	// XXX tcp hardcoded ok?
-	state->port = atoi(service);
-	if (state->port != 0) {
-		state->port = htons(state->port);
-	} else if (getservbyname_r(service, "tcp", servent_buf,
-	    buf, sizeof(buf), &servent) != 0) {
-		ret = GETDNS_RETURN_NO_SERVBYNAME;
-		goto out;
-	} else {
-		state->port = servent->s_port;
-	}
+	addrstate->port = atoi(service);
+	if (addrstate->port != 0)
+		addrstate->port = htons(addrstate->port);
+	else if (getservbyname_r(service, "tcp", servent_buf,
+		     buf, sizeof(buf), &servent) != 0)
+		return (GETDNS_RETURN_NO_SERVBYNAME);
+	else
+		addrstate->port = servent->s_port;
 
 	c = dyn_getdns_get_context(r);
 	AN(c);
@@ -118,10 +124,8 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	ret = getdns_dict_get_int(state->response, "/status", &status);
 	errchk(ret);
 
-	if (status != GETDNS_RESPSTATUS_GOOD) {
-		ret = status;
-		goto out;
-	}
+	if (status != GETDNS_RESPSTATUS_GOOD)
+		return (status);
 
 	ret = getdns_dict_get_list(state->response,
 	    "/replies_tree", &state->replies);
@@ -131,10 +135,8 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	    &state->n_replies);
 	errchk(ret);
 
-	if (state->n_replies == 0) {
-		ret = GETDNS_RETURN_NO_ANSWERS;
-		goto out;
-	}
+	if (state->n_replies == 0)
+		return (GETDNS_RETURN_NO_ANSWERS);
 
 	do {
 		ret = getdns_list_get_dict(state->replies,
@@ -155,8 +157,6 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	if (state->n_answers == 0)
 		ret = GETDNS_RETURN_NO_ANSWERS;
 
-  out:
-	*priv = state;
 	return (ret);
 }
 
@@ -165,7 +165,8 @@ void *getdns_last = &getdns_last;
 static struct res_info *
 getdns_result(struct res_info *info, void *priv, void **answerp)
 {
-	struct dyn_getdns_addr_state *state;
+	struct dyn_getdns_addr_state *addrstate;
+	struct dyn_getdns_common_state *state;
 	getdns_dict *rr;
 	getdns_bindata *addr;
 	getdns_return_t ret;
@@ -180,7 +181,8 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 	if (*answerp == getdns_last)
 		return (NULL);
 
-	state = priv;
+	addrstate = priv;
+	state = &addrstate->common;
 	if (state->answer >= state->n_answers &&
 	    state->reply >= state->n_replies) {
 		*answerp = getdns_last;
@@ -240,7 +242,7 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 		assert(sizeof sa4.sin_addr == 4);
 		memset(&sa4, 0, sizeof sa4);
 		sa4.sin_family = AF_INET;
-		sa4.sin_port = state->port;
+		sa4.sin_port = addrstate->port;
 		memcpy(&sa4.sin_addr, addr->data, addr->size);
 		info->sa = VSA_Build(info->suckbuf, &sa4, sizeof sa4);
 		break;
@@ -248,7 +250,7 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 		assert(sizeof sa6.sin6_addr == 16);
 		memset(&sa6, 0, sizeof sa6);
 		sa6.sin6_family = AF_INET6;
-		sa6.sin6_port = state->port;
+		sa6.sin6_port = addrstate->port;
 		memcpy(&sa6.sin6_addr, addr->data, addr->size);
 		info->sa = VSA_Build(info->suckbuf, &sa6, sizeof sa6);
 		break;
@@ -261,19 +263,21 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 static void
 getdns_fini(void **priv)
 {
-	struct dyn_getdns_addr_state *state;
+	struct dyn_getdns_addr_state *addrstate;
+	struct dyn_getdns_common_state *state;
 
 	AN(priv);
-	state = *priv;
+	addrstate = *priv;
 	*priv = NULL;
-	AN(state);
+	AN(addrstate);
 
+	state = &addrstate->common;
 	AN(state->context);
 	AN(state->response);
-
 	getdns_dict_destroy(state->response);
 	dyn_getdns_rel_context(&state->context);
-	free(state);
+
+	free(addrstate);
 }
 
 /* ------------------------------------------------------------
@@ -281,14 +285,7 @@ getdns_fini(void **priv)
  */
 
 struct dyn_getdns_srv_state {
-	struct VPFX(dynamic_resolver_context)	*context;
-	getdns_dict				*response;
-	getdns_list				*replies;
-	getdns_list				*answers;
-	size_t					n_replies;
-	size_t					n_answers;
-	size_t					reply;  // next to return
-	size_t					answer; // next to return
+	struct dyn_getdns_common_state		common;
 };
 
 static int
@@ -296,7 +293,8 @@ getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
     const char *service, void **priv)
 {
 	struct VPFX(dynamic_resolver_context) *c = NULL;
-	struct dyn_getdns_srv_state *state;
+	struct dyn_getdns_srv_state *srvstate;
+	struct dyn_getdns_common_state *state;
 	getdns_return_t ret = GETDNS_RETURN_GENERIC_ERROR;
 
 	getdns_dict	*reply;
@@ -307,9 +305,11 @@ getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
 	AN(priv);
 	AZ(*priv);
 
-	state = malloc(sizeof *state);
-	AN(state);
-	memset(state, 0, sizeof *state);
+	srvstate = malloc(sizeof *srvstate);
+	AN(srvstate);
+	memset(srvstate, 0, sizeof *srvstate);
+	*priv = srvstate;
+	state = &srvstate->common;
 
 	c = dyn_getdns_get_context(r);
 	AN(c);
@@ -324,10 +324,8 @@ getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
 	ret = getdns_dict_get_int(state->response, "/status", &status);
 	errchk(ret);
 
-	if (status != GETDNS_RESPSTATUS_GOOD) {
-		ret = status;
-		goto out;
-	}
+	if (status != GETDNS_RESPSTATUS_GOOD)
+		return (status);
 
 	ret = getdns_dict_get_list(state->response,
 	    "/replies_tree", &state->replies);
@@ -337,10 +335,8 @@ getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
 	    &state->n_replies);
 	errchk(ret);
 
-	if (state->n_replies == 0) {
-		ret = GETDNS_RETURN_NO_ANSWERS;
-		goto out;
-	}
+	if (state->n_replies == 0)
+		return (GETDNS_RETURN_NO_ANSWERS);
 
 	do {
 		ret = getdns_list_get_dict(state->replies,
@@ -361,15 +357,14 @@ getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
 	if (state->n_answers == 0)
 		ret = GETDNS_RETURN_NO_ANSWERS;
 
-  out:
-	*priv = state;
 	return (ret);
 }
 
 static struct srv_info *
 getdns_srv_result(struct srv_info *info, void *priv, void **answerp)
 {
-	struct dyn_getdns_srv_state *state;
+	struct dyn_getdns_srv_state *srvstate;
+	struct dyn_getdns_common_state *state;
 	getdns_dict *rr;
 	getdns_bindata *target;
 	uint32_t rrtype;
@@ -386,7 +381,8 @@ getdns_srv_result(struct srv_info *info, void *priv, void **answerp)
 	if (*answerp == getdns_last)
 		return (NULL);
 
-	state = priv;
+	srvstate = priv;
+	state = &srvstate->common;
 	if (state->answer >= state->n_answers &&
 	    state->reply >= state->n_replies) {
 		*answerp = getdns_last;
@@ -455,25 +451,27 @@ getdns_srv_result(struct srv_info *info, void *priv, void **answerp)
 static void
 getdns_srv_fini(void **priv)
 {
-	struct dyn_getdns_srv_state *state;
+	struct dyn_getdns_srv_state *srvstate;
+	struct dyn_getdns_common_state *state;
 
 	AN(priv);
-	state = *priv;
+	srvstate = *priv;
 	*priv = NULL;
-	AN(state);
+	AN(srvstate);
 
+	state = &srvstate->common;
 	AN(state->context);
 	AN(state->response);
-
 	getdns_dict_destroy(state->response);
 	dyn_getdns_rel_context(&state->context);
-	free(state);
+
+	free(srvstate);
 }
 
 static char *
 getdns_details(void *priv)
 {
-	struct dyn_getdns_srv_state *state = priv;
+	struct dyn_getdns_common_state *state = priv;
 
 	if (state == NULL || state->response == NULL)
 		return (NULL);
