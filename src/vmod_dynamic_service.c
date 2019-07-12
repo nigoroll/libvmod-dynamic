@@ -268,9 +268,13 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 			if (dom->status >= DYNAMIC_ST_ACTIVE)
 				continue;
 			Lck_Lock(&dom->mtx);
-			deadline = VTIM_real() + dom->obj->first_lookup_tmo;
-			ret = Lck_CondWait(&dom->resolve, &dom->mtx, deadline);
-			assert(ret == 0 || ret == ETIMEDOUT);
+			while (dom->status < DYNAMIC_ST_ACTIVE) {
+				deadline = VTIM_real() +
+				    dom->obj->first_lookup_tmo;
+				ret = Lck_CondWait(&dom->resolve, &dom->mtx,
+				    deadline);
+				assert(ret == 0 || ret == ETIMEDOUT);
+			}
 			Lck_Unlock(&dom->mtx);
 		}
 	}
