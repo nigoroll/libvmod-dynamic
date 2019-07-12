@@ -52,8 +52,8 @@
 #include <vtcp.h>
 
 #include "vcc_dynamic_if.h"
-#include "vmod_dynamic.h"
 #include "dyn_resolver.h"
+#include "vmod_dynamic.h"
 
 #define LOG(ctx, slt, dom, fmt, ...)				\
 	do {							\
@@ -513,6 +513,7 @@ dynamic_lookup_thread(void *priv)
 			LOG(&ctx, SLT_Error, dom, "%s %d (%s)",
 			    res->name, ret, res->strerror(ret));
 			dom->deadline = results + obj->ttl;
+			dbg_res_details(NULL, dom->obj, res, res_priv);
 		}
 
 		Lck_Lock(&dom->mtx);
