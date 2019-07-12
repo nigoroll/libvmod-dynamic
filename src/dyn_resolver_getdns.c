@@ -83,6 +83,7 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	struct servent	*servent;
 
 	getdns_dict	*reply;
+	uint32_t	status;
 
 	AN(r);
 	AN(priv);
@@ -113,6 +114,14 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	errchk(ret);
 
 	dbg_dump_getdns(state->response);
+
+	ret = getdns_dict_get_int(state->response, "/status", &status);
+	errchk(ret);
+
+	if (status != GETDNS_RESPSTATUS_GOOD) {
+		ret = status;
+		goto out;
+	}
 
 	ret = getdns_dict_get_list(state->response,
 	    "/replies_tree", &state->replies);
@@ -291,6 +300,7 @@ getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
 	getdns_return_t ret = GETDNS_RETURN_GENERIC_ERROR;
 
 	getdns_dict	*reply;
+	uint32_t	status;
 
 	AN(r);
 	AN(service);
@@ -310,6 +320,14 @@ getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
 	errchk(ret);
 
 	dbg_dump_getdns(state->response);
+
+	ret = getdns_dict_get_int(state->response, "/status", &status);
+	errchk(ret);
+
+	if (status != GETDNS_RESPSTATUS_GOOD) {
+		ret = status;
+		goto out;
+	}
 
 	ret = getdns_dict_get_list(state->response,
 	    "/replies_tree", &state->replies);
