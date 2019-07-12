@@ -33,11 +33,19 @@
 
 #include "vcc_dynamic_if.h"
 #include "dyn_getdns.h"
+#include "getdns/getdns_extra.h"
 
 const char *
 dyn_getdns_strerror(int ra)
 {
-#define GETDNS_RETURN(r, s)			\
+	const char *s;
+
+	if (ra >=0 && ra < UINT64_MAX) {
+		s = getdns_get_errorstr_by_id(ra);
+		if (s != NULL)
+			return (s);
+	}
+#define GETDNS_RETURN(r, s)				\
 	if (ra == GETDNS_RETURN_ ## r) return(s);
 #include "tbl/getdns_return.h"
 	return ("INVALID");
