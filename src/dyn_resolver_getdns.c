@@ -79,11 +79,39 @@ struct dyn_getdns_addr_state {
  * common
  */
 
+/* look for answer in the next reply */
+static int
+getdns_common_more_answers(struct dyn_getdns_common_state *state)
+{
+	getdns_return_t ret;
+	getdns_dict	*reply;
+
+	if (state->answer < state->n_answers)
+		return (0);
+
+	state->n_answers = state->answer = 0;
+
+	if (state->reply >= state->n_replies)
+		return (GETDNS_RETURN_NO_ANSWERS);	// no *more* answers
+
+	ret = getdns_list_get_dict(state->replies, state->reply++, &reply);
+	AZ(ret);
+
+	ret = getdns_dict_get_list(reply, "/answer", &state->answers);
+	AZ(ret);
+
+	ret = getdns_list_get_length(state->answers, &state->n_answers);
+
+	if (state->n_answers > 0)
+		return (ret);
+
+	return (getdns_common_more_answers(state));
+}
+
 static int
 getdns_common_lookup_check(struct dyn_getdns_common_state *state)
 {
 	getdns_return_t ret;
-	getdns_dict	*reply;
 	uint32_t	status;
 
 	AN(state);
@@ -107,21 +135,7 @@ getdns_common_lookup_check(struct dyn_getdns_common_state *state)
 	if (state->n_replies == 0)
 		return (GETDNS_RETURN_NO_ANSWERS);
 
-	do {
-		ret = getdns_list_get_dict(state->replies,
-		    state->reply++, &reply);
-		errchk(ret);
-
-		ret = getdns_dict_get_list(reply,
-		    "/answer", &state->answers);
-		errchk(ret);
-
-		state->answer = 0;
-
-		ret = getdns_list_get_length(state->answers,
-		    &state->n_answers);
-		errchk(ret);
-	} while (state->n_answers == 0 && state->reply < state->n_replies);
+	(void) getdns_common_more_answers(state);
 
 	if (state->n_answers == 0)
 		ret = GETDNS_RETURN_NO_ANSWERS;
@@ -189,7 +203,6 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 	getdns_return_t ret;
 	struct sockaddr_in sa4;
 	struct sockaddr_in6 sa6;
-	getdns_dict	*reply;
 
 	AN(info);
 	AN(priv);
@@ -210,38 +223,18 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 
 	assert(*answerp == &state->answer);
 
-	do {
-		// advace to next reply when out of answers
-		if (state->answer >= state->n_answers) {
-			ret = getdns_list_get_dict(state->replies,
-			    state->reply++, &reply);
-			if (ret != 0)
-				break;
-
-			ret = getdns_dict_get_list(reply,
-			    "/answer", &state->answers);
-			if (ret != 0)
-				break;
-
-			state->answer = 0;
-
-			ret = getdns_list_get_length(state->answers,
-			    &state->n_answers);
-			if (ret != 0)
-				break;
-		}
-
+	while (getdns_common_more_answers(state) == 0) {
 		ret = getdns_list_get_dict(state->answers,
 		    state->answer++, &rr);
 		AZ(ret);
+
 		ret = getdns_dict_get_bindata(rr, "/rdata/ipv6_address", &addr);
 		if (ret == 0)
 			break;
 		ret = getdns_dict_get_bindata(rr, "/rdata/ipv4_address", &addr);
 		if (ret == 0)
 			break;
-	} while (state->answer < state->n_answers ||
-	    state->reply < state->n_replies);
+	}
 
 	if (ret != 0) {
 		*answerp = getdns_last;
@@ -345,7 +338,6 @@ getdns_srv_result(struct srv_info *info, void *priv, void **answerp)
 	getdns_bindata *target;
 	uint32_t rrtype;
 	getdns_return_t ret;
-	getdns_dict	*reply;
 
 	AN(info);
 	AN(priv);
@@ -369,27 +361,7 @@ getdns_srv_result(struct srv_info *info, void *priv, void **answerp)
 
 	assert(*answerp == &state->answer);
 
-	do {
-		// advace to next reply when out of answers
-		if (state->answer >= state->n_answers) {
-			ret = getdns_list_get_dict(state->replies,
-			    state->reply++, &reply);
-			if (ret != 0)
-				break;
-
-			ret = getdns_dict_get_list(reply,
-			    "/answer", &state->answers);
-			if (ret != 0)
-				break;
-
-			state->answer = 0;
-
-			ret = getdns_list_get_length(state->answers,
-			    &state->n_answers);
-			if (ret != 0)
-				break;
-		}
-
+	while (getdns_common_more_answers(state) == 0) {
 		ret = getdns_list_get_dict(state->answers,
 		    state->answer++, &rr);
 		AZ(ret);
@@ -417,8 +389,7 @@ getdns_srv_result(struct srv_info *info, void *priv, void **answerp)
 		(void) getdns_dict_get_int(rr, "/ttl", &info->ttl);
 
 		return (info);
-	} while (state->answer < state->n_answers ||
-	    state->reply < state->n_replies);
+	}
 
 	*answerp = getdns_last;
 	return (NULL);
