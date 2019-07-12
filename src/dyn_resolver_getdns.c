@@ -45,7 +45,7 @@
  * getdns resolver
  */
 
-struct dyn_getdns_state {
+struct dyn_getdns_addr_state {
 	struct VPFX(dynamic_resolver_context)	*context;
 	getdns_dict				*response;
 	getdns_list				*replies;
@@ -75,7 +75,7 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
     const char *node, const char *service, void **priv)
 {
 	struct VPFX(dynamic_resolver_context) *c = NULL;
-	struct dyn_getdns_state *state;
+	struct dyn_getdns_addr_state *state;
 	getdns_return_t ret = GETDNS_RETURN_GENERIC_ERROR;
 
 	char		buf[1024];
@@ -165,7 +165,7 @@ void *getdns_last = &getdns_last;
 static struct res_info *
 getdns_result(struct res_info *info, void *priv, void **answerp)
 {
-	struct dyn_getdns_state *state;
+	struct dyn_getdns_addr_state *state;
 	getdns_dict *rr;
 	getdns_bindata *addr;
 	getdns_return_t ret;
@@ -261,7 +261,7 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 static void
 getdns_fini(void **priv)
 {
-	struct dyn_getdns_state *state;
+	struct dyn_getdns_addr_state *state;
 
 	AN(priv);
 	state = *priv;
