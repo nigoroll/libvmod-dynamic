@@ -31,8 +31,8 @@
 #include "getdns/getdns.h"
 
 //EXTENSION
-#define GETDNS_RETURN_NO_SERVBYNAME (GETDNS_RETURN_NOT_IMPLEMENTED + 16)
-#define GETDNS_RETURN_NO_ANSWERS (GETDNS_RETURN_NO_SERVBYNAME + 1)
+#define GETDNS_RETURN_NO_SERVBYNAME -2
+#define GETDNS_RETURN_NO_ANSWERS -3
 
 struct VPFX(dynamic_resolver_context);
 struct VPFX(dynamic_resolver);
