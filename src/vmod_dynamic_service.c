@@ -505,8 +505,6 @@ service_lookup_thread(void *priv)
 			update = VTIM_real();
 			service_timestamp(srv, "Update", update,
 			    update - lookup, update - results);
-			res->srv_fini(&res_priv);
-			AZ(res_priv);
 			// minimum update delay for lockless safety
 			update += 0.01;
 			if (srv->deadline < update)
@@ -523,6 +521,9 @@ service_lookup_thread(void *priv)
 			srv->deadline = results + obj->ttl;
 			dbg_res_details(NULL, srv->obj, res, res_priv);
 		}
+
+		res->srv_fini(&res_priv);
+		AZ(res_priv);
 
 		Lck_Lock(&srv->mtx);
 
