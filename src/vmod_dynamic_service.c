@@ -58,8 +58,8 @@
 #include <vrnd.h>
 
 #include "vcc_dynamic_if.h"
-#include "vmod_dynamic.h"
 #include "dyn_resolver.h"
+#include "vmod_dynamic.h"
 #include "vmb.h"
 
 // vmod_dynamic.c
@@ -521,6 +521,7 @@ service_lookup_thread(void *priv)
 			LOG(&ctx, SLT_Error, srv, "%s %d (%s)",
 			    res->name, ret, res->strerror(ret));
 			srv->deadline = results + obj->ttl;
+			dbg_res_details(NULL, srv->obj, res, res_priv);
 		}
 
 		Lck_Lock(&srv->mtx);
