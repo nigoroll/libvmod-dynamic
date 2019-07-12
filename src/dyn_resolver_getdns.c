@@ -147,16 +147,7 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 		ret = GETDNS_RETURN_NO_ANSWERS;
 
   out:
-	if (ret == GETDNS_RETURN_GOOD) {
-		*priv = state;
-		return (ret);
-	}
-
-	if (state->response != NULL)
-		getdns_dict_destroy(state->response);
-	if (c != NULL)
-		dyn_getdns_rel_context(&c);
-	free(state);
+	*priv = state;
 	return (ret);
 }
 
@@ -270,7 +261,6 @@ getdns_fini(void **priv)
 
 	AN(state->context);
 	AN(state->response);
-	AN(state->answers);	// not to be freed, refs response
 
 	getdns_dict_destroy(state->response);
 	dyn_getdns_rel_context(&state->context);
@@ -354,16 +344,7 @@ getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
 		ret = GETDNS_RETURN_NO_ANSWERS;
 
   out:
-	if (ret == GETDNS_RETURN_GOOD) {
-		*priv = state;
-		return (ret);
-	}
-
-	if (state->response != NULL)
-		getdns_dict_destroy(state->response);
-	if (c != NULL)
-		dyn_getdns_rel_context(&c);
-	free(state);
+	*priv = state;
 	return (ret);
 }
 
@@ -465,7 +446,6 @@ getdns_srv_fini(void **priv)
 
 	AN(state->context);
 	AN(state->response);
-	AN(state->answers);	// not to be freed, refs response
 
 	getdns_dict_destroy(state->response);
 	dyn_getdns_rel_context(&state->context);
