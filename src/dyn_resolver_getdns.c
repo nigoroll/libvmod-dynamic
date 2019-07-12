@@ -75,49 +75,18 @@ struct dyn_getdns_addr_state {
 #define dbg_dump_getdns(r) (void)0
 #endif
 
+/* ------------------------------------------------------------
+ * common
+ */
+
 static int
-getdns_lookup(struct VPFX(dynamic_resolver) *r,
-    const char *node, const char *service, void **priv)
+getdns_common_lookup_check(struct dyn_getdns_common_state *state)
 {
-	struct VPFX(dynamic_resolver_context) *c = NULL;
-	struct dyn_getdns_addr_state *addrstate;
-	struct dyn_getdns_common_state *state;
-	getdns_return_t ret = GETDNS_RETURN_GENERIC_ERROR;
-
-	char		buf[1024];
-	struct servent	servent_buf[1];
-	struct servent	*servent;
-
+	getdns_return_t ret;
 	getdns_dict	*reply;
 	uint32_t	status;
 
-	AN(r);
-	AN(priv);
-	AZ(*priv);
-
-	addrstate = malloc(sizeof *addrstate);
-	AN(addrstate);
-	memset(addrstate, 0, sizeof *addrstate);
-	*priv = addrstate;
-	state = &addrstate->common;
-
-	// XXX tcp hardcoded ok?
-	addrstate->port = atoi(service);
-	if (addrstate->port != 0)
-		addrstate->port = htons(addrstate->port);
-	else if (getservbyname_r(service, "tcp", servent_buf,
-		     buf, sizeof(buf), &servent) != 0)
-		return (GETDNS_RETURN_NO_SERVBYNAME);
-	else
-		addrstate->port = servent->s_port;
-
-	c = dyn_getdns_get_context(r);
-	AN(c);
-	AN(c->context);
-	state->context = c;
-
-	ret = getdns_address_sync(c->context, node, NULL, &state->response);
-	errchk(ret);
+	AN(state);
 
 	dbg_dump_getdns(state->response);
 
@@ -158,6 +127,54 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 		ret = GETDNS_RETURN_NO_ANSWERS;
 
 	return (ret);
+}
+
+/* ------------------------------------------------------------
+ * addr
+ */
+
+static int
+getdns_lookup(struct VPFX(dynamic_resolver) *r,
+    const char *node, const char *service, void **priv)
+{
+	struct VPFX(dynamic_resolver_context) *c = NULL;
+	struct dyn_getdns_addr_state *addrstate;
+	struct dyn_getdns_common_state *state;
+	getdns_return_t ret = GETDNS_RETURN_GENERIC_ERROR;
+
+	char		buf[1024];
+	struct servent	servent_buf[1];
+	struct servent	*servent;
+
+	AN(r);
+	AN(priv);
+	AZ(*priv);
+
+	addrstate = malloc(sizeof *addrstate);
+	AN(addrstate);
+	memset(addrstate, 0, sizeof *addrstate);
+	*priv = addrstate;
+	state = &addrstate->common;
+
+	// XXX tcp hardcoded ok?
+	addrstate->port = atoi(service);
+	if (addrstate->port != 0)
+		addrstate->port = htons(addrstate->port);
+	else if (getservbyname_r(service, "tcp", servent_buf,
+		     buf, sizeof(buf), &servent) != 0)
+		return (GETDNS_RETURN_NO_SERVBYNAME);
+	else
+		addrstate->port = servent->s_port;
+
+	c = dyn_getdns_get_context(r);
+	AN(c);
+	AN(c->context);
+	state->context = c;
+
+	ret = getdns_address_sync(c->context, node, NULL, &state->response);
+	errchk(ret);
+
+	return (getdns_common_lookup_check(state));
 }
 
 void *getdns_last = &getdns_last;
@@ -295,10 +312,7 @@ getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
 	struct VPFX(dynamic_resolver_context) *c = NULL;
 	struct dyn_getdns_srv_state *srvstate;
 	struct dyn_getdns_common_state *state;
-	getdns_return_t ret = GETDNS_RETURN_GENERIC_ERROR;
-
-	getdns_dict	*reply;
-	uint32_t	status;
+	getdns_return_t ret;
 
 	AN(r);
 	AN(service);
@@ -319,45 +333,7 @@ getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
 	ret = getdns_service_sync(c->context, service, NULL, &state->response);
 	errchk(ret);
 
-	dbg_dump_getdns(state->response);
-
-	ret = getdns_dict_get_int(state->response, "/status", &status);
-	errchk(ret);
-
-	if (status != GETDNS_RESPSTATUS_GOOD)
-		return (status);
-
-	ret = getdns_dict_get_list(state->response,
-	    "/replies_tree", &state->replies);
-	errchk(ret);
-
-	ret = getdns_list_get_length(state->replies,
-	    &state->n_replies);
-	errchk(ret);
-
-	if (state->n_replies == 0)
-		return (GETDNS_RETURN_NO_ANSWERS);
-
-	do {
-		ret = getdns_list_get_dict(state->replies,
-		    state->reply++, &reply);
-		errchk(ret);
-
-		ret = getdns_dict_get_list(reply,
-		    "/answer", &state->answers);
-		errchk(ret);
-
-		state->answer = 0;
-
-		ret = getdns_list_get_length(state->answers,
-		    &state->n_answers);
-		errchk(ret);
-	} while (state->n_answers == 0 && state->reply < state->n_replies);
-
-	if (state->n_answers == 0)
-		ret = GETDNS_RETURN_NO_ANSWERS;
-
-	return (ret);
+	return (getdns_common_lookup_check(state));
 }
 
 static struct srv_info *
