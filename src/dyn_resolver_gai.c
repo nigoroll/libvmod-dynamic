@@ -103,8 +103,8 @@ gai_fini(void **priv)
 	AN(priv);
 	res = *priv;
 	*priv = NULL;
-	AN(res);
-	freeaddrinfo(res);
+	if (res != NULL)
+		freeaddrinfo(res);
 }
 
 struct res_cb res_gai = {

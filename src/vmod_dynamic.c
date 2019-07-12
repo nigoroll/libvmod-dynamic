@@ -507,14 +507,15 @@ dynamic_lookup_thread(void *priv)
 			update = VTIM_real();
 			dynamic_timestamp(dom, "Update", update,
 			    update - lookup, update - results);
-			res->fini(&res_priv);
-			AZ(res_priv);
 		} else {
 			LOG(&ctx, SLT_Error, dom, "%s %d (%s)",
 			    res->name, ret, res->strerror(ret));
 			dom->deadline = results + obj->ttl;
 			dbg_res_details(NULL, dom->obj, res, res_priv);
 		}
+
+		res->fini(&res_priv);
+		AZ(res_priv);
 
 		Lck_Lock(&dom->mtx);
 
