@@ -256,7 +256,7 @@ Parameters:
 	  `vmod_dynamic.resolver`_ constructor, if available.
 
 	  The argument to the *resolver* parameter must be the return
-	  value of the `vmod_dynamic.resolver.use` method.
+	  value of the `vmod_dynamic.resolver.use`_ method.
 
 	- *ttl_from*
 
@@ -382,6 +382,12 @@ Parameters:
 * *parallel*: the number of contexts allocated. Each name resolution
    in progress requires one context.
 
+.. _ref_met_context:
+
+Additional configuration of the resolver contexts is possible through
+the methods documented below. Attempts to call these methods from
+outside ``vcl_init{}`` will trigger a VCL failure.
+
 .. _getdns: https://getdnsapi.net/
 
 $Method BLOB .use()
@@ -391,22 +397,89 @@ parameter to the `vmod_dynamic.director`_ constructor.
 
 $Method BOOL .set_resolution_type(ENUM {RECURSING, STUB})
 
+Specifies whether DNS queries are performed with nonrecurive lookups
+or as a stub resolver.
+
+May only be called from ``vcl_init{}``
+
+See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
+
 $Method BOOL .clear_namespaces()
+
+Clear the list of namespaces to be configured, see below.
+
+May only be called from ``vcl_init{}``
+
 $Method BOOL .add_namespace(ENUM {DNS, LOCALNAMES, NETBIOS, MDNS, NIS})
+
+Add a namespace to the list of namespaces to be queried.
+
+This method only adds the namespace to an internal list, The actual
+configuration is only done once
+`vmod_dynamic.resolver.set_namespaces`_ is called.
+
+May only be called from ``vcl_init{}``
+
+See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
+
+Notice that not all namespaces are available on all platforms. VCL
+load will fail with error ``312`` (The library did not have the
+requested API feature implemented.) in this case when
+`vmod_dynamic.resolver.set_namespaces`_ is called.
+
 $Method BOOL .set_namespaces()
 
+Apply namespace configuration, see above.
+
+May only be called from ``vcl_init{}``
+
 $Method BOOL .clear_transports()
+
+Clear the list of transports to be configured, see below.
+
+May only be called from ``vcl_init{}``
+
 $Method BOOL .add_transport(ENUM {UDP, TCP, TLS})
+
+Add a transport to the list of transports to be tried.
+
+This method only adds the transport to an internal list, The actual
+configuration is only done once
+`vmod_dynamic.resolver.set_transports`_ is called.
+
+May only be called from ``vcl_init{}``
+
+See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
+
 $Method BOOL .set_transports()
+
+Apply transport configuration, see above.
+
+May only be called from ``vcl_init{}``
 
 $Method BOOL .set_idle_timeout(DURATION)
 
+Specifies the duration the API will leave an idle TCP or TLS
+connection open for (idle means no outstanding responses and no
+pending queries).
+
+May only be called from ``vcl_init{}``
+
 $Method BOOL .set_limit_outstanding_queries(INT)
+
+May only be called from ``vcl_init{}``
+
 
 $Method BOOL .set_timeout(DURATION)
 
+May only be called from ``vcl_init{}``
+
+
 $Method BOOL .set_follow_redirects(
 		ENUM {REDIRECTS_FOLLOW, REDIRECTS_DO_NOT_FOLLOW})
+
+May only be called from ``vcl_init{}``
+
 
 PITFALLS
 ========

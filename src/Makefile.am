@@ -16,7 +16,12 @@ libvmod_dynamic_la_SOURCES += \
 	vmod_resolver.c \
 	dyn_getdns.h \
 	dyn_getdns.c \
-	dyn_resolver_getdns.c
+	dyn_resolver_getdns.c \
+	tbl/enum/res_transport.h \
+	tbl/enum/res_resolution_type.h \
+	tbl/enum/res_namespace.h \
+	tbl/enum/res_redirects.h \
+	tbl/getdns_return.h
 else
 libvmod_dynamic_la_SOURCES += vmod_resolver.stub.c
 endif
