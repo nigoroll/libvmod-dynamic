@@ -29,6 +29,8 @@
 #include "config.h"
 
 #include <cache/cache.h>
+#include <vcl.h>
+
 #include <string.h>	// miniobj.h
 
 #include "vcc_dynamic_if.h"
@@ -36,6 +38,49 @@
 #include "dyn_getdns.h"
 #include "dyn_resolver.h"
 
+/* ------------------------------------------------------------
+ * enum parsers
+ */
+
+static getdns_namespace_t
+parse_res_namespace_e(VCL_ENUM e)
+{
+#define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_NAMESPACE_ ## n);
+#include "tbl/enum/res_namespace.h"
+       WRONG("illegal enum");
+}
+
+static getdns_redirects_t
+parse_res_redirects_e(VCL_ENUM e)
+{
+#define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_ ## n);
+#include "tbl/enum/res_redirects.h"
+       WRONG("illegal enum");
+}
+
+static getdns_resolution_t
+parse_res_resolution_type_e(VCL_ENUM e)
+{
+#define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_RESOLUTION_ ## n);
+#include "tbl/enum/res_resolution_type.h"
+       WRONG("illegal enum");
+}
+
+static getdns_transport_list_t
+parse_res_transport_e(VCL_ENUM e)
+{
+#define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_TRANSPORT_ ## n);
+#include "tbl/enum/res_transport.h"
+       WRONG("illegal enum");
+}
+
+/* ------------------------------------------------------------
+ * change tasks
+ */
+
+/* ------------------------------------------------------------
+ * vmod interface
+ */
 struct VPFX(dynamic_resolver) *
 dyn_resolver_blob(VCL_BLOB blob)
 {
@@ -168,97 +213,312 @@ vmod_resolver_use(VRT_CTX,
 	    DYNAMIC_RESOLVER_BLOB));
 }
 
+const char * const funcpfx = "vmod_resolver_";
+
+#define met_name(var)				\
+	const char * var = __func__;		\
+	assert(strlen(var) > strlen(funcpfx));	\
+	var += strlen(funcpfx)
+
+#define check_met_init(ctx)						\
+	if (((ctx)->method & VCL_MET_INIT) == 0) {			\
+		met_name(name);						\
+		VRT_fail((ctx), "xresolver.%s"				\
+		    " may only be called from vcl_init{}",		\
+		    name);						\
+		return (0);						\
+	}
+
+#define check_err(ctx, ret)						\
+	if ((ret) != 0) {						\
+		met_name(name);						\
+		VRT_fail((ctx), "xresolver.%s"				\
+		    " failed with error %d (%s)",			\
+		    name, (ret), dyn_getdns_strerror(ret));		\
+		return (0);						\
+	}
+
+#define context_apply(ctx, res, func, ...)				\
+	do {								\
+		getdns_return_t ret;					\
+		struct VPFX(dynamic_resolver_context) *rctx;		\
+		VSLIST_FOREACH(rctx, &(res)->contexts, list) {		\
+			CHECK_OBJ_NOTNULL(rctx, DYNAMIC_RESOLVER_CONTEXT_MAGIC); \
+			assert(rctx->resolver == (res));		\
+			ret = func(rctx->context, __VA_ARGS__);		\
+			check_err((ctx), ret);				\
+		}							\
+	} while(0)
+
 VCL_BOOL
 vmod_resolver_set_resolution_type(VRT_CTX,
-    struct VPFX(dynamic_resolver) *r, VCL_ENUM type_e)
+    struct VPFX(dynamic_resolver) *r, VCL_ENUM type_s)
 {
-	(void) r;
-	(void) type_e;
-	return (0);
+	getdns_resolution_t type;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	type= parse_res_resolution_type_e(type_s);
+
+	context_apply(ctx, r,
+	    getdns_context_set_resolution_type, type);
+
+	return (1);
+}
+
+struct res_cfg {
+	unsigned		magic;
+#define RES_CFG_MAGIC		0x04e50cf6
+	size_t			namespace_count;
+	getdns_namespace_t	namespaces[_GETDNS_NAMESPACE_COUNT];
+	size_t			transport_count;
+	getdns_transport_list_t transports[_GETDNS_TRANSPORT_COUNT];
+};
+
+static struct res_cfg *
+res_cfg(VRT_CTX, const struct VPFX(dynamic_resolver) *r)
+{
+	struct vmod_priv *task;
+	struct res_cfg *cfg;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	check_met_init(ctx);
+
+	task = VRT_priv_task(ctx, r);
+
+	if (task == NULL) {
+		VRT_fail(ctx, "res_cfg: no priv_task");
+		return (NULL);
+	}
+
+	if (task->priv) {
+		CAST_OBJ_NOTNULL(cfg, task->priv, RES_CFG_MAGIC);
+		return (cfg);
+	}
+
+	cfg = WS_Alloc(ctx->ws, sizeof *cfg);
+	if (cfg == NULL) {
+		VRT_fail(ctx, "res_cfg: WS_Alloc failed");
+		return (NULL);
+	}
+	task->priv = cfg;
+	INIT_OBJ(cfg, RES_CFG_MAGIC);
+	return (cfg);
 }
 
 VCL_BOOL
 vmod_resolver_clear_namespaces(VRT_CTX,
     struct VPFX(dynamic_resolver) *r)
 {
-	(void) r;
-	return (0);
+	struct res_cfg *cfg;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return (0);
+
+	cfg->namespace_count = 0;
+
+	return (1);
 }
 
 VCL_BOOL
 vmod_resolver_add_namespace(VRT_CTX,
-    struct VPFX(dynamic_resolver) *r, VCL_ENUM namespace_e)
+    struct VPFX(dynamic_resolver) *r, VCL_ENUM namespace_s)
 {
-	(void) r;
-	(void) namespace_e;
-	return (0);
+	struct res_cfg *cfg;
+	getdns_namespace_t namespace;
+	size_t i;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	namespace = parse_res_namespace_e(namespace_s);
+
+	cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return (0);
+
+	for (i = 0; i < cfg->namespace_count; i++) {
+		if (cfg->namespaces[i] == namespace) {
+			VRT_fail(ctx, "tried to add namespace %s twice",
+			    namespace_s);
+			return (0);
+		}
+	}
+
+	cfg->namespaces[cfg->namespace_count++] = namespace;
+
+	return (1);
 }
 
 VCL_BOOL
 vmod_resolver_set_namespaces(VRT_CTX,
     struct VPFX(dynamic_resolver) *r)
 {
-	(void) r;
-	return (0);
+	struct res_cfg *cfg;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return (0);
+
+	context_apply(ctx, r,
+	    getdns_context_set_namespaces,
+	    cfg->namespace_count, cfg->namespaces);
+
+	return (1);
 }
 
 VCL_BOOL
 vmod_resolver_clear_transports(VRT_CTX,
     struct VPFX(dynamic_resolver) *r)
 {
-	(void) r;
-	return (0);
+	struct res_cfg *cfg;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return (0);
+
+	cfg->transport_count = 0;
+
+	return (1);
 }
 
 VCL_BOOL
 vmod_resolver_add_transport(VRT_CTX,
-    struct VPFX(dynamic_resolver) *r, VCL_ENUM transport_e)
+    struct VPFX(dynamic_resolver) *r, VCL_ENUM transport_s)
 {
-	(void) r;
-	(void) transport_e;
-	return (0);
+	struct res_cfg *cfg;
+
+	getdns_transport_list_t transport;
+	size_t i;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	transport = parse_res_transport_e(transport_s);
+
+	cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return (0);
+
+	for (i = 0; i < cfg->transport_count; i++) {
+		if (cfg->transports[i] == transport) {
+			VRT_fail(ctx, "tried to add transport %s twice",
+			    transport_s);
+			return (0);
+		}
+	}
+
+	cfg->transports[cfg->transport_count++] = transport;
+
+	return (1);
 }
 
 VCL_BOOL
 vmod_resolver_set_transports(VRT_CTX,
     struct VPFX(dynamic_resolver) *r)
 {
-	(void) r;
-	return (0);
+	struct res_cfg *cfg;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return (0);
+
+	context_apply(ctx, r,
+	    getdns_context_set_dns_transport_list,
+	    cfg->transport_count, cfg->transports);
+
+	return (1);
 }
 
 VCL_BOOL
 vmod_resolver_set_idle_timeout(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_DURATION d)
 {
-	(void) r;
-	(void) d;
-	return (0);
+	uint64_t idle_timeout = d * 1e3;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	context_apply(ctx, r,
+	    getdns_context_set_idle_timeout, idle_timeout);
+
+	return (1);
 }
 
 VCL_BOOL
 vmod_resolver_set_limit_outstanding_queries(VRT_CTX,
-    struct VPFX(dynamic_resolver) *r, VCL_INT limit)
+    struct VPFX(dynamic_resolver) *r, VCL_INT l)
 {
-	(void) r;
-	(void) limit;
-	return (0);
+	uint16_t limit;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	if (l < 0 || l > UINT16_MAX)
+		check_err(ctx, GETDNS_RETURN_INVALID_PARAMETER);
+
+	limit = (uint16_t)l;
+
+	context_apply(ctx, r,
+	    getdns_context_set_limit_outstanding_queries, limit);
+
+	return (1);
 }
 
 VCL_BOOL
 vmod_resolver_set_timeout(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_DURATION d)
 {
-	(void) r;
-	(void) d;
-	return (0);
+	uint64_t timeout = d * 1e3;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	context_apply(ctx, r,
+	    getdns_context_set_timeout, timeout);
+
+	return (1);
 }
 
 VCL_BOOL
 vmod_resolver_set_follow_redirects(VRT_CTX,
-    struct VPFX(dynamic_resolver) *r, VCL_ENUM redirects_e)
+    struct VPFX(dynamic_resolver) *r, VCL_ENUM redirect_s)
 {
-	(void) r;
-	(void) redirects_e;
-	return (0);
+	getdns_redirects_t redirect;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	check_met_init(ctx);
+
+	redirect = parse_res_redirects_e(redirect_s);
+
+	context_apply(ctx, r,
+	    getdns_context_set_follow_redirects,
+	    redirect);
+
+	return (1);
 }
