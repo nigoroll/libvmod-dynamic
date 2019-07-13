@@ -531,12 +531,11 @@ SEE ALSO
 Breaking CHANGES
 ================
 
-next release
-------------
+2.0 (2019-07-13)
+----------------
 
 * ``Error`` logging with ``acl-mismatch`` has been renamed to
   ``whitelist mismatch`` and port information has been added.
 
 * Port information has been added to director/backend names and the
   documentation section `ref_vmod_dynamic_names`_ has been added.
-
