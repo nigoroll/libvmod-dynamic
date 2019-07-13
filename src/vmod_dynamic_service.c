@@ -62,6 +62,10 @@
 #include "vmod_dynamic.h"
 #include "vmb.h"
 
+// COMPAT
+#define VRT_Healthy(ctx, dir, when) \
+	(dir)->healthy(dir, NULL, NULL)
+
 // vmod_dynamic.c
 extern struct VSC_lck *lck_be;
 
@@ -87,18 +91,6 @@ extern struct VSC_lck *lck_be;
 			LOG(ctx, SLT_Debug, srv, fmt, __VA_ARGS__);	\
 	} while (0)
 
-static VCL_BACKEND v_matchproto_(vdi_resolve_f)
-service_resolve(VRT_CTX, VCL_BACKEND);
-static VCL_BOOL v_matchproto_(vdi_healthy_f)
-service_healthy(VRT_CTX, VCL_BACKEND, VCL_TIME *);
-
-static const struct vdi_methods vmod_dynamic_service_methods[1] = {{
-	.magic =	VDI_METHODS_MAGIC,
-	.type =		"dynamic service",
-	.healthy =	service_healthy,
-	.resolve =	service_resolve
-}};
-
 /*--------------------------------------------------------------------
  * Service director implementation
  */
@@ -110,7 +102,8 @@ struct backend_select {
 };
 
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
-service_resolve(VRT_CTX, VCL_BACKEND d)
+service_resolve(const struct director *d, struct worker *wrk,
+    struct busyobj *bo)
 {
 	struct dynamic_service *srv;
 	const struct service_prios *prios;
@@ -119,9 +112,10 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 	double deadline;
 	int ret;
 
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(srv, d->priv, DYNAMIC_SERVICE_MAGIC);
+	(void)wrk;
+	(void)bo;
 
 	Lck_Lock(&srv->mtx);
 
@@ -153,9 +147,9 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 		VTAILQ_FOREACH(t, &p->targets, list) {
 			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
 			CHECK_OBJ_NOTNULL(t->dom, DYNAMIC_DOMAIN_MAGIC);
-			if (! VRT_Healthy(ctx, t->dom->dir, NULL))
+			if (! VRT_Healthy(ctx, &t->dom->dir, NULL))
 				continue;
-			h[n].d = t->dom->dir;
+			h[n].d = &t->dom->dir;
 			h[n].w = t->weight;
 			w += t->weight;
 			n++;
@@ -185,16 +179,15 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 }
 
 static VCL_BOOL v_matchproto_(vdi_healthy_f)
-service_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
+service_healthy(const struct director *d, const struct busyobj *bo,
+    double *changed)
 {
 	struct dynamic_service *srv;
 	const struct service_prios *prios;
 	const struct service_prio *p;
 	const struct service_target *t;
-	VCL_TIME c;
 	VCL_BOOL ret = 0;
 
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(srv, d->priv, DYNAMIC_SERVICE_MAGIC);
 
@@ -212,9 +205,7 @@ service_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 		VTAILQ_FOREACH(t, &p->targets, list) {
 			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
 			CHECK_OBJ_NOTNULL(t->dom, DYNAMIC_DOMAIN_MAGIC);
-			ret |= VRT_Healthy(ctx, t->dom->dir, &c);
-			if (changed != NULL && c > *changed)
-				*changed = c;
+			ret |= (VRT_Healthy(ctx, &t->dom->dir, NULL) != 0);
 		}
 	}
 
@@ -556,8 +547,6 @@ service_free(VRT_CTX, struct dynamic_service *srv)
 	AZ(srv->thread);
 	assert(srv->status == DYNAMIC_ST_READY);
 
-	VRT_DelDirector(&srv->dir);
-
 	if (ctx != NULL) {
 		Lck_AssertHeld(&srv->obj->mtx);
 		LOG(ctx, SLT_VCL_Log, srv, "%s", "deleted");
@@ -712,8 +701,13 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 
 	srv->obj = obj;
 
-	srv->dir = VRT_AddDirector(ctx, vmod_dynamic_service_methods, srv,
-	    "%s(%s)", obj->vcl_name, service);
+	INIT_OBJ(&srv->dir, DIRECTOR_MAGIC);
+	srv->dir.name = "dynamic service";
+	srv->dir.vcl_name = obj->vcl_name;
+	srv->dir.healthy = service_healthy;
+	srv->dir.resolve = service_resolve;
+	srv->dir.priv = srv;
+	srv->dir.admin_health = VDI_AH_HEALTHY;
 
 	Lck_New(&srv->mtx, lck_be);
 	AZ(pthread_cond_init(&srv->cond, NULL));
@@ -746,5 +740,5 @@ vmod_director_service(VRT_CTX, struct VPFX(dynamic_director) *obj,
 	srv->last_used = ctx->now;
 	Lck_Unlock(&obj->mtx);
 
-	return (srv->dir);
+	return (&srv->dir);
 }

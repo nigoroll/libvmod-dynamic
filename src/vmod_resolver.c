@@ -42,6 +42,9 @@
  * enum parsers
  */
 
+// COMPAT
+#define VENUM(x) vmod_enum_ ## x
+
 static getdns_namespace_t
 parse_res_namespace_e(VCL_ENUM e)
 {
@@ -86,10 +89,10 @@ dyn_resolver_blob(VCL_BLOB blob)
 {
 	struct VPFX(dynamic_resolver) *p;
 
-	if (blob && blob->type == DYNAMIC_RESOLVER_BLOB &&
-	    blob->blob != NULL &&
+	if (blob &&
+	    blob->priv != NULL &&
 	    blob->len == sizeof(struct VPFX(dynamic_resolver))) {
-		CAST_OBJ_NOTNULL(p, TRUST_ME(blob->blob),
+		CAST_OBJ_NOTNULL(p, TRUST_ME(blob->priv),
 		    DYNAMIC_RESOLVER_MAGIC);
 		return (p);
 	}
@@ -206,11 +209,20 @@ VCL_BLOB
 vmod_resolver_use(VRT_CTX,
     struct VPFX(dynamic_resolver) *r)
 {
+	struct vmod_priv *b;
+
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
 
-	return (VRT_blob(ctx, "xresolver.use()", r, sizeof *r,
-	    DYNAMIC_RESOLVER_BLOB));
+	b = WS_Alloc(ctx->ws, sizeof(*b));
+	if (b == NULL) {
+		VRT_fail(ctx, "resolver.user WS_alloc");
+		return (NULL);
+	}
+
+	b->priv = r;
+	b->len = sizeof *r;
+	return (b);
 }
 
 const char * const funcpfx = "vmod_resolver_";

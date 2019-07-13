@@ -124,7 +124,7 @@ struct dynamic_service {
 
 	char				*service;
 	VTAILQ_ENTRY(dynamic_service)	list;
-	VCL_BACKEND			dir;
+	struct director		dir;
 
 	VCL_TIME			last_used;
 	struct lock			mtx;

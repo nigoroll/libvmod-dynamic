@@ -30,6 +30,10 @@
 
 #include "getdns/getdns.h"
 
+//COMPAT
+#undef VPFX
+#define VPFX(x) vmod_ ## x
+
 //EXTENSION
 #define GETDNS_RETURN_NO_SERVBYNAME -2
 #define GETDNS_RETURN_NO_ANSWERS -3
