@@ -7,19 +7,38 @@ This branch is for varnish 6.1, 6.2 and master
 Description
 ===========
 
-The purpose of this module is to provide a dynamic director similar to
-the DNS director from Varnish 3. It also was previously known as
-`vmod-named`. This is not a drop-in replacement for the DNS director,
-because in Varnish 3 the director had two modes of execution that
-aren't compatible with changes in the backend and director subsystems
-introduced by Varnish 4.0.
+This module provides a varnish director for dynamic creation of
+backends based on calls to
 
-Instead a dynamic director relies on dynamic backends, supports white-listing
-and even probes. However, just like the DNS director from Varnish 3 it has
-limited capabilities because it relies on the system's resolver. It builds
-against Varnish 4.1.3 and later versions.
+* the system's network address resolution service which, in turn,
+  typically use information from the ``/etc/hosts`` file and the
+  Domain Name Service (DNS), but can be configured to use other
+  sources like LDAP (see :ref:`nsswitch.conf(5)`).
+
+* or more advanced DNS resolution where `getdns`_ is available.
+
+While standard varnish backends defined in VCL may also be defined in
+terms of host names, changes of the name service information will only
+be picked up with a VCL reload.
+
+In contrast, for dynamic backends provided by this module,
+
+* name resolution information will be refreshed by background threads
+  after a configurable time to live (ttl) or after the ttl from DNS
+  with a `getdns`_ `vmod_dynamic.resolver`_.
+
+* resolution to multiple network addresses is supported
+
+In addition, with a `getdns`_ `vmod_dynamic.resolver`_, service
+discovery by DNS SRV records is possible, in which case this module
+also allows to configure host names (*targets*), their ports, priority
+and weight though DNS. See https://en.wikipedia.org/wiki/SRV_record
+for a good basic explanation and `vmod_dynamic.director.service`_ for
+details.
 
 Further documentation is available in the manual page ``vmod_dynamic(3)``.
+
+.. _getdns: https://getdnsapi.net/
 
 Installation
 ============
