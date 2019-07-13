@@ -644,7 +644,7 @@ dynamic_start(struct vmod_dynamic_director *obj)
 		AZ(pthread_create(&dom->thread, NULL, &dynamic_lookup_thread,
 		    dom));
 	}
-	service_start(ctx, obj);
+	service_start(&ctx, obj);
 	Lck_Unlock(&obj->mtx);
 }
 
