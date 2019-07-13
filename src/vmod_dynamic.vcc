@@ -367,9 +367,20 @@ Description
 
 $Object resolver(
 	BOOL set_from_os=1,
-	INT parallel=4)
+	INT parallel=16)
 
-Create *parallel* `getdns`_ contexts to be used with XXX
+Create *parallel* `getdns`_ contexts to be used with the
+`vmod_dynamic.director`_ constructor - see
+`vmod_dynamic.resolver.use`_
+
+Parameters:
+
+* *set_from_os*: whether defaults are taken from the operating system,
+   see https://getdnsapi.net/documentation/spec/#8-dns-contexts for
+   details
+
+* *parallel*: the number of contexts allocated. Each name resolution
+   in progress requires one context.
 
 .. _getdns: https://getdnsapi.net/
 
