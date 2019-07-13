@@ -47,6 +47,14 @@ varnish v1 -vcl {
 
 		r1.set_follow_redirects(REDIRECTS_FOLLOW);
 		r1.set_follow_redirects(REDIRECTS_DO_NOT_FOLLOW);
+
+		# docs example
+		new r = dynamic.resolver();
+		new d = dynamic.director(
+			resolver = r.use(),
+			ttl_from = dns
+			);
+
 	}
 
 	sub vcl_recv {

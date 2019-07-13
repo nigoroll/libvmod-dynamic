@@ -1,6 +1,6 @@
 #-
 # Copyright (c) 2015-2016 Dridi Boukelmoune
-# Copyright 2017 UPLEX - Nils Goroll Systemoptimierung
+# Copyright 2017-2019 UPLEX - Nils Goroll Systemoptimierung
 #
 # Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
 #	   Nils Goroll <nils.goroll@uplex.de>
@@ -34,10 +34,14 @@ DESCRIPTION
 ===========
 
 This module provides a varnish director for dynamic creation of
-backends based on calls to the system's network address resolution
-services, which, in turn, typically use information from the
-``/etc/hosts`` file and the Domain Name Service (DNS), but can be
-configured to use other sources like LDAP (see :ref:`nsswitch.conf(5)`).
+backends based on calls to
+
+* the system's network address resolution service which, in turn,
+  typically use information from the ``/etc/hosts`` file and the
+  Domain Name Service (DNS), but can be configured to use other
+  sources like LDAP (see :ref:`nsswitch.conf(5)`).
+
+* or more advanced DNS resolution where `getdns`_ is available.
 
 While standard varnish backends defined in VCL may also be defined in
 terms of host names, changes of the name service information will only
@@ -46,9 +50,17 @@ be picked up with a VCL reload.
 In contrast, for dynamic backends provided by this module,
 
 * name resolution information will be refreshed by background threads
-  after a configurable time to live (ttl)
+  after a configurable time to live (ttl) or after the ttl from DNS
+  with a `getdns`_ `vmod_dynamic.resolver`_.
 
 * resolution to multiple network addresses is supported
+
+In addition, with a `getdns`_ `vmod_dynamic.resolver`_, service
+discovery by DNS SRV records is possible, in which case this module
+also allows to configure host names (*targets*), their ports, priority
+and weight though DNS. See https://en.wikipedia.org/wiki/SRV_record
+for a good basic explanation and `vmod_dynamic.director.service`_ for
+details.
 
 .. _ref_vmod_dynamic_share:
 
@@ -56,8 +68,8 @@ BACKEND SHARING
 ===============
 
 By default (``share = "DIRECTOR"`` parameter), backends are shared per
-director: Only one backend per director instance and ip address is
-created.
+director: Only one backend per director instance and ip address (and
+optionally port) is created.
 
 The ``share = "HOST"`` parameter allows to limit sharing to backends
 created for the same hostname (``host`` argument to the ``.backend()``
@@ -89,16 +101,23 @@ for backends which are actually sick. This can be mitigated using the
 TTLs from DNS
 =============
 
-A frequent use case of the dynamic director is to use the DNS TTL as
-the TTL of dynamic backends. Because there is no standard library
-function returning this information, the dynamic director currently
-supports this setup in coorperation other services supporting caching
-of dynamic DNS TTLs:
+With the default system resolver, TTLs from DNS are not supported
+optimally. While a good combination of a *ttl* parameter in
+combination with a system name service caching service like
+:ref:`nscd(8)` can achieve good results, to use TTLs from DNS, we
+recommend to compile this module with `getdns`_ support, configure a
+`vmod_dynamic.resolver`_ object and set the *ttl_from* parameter to
+either ``dns``, ``min`` or ``max`` as in this example::
 
-* install and configure a system name service caching service like
-  :ref:`nscd(8)`
+	sub vcl_init {
+		new r = dynamic.resolver();
+		new d = dynamic.director(
+			resolver = r.use(),
+			ttl_from = dns
+			);
+	}
 
-* use the *ttl* director initialization parameter as a minimum ttl.
+See `ref_ttl_from`_ for details.
 
 .. _ref_vmod_dynamic_names:
 
@@ -257,6 +276,8 @@ Parameters:
 
 	  The argument to the *resolver* parameter must be the return
 	  value of the `vmod_dynamic.resolver.use`_ method.
+
+.. _ref_ttl_from:
 
 	- *ttl_from*
 
@@ -519,11 +540,3 @@ next release
 * Port information has been added to director/backend names and the
   documentation section `ref_vmod_dynamic_names`_ has been added.
 
-COPYRIGHT
-=========
-
-This document is licensed under the same licence as vmod-dynamic itself. See
-LICENCE for details.
-
-* Copyright (c) 2015-2016 Dridi Boukelmoune
-* Copyright 2017 UPLEX - Nils Goroll Systemoptimierung
