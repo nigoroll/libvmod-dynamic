@@ -28,6 +28,9 @@
 
 // interface between dynamic and resolver
 
+// COMPAT
+#define VPFX(x) vmod_ ## x
+
 #define DYNAMIC_RESOLVER_BLOB	0xf0631d25
 struct VPFX(dynamic_resolver);
 // implemented in vmod_resolver.c / vmod_resolver.sub.c

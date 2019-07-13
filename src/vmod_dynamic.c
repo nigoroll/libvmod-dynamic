@@ -541,8 +541,6 @@ dynamic_free(VRT_CTX, struct dynamic_domain *dom)
 	AZ(dom->thread);
 	assert(dom->status == DYNAMIC_ST_READY);
 
-	VRT_DelDirector(&dom->dir);
-
 	if (ctx != NULL) {
 		Lck_AssertHeld(&dom->obj->mtx);
 		LOG(ctx, SLT_VCL_Log, dom, "%s", "deleted");
