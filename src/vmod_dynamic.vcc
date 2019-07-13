@@ -222,7 +222,7 @@ $Object director(
 	DURATION first_lookup_timeout		= 10,
 	INT max_connections			= 0,
 	INT proxy_header			= 0,
-	BLOB resolver				= NULL,
+	BLOB resolver				= 0,
 	ENUM { cfg, dns, min, max } ttl_from	= "cfg")
 
 Description

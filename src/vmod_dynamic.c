@@ -98,7 +98,7 @@ static const struct gethdr_s HDR_BEREQ_HOST = { HDR_BEREQ, "\005Host:"};
  * Director implementation
  */
 
-static const struct director * v_matchproto_(vdi_resolve_f)
+static const struct director * __match_proto__(vdi_resolve_f)
 dynamic_resolve(const struct director *d, struct worker *wrk,
     struct busyobj *bo)
 {
@@ -149,7 +149,7 @@ dynamic_resolve(const struct director *d, struct worker *wrk,
 	return (next == NULL ? NULL : next->be->dir);
 }
 
-static unsigned v_matchproto_(vdi_healthy_f)
+static unsigned __match_proto__(vdi_healthy_f)
 dynamic_healthy(const struct director *d, const struct busyobj *bo,
     double *changed)
 {
@@ -729,7 +729,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
  * VMOD interfaces
  */
 
-int v_matchproto_(vmod_event_f)
+int __match_proto__(vmod_event_f)
 vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 {
 	struct vmod_dynamic_director *obj;
@@ -820,7 +820,7 @@ dynamic_ttl_parse(const char *ttl_s)
 }
 
 
-VCL_VOID v_matchproto_()
+VCL_VOID __match_proto__()
 vmod_director__init(VRT_CTX,
     struct vmod_dynamic_director **objp,
     const char *vcl_name,
@@ -918,7 +918,7 @@ vmod_director__init(VRT_CTX,
 	*objp = obj;
 }
 
-VCL_VOID v_matchproto_()
+VCL_VOID __match_proto__()
 vmod_director__fini(struct vmod_dynamic_director **objp)
 {
 	struct vmod_dynamic_director *obj;
@@ -954,7 +954,7 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 	FREE_OBJ(obj);
 }
 
-VCL_BACKEND v_matchproto_(td_dynamic_director_backend)
+VCL_BACKEND __match_proto__(td_dynamic_director_backend)
 vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
     VCL_STRING host, VCL_STRING port)
 {
@@ -983,7 +983,7 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 	return (&dom->dir);
 }
 
-VCL_VOID v_matchproto_(td_dynamic_director_debug)
+VCL_VOID __match_proto__(td_dynamic_director_debug)
 vmod_director_debug(VRT_CTX, struct vmod_dynamic_director *obj,
     VCL_BOOL enable)
 {

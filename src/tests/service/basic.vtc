@@ -121,7 +121,7 @@ client c2 {
 
 varnish v1 -cliok "backend.set_health *.d1(212.12.63.113:81) sick"
 
-client c2 -repeat 5 -keepalive {
+client c2 {
 	txreq
 	rxresp
 	expect resp.http.backend == d1(212.12.63.113:82)

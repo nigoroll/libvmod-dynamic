@@ -56,6 +56,7 @@
 #include <vtim.h>
 #include <vtcp.h>
 #include <vrnd.h>
+#include <vrt.h>
 
 #include "vcc_dynamic_if.h"
 #include "dyn_resolver.h"
@@ -101,7 +102,7 @@ struct backend_select {
 	uint32_t	w;
 };
 
-static VCL_BACKEND v_matchproto_(vdi_resolve_f)
+static VCL_BACKEND __match_proto__(vdi_resolve_f)
 service_resolve(const struct director *d, struct worker *wrk,
     struct busyobj *bo)
 {
@@ -178,7 +179,7 @@ service_resolve(const struct director *d, struct worker *wrk,
 	WRONG("");
 }
 
-static VCL_BOOL v_matchproto_(vdi_healthy_f)
+static VCL_BOOL __match_proto__(vdi_healthy_f)
 service_healthy(const struct director *d, const struct busyobj *bo,
     double *changed)
 {
@@ -707,7 +708,6 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	srv->dir.healthy = service_healthy;
 	srv->dir.resolve = service_resolve;
 	srv->dir.priv = srv;
-	srv->dir.admin_health = VDI_AH_HEALTHY;
 
 	Lck_New(&srv->mtx, lck_be);
 	AZ(pthread_cond_init(&srv->cond, NULL));
@@ -721,7 +721,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 }
 
 
-VCL_BACKEND v_matchproto_(td_dynamic_director_service)
+VCL_BACKEND __match_proto__(td_dynamic_director_service)
 vmod_director_service(VRT_CTX, struct VPFX(dynamic_director) *obj,
     VCL_STRING service) {
 	struct dynamic_service *srv;

@@ -33,6 +33,10 @@
  * when both are needed.
  */
 
+// COMPAT
+#define vtim_real double
+#define vtim_dur double
+
 struct dynamic_backend {
 	struct director			*dir;
 	VTAILQ_ENTRY(dynamic_backend)	list;

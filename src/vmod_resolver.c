@@ -30,6 +30,7 @@
 
 #include <cache/cache.h>
 #include <vcl.h>
+#include <vrt.h>
 
 #include <string.h>	// miniobj.h
 
@@ -42,13 +43,10 @@
  * enum parsers
  */
 
-// COMPAT
-#define VENUM(x) vmod_enum_ ## x
-
 static getdns_namespace_t
 parse_res_namespace_e(VCL_ENUM e)
 {
-#define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_NAMESPACE_ ## n);
+#define VMODENUM(n) if (strcmp(e, #n) == 0) return(GETDNS_NAMESPACE_ ## n);
 #include "tbl/enum/res_namespace.h"
        WRONG("illegal enum");
 }
@@ -56,7 +54,7 @@ parse_res_namespace_e(VCL_ENUM e)
 static getdns_redirects_t
 parse_res_redirects_e(VCL_ENUM e)
 {
-#define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_ ## n);
+#define VMODENUM(n) if (strcmp(e, #n) == 0) return(GETDNS_ ## n);
 #include "tbl/enum/res_redirects.h"
        WRONG("illegal enum");
 }
@@ -64,7 +62,7 @@ parse_res_redirects_e(VCL_ENUM e)
 static getdns_resolution_t
 parse_res_resolution_type_e(VCL_ENUM e)
 {
-#define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_RESOLUTION_ ## n);
+#define VMODENUM(n) if (strcmp(e, #n) == 0) return(GETDNS_RESOLUTION_ ## n);
 #include "tbl/enum/res_resolution_type.h"
        WRONG("illegal enum");
 }
@@ -72,7 +70,7 @@ parse_res_resolution_type_e(VCL_ENUM e)
 static getdns_transport_list_t
 parse_res_transport_e(VCL_ENUM e)
 {
-#define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_TRANSPORT_ ## n);
+#define VMODENUM(n) if (strcmp(e, #n) == 0) return(GETDNS_TRANSPORT_ ## n);
 #include "tbl/enum/res_transport.h"
        WRONG("illegal enum");
 }

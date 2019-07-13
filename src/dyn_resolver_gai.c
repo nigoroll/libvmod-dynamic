@@ -35,6 +35,7 @@
 
 #include <cache/cache.h>
 #include <vsa.h>
+#include <vrt.h>
 
 #include "vcc_dynamic_if.h"
 
