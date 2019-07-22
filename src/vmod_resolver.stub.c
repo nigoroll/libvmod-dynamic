@@ -3,6 +3,7 @@
 #include "config.h"
 
 #include <cache/cache.h>
+#include <vrt.h>
 
 #include "vcc_dynamic_if.h"
 
