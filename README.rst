@@ -4,6 +4,8 @@ vmod-dynamic
 
 This branch is for varnish version from 4.0 to 4.1
 
+*NO LONGER MAINTAINED*, please update to a later varnish version.
+
 Description
 ===========
 
