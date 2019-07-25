@@ -142,6 +142,7 @@ service_resolve(const struct director *d, struct worker *wrk,
 	unsigned i, n, w;
 	long r;
 
+	n = w = 0;
 	VTAILQ_FOREACH(p, &prios->head, list) {
 		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
 		n = w = 0;
