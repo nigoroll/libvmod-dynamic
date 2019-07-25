@@ -147,6 +147,7 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 	unsigned i, n, w;
 	long r;
 
+	n = w = 0;
 	VTAILQ_FOREACH(p, &prios->head, list) {
 		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
 		n = w = 0;
