@@ -200,7 +200,7 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 	struct dyn_getdns_common_state *state;
 	getdns_dict *rr;
 	getdns_bindata *addr;
-	getdns_return_t ret;
+	getdns_return_t ret = 0;
 	struct sockaddr_in sa4;
 	struct sockaddr_in6 sa6;
 
