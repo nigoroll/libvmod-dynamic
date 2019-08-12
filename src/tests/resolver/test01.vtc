@@ -1,6 +1,6 @@
 varnishtest "Smoke test"
 
-feature cmd "getent hosts localhost"
+feature cmd "getent hosts varnish-cache.org"
 
 server s1 {
        rxreq
@@ -12,6 +12,7 @@ varnish v1 -vcl+backend {
 
 	sub vcl_init {
 		new r1 = dynamic.resolver();
+		r1.set_resolution_type(STUB);
 		new d1 = dynamic.director(
 		    resolver = r1.use());
 		d1.debug(true);
