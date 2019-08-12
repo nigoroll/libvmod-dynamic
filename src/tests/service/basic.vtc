@@ -1,6 +1,6 @@
 varnishtest "service smoke test"
 
-# depends on external DNS
+feature cmd {dig @b.root-servers.net. a.root-servers.net. >/dev/null}
 
 varnish v1 -vcl {
 	import ${vmod_dynamic};
