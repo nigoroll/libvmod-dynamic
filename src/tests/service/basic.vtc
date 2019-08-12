@@ -20,6 +20,10 @@ varnish v1 -vcl {
 		set req.http.Host = "varnish-cache.org";
 	}
 
+	sub vcl_backend_fetch {
+		set bereq.first_byte_timeout = 1s;
+	}
+
 	sub vcl_backend_response {
 		set beresp.http.backend = beresp.backend;
 	}
