@@ -121,9 +121,11 @@ FreeBSD
 FreeBSD users may install from either the ports tree or via packages:
 
 * via the Ports Tree
+
   ``cd /usr/ports/www/varnish-libvmod-dynamic/ && make install clean``
 
 * via the Package
+
   ``pkg install varnish-libvmod-dynamic``
 
 RPMs
