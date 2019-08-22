@@ -115,6 +115,17 @@ By default, the vmod ``configure`` script installs the built vmod in the
 directory relevant to the prefix. The vmod installation directory can be
 overridden by passing the ``vmoddir`` variable to ``make install``.
 
+FreeBSD
+-------
+
+FreeBSD users may install from either the ports tree or via packages:
+
+* via the Ports Tree
+  ``cd /usr/ports/www/varnish-libvmod-dynamic/ && make install clean``
+
+* via the Package
+  ``pkg install varnish-libvmod-dynamic``
+
 RPMs
 ----
 
