@@ -67,13 +67,28 @@ details.
 BACKEND SHARING
 ===============
 
-By default (``share = DIRECTOR`` parameter), backends are shared per
-director: Only one backend per director instance and ip address (and
-optionally port) is created.
+The ``share`` parameter specifies if backends are shared per director
+or per hostname.
 
-The ``share = HOST`` parameter allows to limit sharing to backends
-created for the same hostname (``host`` argument to the ``.backend()``
-method).
+* ``share = "DIRECTOR"``
+
+  Default if ``via`` is not specified.
+
+  Backends are shared per director: Only one backend per director
+  instance and ip address (and optionally port) is created.
+
+* ``share = "HOST"``
+
+  Default if ``via`` is specified.
+
+  Sharing of backends is limited to the same hostname (``host``
+  argument to the ``.backend()`` method).
+
+  This is the default for ``via`` for the common use case of TLS: For
+  TLS connections, the TLS onloader usually should verify the server's
+  certificate based on a hostname. For this purpose, the dynamic
+  backend's name is put into the ``authority`` TLV, so, consequently,
+  the backend needs to be defined per hostname.
 
 .. _ref_vmod_dynamic_probe:
 
@@ -215,7 +230,7 @@ $Event event
 $Object director(
 	STRING port				= "http",
 	STRING host_header			= 0,
-	ENUM { DIRECTOR, HOST } share		= "DIRECTOR",
+	ENUM { DEFAULT, DIRECTOR, HOST } share	= "DEFAULT",
 	PROBE probe				= 0,
 	ACL whitelist				= 0,
 	DURATION ttl				= 3600,
