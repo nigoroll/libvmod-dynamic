@@ -195,3 +195,23 @@ DNS and containers (in alphabetic order):
 .. _DC/OS: https://docs.mesosphere.com/1.7/usage/service-discovery/mesos-dns/
 .. _Docker Machine: https://www.npmjs.com/package/docker-machine-dns
 .. _Kubernetes: http://kubernetes.io/docs/admin/dns/
+
+ACKNOWLEDGEMENTS
+================
+
+We thank the various people and companies having made vmod_dynamic a
+reality:
+
+vmod_dynamic is based upon vmod_named developed and maintained from
+2015 to 2017 by Dridi Boukelmoune (github @dridi) and supported by
+Varnish Software.
+
+Maintenance and improvements 2017 - 2019 were sponsored by various
+unnamed UPLEX clients and authored by Geoffrey Simmons and Nils Goroll
+from UPLEX.
+
+SRV record support and getdns integration in 2019 was supported by
+GOG.com
+
+vmod_dynamic also contains contributions by: Ricardo Nabinger Sanchez,
+Ryan Steinmetz
