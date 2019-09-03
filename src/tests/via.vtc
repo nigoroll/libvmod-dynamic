@@ -10,6 +10,7 @@ server s1 {
 varnish v2 -proto PROXY -vcl {
 	import ${vmod_dynamic};
 	import std;
+	import proxy;
 
 	backend dummy { .host = "${bad_backend}"; }
 
@@ -20,7 +21,13 @@ varnish v2 -proto PROXY -vcl {
 	sub vcl_recv {
 		set req.backend_hint = d1.backend(server.ip,
 		    std.port(server.ip));
+		set req.http.Authority = proxy.authority();
+
 		return (pass);
+	}
+
+	sub vcl_deliver {
+		set resp.http.Authority = req.http.Authority;
 	}
 } -start
 
@@ -49,11 +56,12 @@ client c1 {
 	txreq
 	rxresp
 	expect resp.status == 200
+	expect resp.http.Authority == "localhost"
 } -run
-
-varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 1
-varnish v1 -expect LCK.dynamic.director.creat > 0
-varnish v1 -expect LCK.dynamic.backend.creat > 0
 
 # vtc diag only
 shell "varnishstat -1 -n ${v1_name} -f VBE.*"
+
+varnish v1 -expect VBE.vcl1.d1.localhost(${s1_addr}:${s1_port}).req == 1
+varnish v1 -expect LCK.dynamic.director.creat > 0
+varnish v1 -expect LCK.dynamic.backend.creat > 0

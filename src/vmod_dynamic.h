@@ -63,6 +63,7 @@ enum dynamic_status_e {
 };
 
 enum dynamic_share_e {
+	DEFAULT,
 	DIRECTOR,
 	HOST
 };
