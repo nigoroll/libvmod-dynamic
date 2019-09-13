@@ -51,15 +51,15 @@ In contrast, for dynamic backends provided by this module,
 
 * name resolution information will be refreshed by background threads
   after a configurable time to live (ttl) or after the ttl from DNS
-  with a `getdns`_ `vmod_dynamic.resolver`_.
+  with a `getdns`_ `dynamic.resolver()`_.
 
 * resolution to multiple network addresses is supported
 
-In addition, with a `getdns`_ `vmod_dynamic.resolver`_, service
+In addition, with a `getdns`_ `dynamic.resolver()`_, service
 discovery by DNS SRV records is possible, in which case this module
 also allows to configure host names (*targets*), their ports, priority
 and weight though DNS. See https://en.wikipedia.org/wiki/SRV_record
-for a good basic explanation and `vmod_dynamic.director.service`_ for
+for a good basic explanation and `xdirector.service()`_ for
 details.
 
 .. _ref_vmod_dynamic_share:
@@ -106,7 +106,7 @@ optimally. While a good combination of a *ttl* parameter in
 combination with a system name service caching service like
 :ref:`nscd(8)` can achieve good results, to use TTLs from DNS, we
 recommend to compile this module with `getdns`_ support, configure a
-`vmod_dynamic.resolver`_ object and set the *ttl_from* parameter to
+`dynamic.resolver()`_ object and set the *ttl_from* parameter to
 either ``dns``, ``min`` or ``max`` as in this example::
 
 	sub vcl_init {
@@ -129,18 +129,18 @@ which will be referred to as *<name>* in the following documentation
 
 * *<directorname>*
 
-  The name of the VCL object created by `vmod_dynamic.director`_
+  The name of the VCL object created by `dynamic.director()`_
 
 * *<directorname>*\ (\ *<hostname>*\ :\ *<port>*\ )
 
   A director (internally called *domain*), created as a result of a
-  `vmod_dynamic.director.backend`_ or, indirectly, for targets
-  resulting from a `vmod_dynamic.director.service`_ call.
+  `xdirector.backend()`_ or, indirectly, for targets
+  resulting from a `xdirector.service()`_ call.
 
 * *<directorname>*\ (\ *service*\ )
 
-  A director created as a result of a `vmod_dynamic.director.backend`_
-  or `vmod_dynamic.director.service`_ call.
+  A director created as a result of a `xdirector.backend()`_
+  or `xdirector.service()`_ call.
 
 * *<directorname>*\ (\ *address*\ :\ *port*\ )
 
@@ -272,10 +272,10 @@ Parameters:
 	- *resolver*
 
 	  Use a particular resolver instance created with the
-	  `vmod_dynamic.resolver`_ constructor, if available.
+	  `dynamic.resolver()`_ constructor, if available.
 
 	  The argument to the *resolver* parameter must be the return
-	  value of the `vmod_dynamic.resolver.use`_ method.
+	  value of the `xresolver.use()`_ method.
 
 .. _ref_ttl_from:
 
@@ -360,24 +360,24 @@ Description
 	Return a backend from the director for a service name (DNS SRV
 	record).
 
-	This Method is only supported when a `vmod_dynamic.resolver`_
-	object has been passed to the `vmod_dynamic.director`_
+	This Method is only supported when a `dynamic.resolver()`_
+	object has been passed to the `dynamic.director()`_
 	constructor.
 
 	SRV records contain host (called target) and port
 	information. Dynamic backends are automatically added and
 	maintained based on this information as if
-	`vmod_dynamic.director.backend`_ had been called.
+	`xdirector.backend()`_ had been called.
 
 	SRV records also contain *priority* and *weight*
-	information. The `vmod_dynamic.director.service`_ method
+	information. The `xdirector.service()`_ method
 	returns a target (backend) from the lowest *priority* found
 	healthy. If there are multiple healthy targets for the lowest
 	*priority*, one is chosen randomly based on the probabilities
 	defined by the *weight* attributes.
 
 	Note that it highly recommended to use a *probe* argument to
-	the `vmod_dynamic.director`_ to avoid returning unresponsive
+	the `dynamic.director()`_ to avoid returning unresponsive
 	backends.
 
 $Method VOID .debug(BOOL)
@@ -391,8 +391,8 @@ $Object resolver(
 	INT parallel=16)
 
 Create *parallel* `getdns`_ contexts to be used with the
-`vmod_dynamic.director`_ constructor - see
-`vmod_dynamic.resolver.use`_
+`dynamic.director()`_ constructor - see
+`xresolver.use()`_
 
 Parameters:
 
@@ -413,8 +413,8 @@ outside ``vcl_init{}`` will trigger a VCL failure.
 
 $Method BLOB .use()
 
-return a reference to the `vmod_dynamic.resolver`_ object for use as a
-parameter to the `vmod_dynamic.director`_ constructor.
+return a reference to the `dynamic.resolver()`_ object for use as a
+parameter to the `dynamic.director()`_ constructor.
 
 $Method BOOL .set_resolution_type(ENUM {RECURSING, STUB})
 
@@ -437,7 +437,7 @@ Add a namespace to the list of namespaces to be queried.
 
 This method only adds the namespace to an internal list, The actual
 configuration is only done once
-`vmod_dynamic.resolver.set_namespaces`_ is called.
+`xresolver.set_namespaces()`_ is called.
 
 May only be called from ``vcl_init{}``
 
@@ -446,7 +446,7 @@ See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 Notice that not all namespaces are available on all platforms. VCL
 load will fail with error ``312`` (The library did not have the
 requested API feature implemented.) in this case when
-`vmod_dynamic.resolver.set_namespaces`_ is called.
+`xresolver.set_namespaces()`_ is called.
 
 $Method BOOL .set_namespaces()
 
@@ -466,7 +466,7 @@ Add a transport to the list of transports to be tried.
 
 This method only adds the transport to an internal list, The actual
 configuration is only done once
-`vmod_dynamic.resolver.set_transports`_ is called.
+`xresolver.set_transports()`_ is called.
 
 May only be called from ``vcl_init{}``
 
