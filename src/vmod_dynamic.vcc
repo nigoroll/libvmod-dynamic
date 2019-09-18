@@ -550,12 +550,15 @@ vmod_dynamic is based upon vmod_named developed and maintained from
 2015 to 2017 by Dridi Boukelmoune (github @dridi) and supported by
 Varnish Software.
 
-Maintenance and improvements 2017 - 2019 were sponsored by various
-unnamed UPLEX clients and authored by Geoffrey Simmons and Nils Goroll
-from UPLEX.
+Maintenance and improvements 2017 - 2019:
+
+Generally sponsored by Spring Media and various unnamed UPLEX clients.
 
 SRV record support and getdns integration in 2019 was supported by
 GOG.com
 
-vmod_dynamic also contains contributions by: Ricardo Nabinger Sanchez,
-Ryan Steinmetz
+Code was written mostly by Geoffrey Simmons and Nils Goroll from UPLEX
+with additional contributions by: Ricardo Nabinger Sanchez and
+Ryan Steinmetz.
+
+Thank you to all!
