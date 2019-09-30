@@ -102,6 +102,8 @@ then run::
 
 	make check
 
+Also, the service tests require direct access to public DNS (for now).
+
 Alternatively, the ``make check`` can also be skipped.
 
 You can then proceed with the installation::
