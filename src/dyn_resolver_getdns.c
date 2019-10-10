@@ -176,7 +176,7 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	if (addrstate->port != 0)
 		addrstate->port = htons(addrstate->port);
 	else if (getservbyname_r(service, "tcp", servent_buf,
-		     buf, sizeof(buf), &servent) != 0)
+		     buf, sizeof(buf), &servent) != 0 || servent == NULL)
 		return (GETDNS_RETURN_NO_SERVBYNAME);
 	else
 		addrstate->port = servent->s_port;
@@ -283,10 +283,11 @@ getdns_fini(void **priv)
 	AN(addrstate);
 
 	state = &addrstate->common;
-	AN(state->context);
-	AN(state->response);
-	getdns_dict_destroy(state->response);
-	dyn_getdns_rel_context(&state->context);
+
+	if (state->response != NULL)
+		getdns_dict_destroy(state->response);
+	if (state->context != NULL)
+		dyn_getdns_rel_context(&state->context);
 
 	free(addrstate);
 }
