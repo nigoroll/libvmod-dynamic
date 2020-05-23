@@ -156,11 +156,11 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 
 	dom->current = next;
 
+	Lck_Unlock(&dom->mtx);
+
 	if (next != NULL &&
 	    !VRT_Healthy(ctx, next->be->dir, NULL))
 		next = NULL;
-
-	Lck_Unlock(&dom->mtx);
 
 	assert(next == NULL || next->be->dir != NULL);
 	return (next == NULL ? NULL : next->be->dir);
