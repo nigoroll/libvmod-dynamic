@@ -122,6 +122,7 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
 	struct dynamic_ref *next;
+	VCL_BACKEND dir;
 	double deadline;
 	int ret;
 
@@ -158,12 +159,15 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 
 	Lck_Unlock(&dom->mtx);
 
-	if (next != NULL &&
-	    !VRT_Healthy(ctx, next->be->dir, NULL))
-		next = NULL;
+	if (next == NULL)
+		return (NULL);
 
-	assert(next == NULL || next->be->dir != NULL);
-	return (next == NULL ? NULL : next->be->dir);
+	dir = next->be->dir;
+
+	if (!VRT_Healthy(ctx, dir, NULL))
+		return (NULL);
+
+	return (dir);
 }
 
 static VCL_BOOL v_matchproto_(vdi_healthy_f)
