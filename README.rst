@@ -2,7 +2,7 @@
 vmod-dynamic
 ============
 
-This branch is for varnish 6.1, 6.2 and master
+This branch is for varnish 6.3, 6.4 and master
 
 Description
 ===========
@@ -133,30 +133,24 @@ FreeBSD users may install from either the ports tree or via packages:
 RPMs
 ----
 
-Binary, debuginfo and source RPMs for VMOD dynamic are available at
-packagecloud::
+Binary, debuginfo and source RPMs for VMOD dynamic are available at::
 
-	https://packagecloud.io/uplex/varnish
+	https://pkg.uplex.de/
 
 The packages are built for Enterprise Linux 7 (el7), and hence will
 run on compatible distros (such as RHEL7, Fedora, CentOS 7 and Amazon
 Linux).
 
-To set up your YUM repository for the RPMs, follow these instructions::
+To set up your YUM repository for the RPMs::
 
-	https://packagecloud.io/uplex/varnish/install#manual-rpm
+	yum-config-manager --add-repo https://pkg.uplex.de/rpm/7/uplex-varnish/x86_64/
 
-You will also need these additional repositories:
+The RPMs are compatible with Varnish versions 6.3.2 and 6.4.0. They
+also require the ``getdns`` library, as discussed above. The library
+is not necessarily available in the distributions' standard
+repositories, but can be installed from EPEL7::
 
-* EPEL7
-
-  * ``yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm``
-
-* Official Varnish packages from packagecloud (since version 5.2.0)
-
-  * Follow the instructions at: https://packagecloud.io/varnishcache/varnish52/install#manual-rpm
-
-  * Or (for version 6.0.0): https://packagecloud.io/varnishcache/varnish60/install#manual-rpm
+	yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 
 If you have problems or questions concerning the RPMs, post an issue
 to one of the source repository web sites, or contact
