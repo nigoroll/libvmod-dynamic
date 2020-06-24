@@ -731,7 +731,9 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	AZ(pthread_cond_init(&dom->cond, NULL));
 	AZ(pthread_cond_init(&dom->resolve, NULL));
 
-	AZ(pthread_create(&dom->thread, NULL, &dynamic_lookup_thread, dom));
+	if (ctx->method != VCL_MET_INIT)
+		AZ(pthread_create(&dom->thread, NULL, &dynamic_lookup_thread,
+			dom));
 
 	VTAILQ_INSERT_TAIL(&obj->active_domains, dom, list);
 
