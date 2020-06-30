@@ -223,7 +223,8 @@ $Object director(
 	INT max_connections			= 0,
 	INT proxy_header			= 0,
 	BLOB resolver				= NULL,
-	ENUM { cfg, dns, min, max } ttl_from	= "cfg")
+	ENUM { cfg, dns, min, max } ttl_from	= "cfg",
+	DURATION retry_after			= 30)
 
 Description
 	Create a DNS director.
@@ -297,7 +298,14 @@ Parameters:
 
 	  For no *resolver*, only "cfg" is valid.
 
-	  For DNS failures, the *ttl* argument is used.
+	- *retry_after*
+
+	  Delay to retry lookups after DNS failures (defaults to 30 seconds).
+
+	  Notice that, for all practical purposes, this only concerns
+	  lookup errors (NXDOMAIN). After successful resolution,
+	  dynamic directors preserve existing address information if
+	  DNS resources are temporarily unavailable.
 
 Parameters to set attributes of backends
 

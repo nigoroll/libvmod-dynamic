@@ -514,7 +514,7 @@ dynamic_lookup_thread(void *priv)
 		} else {
 			LOG(&ctx, SLT_Error, dom, "%s %d (%s)",
 			    res->name, ret, res->strerror(ret));
-			dom->deadline = results + obj->ttl;
+			dom->deadline = results + obj->retry_after;
 			dbg_res_details(NULL, dom->obj, res, res_priv);
 		}
 
@@ -863,7 +863,8 @@ vmod_director__init(VRT_CTX,
     VCL_INT max_connections,
     VCL_INT proxy_header,
     VCL_BLOB resolver,
-    VCL_ENUM ttl_from_s)
+    VCL_ENUM ttl_from_s,
+    VCL_DURATION retry_after)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -924,6 +925,7 @@ vmod_director__init(VRT_CTX,
 	obj->probe = probe;
 	obj->whitelist = whitelist;
 	obj->ttl = ttl;
+	obj->retry_after = retry_after;
 	obj->connect_tmo = connect_timeout;
 	obj->first_byte_tmo = first_byte_timeout;
 	obj->between_bytes_tmo = between_bytes_timeout;

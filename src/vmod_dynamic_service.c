@@ -519,7 +519,7 @@ service_lookup_thread(void *priv)
 		} else {
 			LOG(&ctx, SLT_Error, srv, "%s %d (%s)",
 			    res->name, ret, res->strerror(ret));
-			srv->deadline = results + obj->ttl;
+			srv->deadline = results + obj->retry_after;
 			dbg_res_details(NULL, srv->obj, res, res_priv);
 		}
 

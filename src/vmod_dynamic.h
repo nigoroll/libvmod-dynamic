@@ -154,6 +154,7 @@ struct vmod_dynamic_director {
 	VCL_PROBE				probe;
 	VCL_ACL					whitelist;
 	VCL_DURATION				ttl;
+	VCL_DURATION				retry_after;
 	VCL_DURATION				connect_tmo;
 	VCL_DURATION				first_byte_tmo;
 	VCL_DURATION				between_bytes_tmo;
