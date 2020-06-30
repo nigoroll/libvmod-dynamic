@@ -149,6 +149,15 @@ getdns_common_lookup_check(struct dyn_getdns_common_state *state)
 	return (ret);
 }
 
+static void
+getdns_common_state_fini(struct dyn_getdns_common_state *state)
+{
+	if (state->response != NULL)
+		getdns_dict_destroy(state->response);
+	if (state->context != NULL)
+		dyn_getdns_rel_context(&state->context);
+}
+
 /* ------------------------------------------------------------
  * addr
  */
@@ -280,19 +289,13 @@ static void
 getdns_fini(void **priv)
 {
 	struct dyn_getdns_addr_state *addrstate;
-	struct dyn_getdns_common_state *state;
 
 	AN(priv);
 	addrstate = *priv;
 	*priv = NULL;
 	AN(addrstate);
 
-	state = &addrstate->common;
-
-	if (state->response != NULL)
-		getdns_dict_destroy(state->response);
-	if (state->context != NULL)
-		dyn_getdns_rel_context(&state->context);
+	getdns_common_state_fini(&addrstate->common);
 
 	free(addrstate);
 }
@@ -406,18 +409,13 @@ static void
 getdns_srv_fini(void **priv)
 {
 	struct dyn_getdns_srv_state *srvstate;
-	struct dyn_getdns_common_state *state;
 
 	AN(priv);
 	srvstate = *priv;
 	*priv = NULL;
 	AN(srvstate);
 
-	state = &srvstate->common;
-	AN(state->context);
-	AN(state->response);
-	getdns_dict_destroy(state->response);
-	dyn_getdns_rel_context(&state->context);
+	getdns_common_state_fini(&srvstate->common);
 
 	free(srvstate);
 }
