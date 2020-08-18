@@ -380,7 +380,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	AZ(VSB_finish(vsb));
 	b->vcl_name = strdup(VSB_data(vsb));
 	AN(b->vcl_name);
-	VSB_delete(vsb);
+	VSB_destroy(&vsb);
 
 	vrt.vcl_name = b->vcl_name;
 	vrt.probe = dom->obj->probe;
