@@ -745,7 +745,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
  */
 
 int v_matchproto_(vmod_event_f)
-vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
+event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 {
 	struct vmod_dynamic_director *obj;
 	struct dyn_vsc_seg *vcl_vsc_seg;
