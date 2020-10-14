@@ -67,11 +67,11 @@ details.
 BACKEND SHARING
 ===============
 
-By default (``share = "DIRECTOR"`` parameter), backends are shared per
+By default (``share = DIRECTOR`` parameter), backends are shared per
 director: Only one backend per director instance and ip address (and
 optionally port) is created.
 
-The ``share = "HOST"`` parameter allows to limit sharing to backends
+The ``share = HOST`` parameter allows to limit sharing to backends
 created for the same hostname (``host`` argument to the ``.backend()``
 method).
 
@@ -83,11 +83,11 @@ PROBING
 A probe to be used with dynamically created backends can be
 specified.
 
-With ``share = "HOST"``, the ``Host:`` header for probes defaults to
+With ``share = HOST``, the ``Host:`` header for probes defaults to
 the backend's hostname (``host`` argument to the ``.backend()``
 method).
 
-With ``share = "DIRECTOR"``, the probe is not specific to any
+With ``share = DIRECTOR``, the probe is not specific to any
 particular host, thus a ``host_header`` argument to
 `dynamic.director()` is required unless the probe has the ``.request``
 attribute set.
