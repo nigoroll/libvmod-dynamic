@@ -964,6 +964,9 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 	obj = *objp;
 	*objp = NULL;
 
+	if (obj == NULL)
+		return;
+
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AZ(obj->active);
 
