@@ -9,7 +9,8 @@ libvmod_dynamic_la_SOURCES = \
 	dyn_resolver.h \
 	dyn_resolver_gai.c \
 	vmb.h \
-	vmod_dynamic_service.c
+	vmod_dynamic_service.c \
+	compat.h
 
 if HAVE_GETDNS
 libvmod_dynamic_la_SOURCES += \

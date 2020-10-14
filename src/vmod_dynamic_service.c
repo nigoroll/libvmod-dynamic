@@ -58,6 +58,8 @@
 #include <vrnd.h>
 
 #include "vcc_dynamic_if.h"
+#include "compat.h"
+
 #include "dyn_resolver.h"
 #include "vmod_dynamic.h"
 #include "vmb.h"
