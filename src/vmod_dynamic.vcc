@@ -81,14 +81,16 @@ PROBING
 =======
 
 A probe to be used with dynamically created backends can be
-specified. Note that with ``share = "DIRECTOR"``, a ``Host:`` header
-is only sent with probes if the ``host_header`` argument is provided
-during director initialization (or because a custom probe ``request``
-contains one).
+specified.
 
 With ``share = "HOST"``, the ``Host:`` header for probes defaults to
 the backend's hostname (``host`` argument to the ``.backend()``
 method).
+
+With ``share = "DIRECTOR"``, the probe is not specific to any
+particular host, thus a ``host_header`` argument to
+`dynamic.director()` is required unless the probe has the ``.request``
+attribute set.
 
 Consider setting the ``initial`` attribute of probes at least as high
 as the ``threshold`` attribute. Otherwise transactions that trigger
@@ -244,7 +246,7 @@ Parameters:
 	- *host_header* (defaults to none)
 
 	  `host_header` attribute for dynamically created backends.
-	  See also :ref:`ref_vmod_dynamic_probe`
+	  May be required with probes, see :ref:`ref_vmod_dynamic_probe`.
 
 	- *probe* (defaults to none)
 

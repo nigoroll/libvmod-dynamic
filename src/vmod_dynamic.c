@@ -948,6 +948,14 @@ vmod_director__init(VRT_CTX,
 			    ttl_from_s);
 		obj->resolver = &res_gai;
 	}
+	if (obj->share == DIRECTOR &&
+	    obj->probe != NULL && // magic checked above
+	    obj->probe->request == NULL &&
+	    obj->hosthdr == NULL) {
+		VRT_fail(ctx, "dynamic.director(): "
+		    "need host_header because of share=DIRECTOR and "
+		    "probe without .request (see documentation)");
+	}
 
 	Lck_New(&obj->mtx, lck_dir);
 
