@@ -87,10 +87,9 @@ dyn_resolver_blob(VCL_BLOB blob)
 {
 	struct VPFX(dynamic_resolver) *p;
 
-	if (blob && blob->type == DYNAMIC_RESOLVER_BLOB &&
-	    blob->blob != NULL &&
+	if (blob != NULL && blob->priv != NULL &&
 	    blob->len == sizeof(struct VPFX(dynamic_resolver))) {
-		CAST_OBJ_NOTNULL(p, TRUST_ME(blob->blob),
+		CAST_OBJ_NOTNULL(p, TRUST_ME(blob->priv),
 		    DYNAMIC_RESOLVER_MAGIC);
 		return (p);
 	}
@@ -207,11 +206,22 @@ VCL_BLOB
 vmod_resolver_use(VRT_CTX,
     struct VPFX(dynamic_resolver) *r)
 {
+	struct vmod_priv *p;
+
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
 
-	return (VRT_blob(ctx, "xresolver.use()", r, sizeof *r,
-	    DYNAMIC_RESOLVER_BLOB));
+	p = (void *)WS_Alloc(ctx->ws, sizeof *p);
+	if (p == NULL) {
+		VRT_fail(ctx, "Workspace overflow (xresolver.use())");
+		return (NULL);
+	}
+	memset(p, 0, sizeof *p);
+
+	p->priv = r;
+	p->len = sizeof *r;
+
+	return (p);
 }
 
 const char * const funcpfx = "vmod_resolver_";
