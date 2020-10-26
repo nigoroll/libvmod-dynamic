@@ -1,0 +1,69 @@
+varnishtest "bug #55 no host but probe"
+
+# depends on external DNS
+
+varnish v1 -vcl {
+	import ${vmod_dynamic};
+
+	backend dummy None;
+
+	probe p { }
+
+	probe p_req { .request = "GET /dummy"; }
+
+	sub vcl_init {
+		new r1 = dynamic.resolver();
+		r1.set_resolution_type(STUB);
+		new d1 = dynamic.director(
+		    host_header = "host.header.for.probe",
+		    resolver = r1.use(),
+		    probe = p);
+		d1.debug(true);
+		new d2 = dynamic.director(probe = p_req);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint =
+		    d1.service("_does._not._resolve.any.where.");
+	}
+
+	sub vcl_backend_fetch {
+		set bereq.first_byte_timeout = 1s;
+		set bereq.connect_timeout = 1s;
+	}
+
+	sub vcl_backend_response {
+		set beresp.http.backend = beresp.backend;
+	}
+
+	sub vcl_backend_error {
+		set beresp.http.backend = beresp.backend;
+	}
+} -start
+
+varnish v1 -errvcl "need host_header because of share=DIRECTOR and probe without .request" {
+	import ${vmod_dynamic};
+
+	backend dummy None;
+
+	probe p { }
+
+	sub vcl_init {
+		new r1 = dynamic.resolver();
+		r1.set_resolution_type(STUB);
+		new d1 = dynamic.director(
+		    resolver = r1.use(),
+		    probe = p);
+		d1.debug(true);
+	}
+}
+
+varnish v1 -cli "backend.list"
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 503
+} -run
+
+varnish v1 -cli "backend.list"
