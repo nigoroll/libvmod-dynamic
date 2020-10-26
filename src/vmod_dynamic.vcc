@@ -87,10 +87,12 @@ With ``share = HOST``, the ``Host:`` header for probes defaults to
 the backend's hostname (``host`` argument to the ``.backend()``
 method).
 
-With ``share = DIRECTOR``, the probe is not specific to any
-particular host, thus a ``host_header`` argument to
-`dynamic.director()` is required unless the probe has the ``.request``
-attribute set.
+With ``share = DIRECTOR``, the probe is not specific to any particular
+host. If the probe has the ``.request`` attribute set, it will be used
+as the probe request. Otherwise, if a ``host_header`` argument was
+given to `dynamic.director()`_, it will be used for the probe's
+``Host`` header, otherwise Varnish-Cache core code will send the
+backend's IP Address as the ``Host`` header.
 
 Consider setting the ``initial`` attribute of probes at least as high
 as the ``threshold`` attribute. Otherwise transactions that trigger
@@ -246,7 +248,7 @@ Parameters:
 	- *host_header* (defaults to none)
 
 	  `host_header` attribute for dynamically created backends.
-	  May be required with probes, see :ref:`ref_vmod_dynamic_probe`.
+	  See also :ref:`ref_vmod_dynamic_probe`
 
 	- *probe* (defaults to none)
 
