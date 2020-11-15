@@ -324,6 +324,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 {
 	struct suckaddr *sa;
 	struct vrt_backend vrt;
+	struct vrt_endpoint ep;
 	struct dynamic_backend *b;
 	struct vsb *vsb;
 	char addr[VTCP_ADDRBUFSIZE];
@@ -392,19 +393,21 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	vrt.proxy_header = dom->obj->proxy_header;
 	assert(vrt.proxy_header <= 2);
 #endif
+	INIT_OBJ(&ep, VRT_ENDPOINT_MAGIC);
 
 	switch (VSA_Get_Proto(sa)) {
 	case AF_INET:
-		vrt.ipv4_suckaddr = sa;
+		ep.ipv4 = sa;
 		vrt.ipv4_addr = b->ip_addr;
 		break;
 	case AF_INET6:
-		vrt.ipv6_suckaddr = sa;
+		ep.ipv6 = sa;
 		vrt.ipv6_addr = b->ip_addr;
 		break;
 	default:
 		WRONG("unexpected family");
 	}
+	vrt.endpoint = &ep;
 
 	b->dir = VRT_new_backend(ctx, &vrt);
 	AN(b->dir);
