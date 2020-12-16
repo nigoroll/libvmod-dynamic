@@ -71,6 +71,7 @@ enum dynamic_ttl_e {
 struct dynamic_domain {
 	unsigned			magic;
 #define DYNAMIC_DOMAIN_MAGIC		0x1bfe1345
+	unsigned			mark;
 	struct vmod_dynamic_director	*obj;
 	pthread_t			thread;
 	struct lock			mtx;
@@ -83,9 +84,8 @@ struct dynamic_domain {
 	char				*addr;
 	char				*port;
 	VCL_BACKEND			dir;
-	unsigned			mark;
-	volatile enum dynamic_status_e	status;
 	vtim_real			deadline;
+	volatile enum dynamic_status_e	status;
 };
 
 struct service_target {
