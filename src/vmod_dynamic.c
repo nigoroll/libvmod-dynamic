@@ -176,27 +176,27 @@ dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 	struct dynamic_domain *dom;
 	struct dynamic_ref *r;
 	unsigned retval = 0;
-	double c;
+	double c, cc = 0;
 
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, d->priv, DYNAMIC_DOMAIN_MAGIC);
 
 	Lck_Lock(&dom->mtx);
 
-	if (changed != NULL)
-		*changed = 0;
-
 	/* One healthy backend is enough for the director to be healthy */
 	VTAILQ_FOREACH(r, &dom->refs, list) {
 		CHECK_OBJ_NOTNULL(r->be->dir, DIRECTOR_MAGIC);
 		retval = VRT_Healthy(ctx, r->be->dir, &c);
-		if (changed != NULL && c > *changed)
-			*changed = c;
+		if (c > cc)
+			cc = c;
 		if (retval)
 			break;
 	}
 
 	Lck_Unlock(&dom->mtx);
+
+	if (changed != NULL)
+		*changed = cc;
 
 	return (retval);
 }
