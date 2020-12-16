@@ -181,7 +181,14 @@ dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, d->priv, DYNAMIC_DOMAIN_MAGIC);
 
-	Lck_Lock(&dom->mtx);
+	if (ctx->method != 0)
+		Lck_Lock(&dom->mtx);
+	else if (Lck_Trylock(&dom->mtx)) {
+		/* avoid deadlock when in cli context */
+		if (changed != NULL)
+			*changed = dom->changed_cached;
+		return (dom->healthy_cached);
+	}
 
 	/* One healthy backend is enough for the director to be healthy */
 	VTAILQ_FOREACH(r, &dom->refs, list) {
@@ -198,6 +205,8 @@ dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 	if (changed != NULL)
 		*changed = cc;
 
+	dom->changed_cached = cc;
+	dom->healthy_cached = retval;
 	return (retval);
 }
 

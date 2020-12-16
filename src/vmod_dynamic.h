@@ -85,7 +85,9 @@ struct dynamic_domain {
 	char				*port;
 	VCL_BACKEND			dir;
 	vtim_real			deadline;
+	VCL_TIME			changed_cached;
 	volatile enum dynamic_status_e	status;
+	VCL_BOOL			healthy_cached;
 };
 
 struct service_target {
