@@ -83,7 +83,7 @@
  * they can't be accessed at the same time.
  */
 
-struct vmod_dynamic_head objects = VTAILQ_HEAD_INITIALIZER(objects);
+static struct vmod_dynamic_head objects = VTAILQ_HEAD_INITIALIZER(objects);
 
 struct VSC_lck *lck_dir, *lck_be;
 
