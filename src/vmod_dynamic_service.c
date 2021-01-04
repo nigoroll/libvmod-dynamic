@@ -37,9 +37,6 @@
 
 #include <arpa/inet.h>
 
-#include <sys/socket.h>
-#include <sys/types.h>
-
 #include <errno.h>
 #include <netdb.h>
 #include <pthread.h>
@@ -48,22 +45,14 @@
 #include <string.h>
 
 #include <cache/cache.h>
-#include <cache/cache_director.h>
 
-#include <vsb.h>
-#include <vcl.h>
-#include <vsa.h>
 #include <vtim.h>
-#include <vtcp.h>
 #include <vrnd.h>
 
 #include "vcc_dynamic_if.h"
 #include "dyn_resolver.h"
 #include "vmod_dynamic.h"
 #include "vmb.h"
-
-// vmod_dynamic.c
-extern struct VSC_lck *lck_be;
 
 #define LOG(ctx, slt, srv, fmt, ...)				\
 	do {							\
@@ -146,6 +135,8 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 	struct backend_select	h[prios->max_targets];
 	unsigned i, n, w;
 	long r;
+
+	memset(h, 0, sizeof h);
 
 	n = w = 0;
 	VTAILQ_FOREACH(p, &prios->head, list) {
@@ -315,6 +306,7 @@ service_prio(struct service_prios *prios, uint32_t priority)
 	}
 
 	ALLOC_OBJ(prio, SERVICE_PRIO_MAGIC);
+	AN(prio);
 	prio->priority = priority;
 	VTAILQ_INIT(&prio->targets);
 
@@ -361,6 +353,7 @@ service_target(struct service_prio *prio, const struct srv_info *i)
 	}
 
 	ALLOC_OBJ(target, SERVICE_TARGET_MAGIC);
+	AN(target);
 
 	if (t)
 		VTAILQ_INSERT_BEFORE(t, target, list);
@@ -395,6 +388,7 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 	 */
 
 	ALLOC_OBJ(prios, SERVICE_PRIOS_MAGIC);
+	AN(prios);
 	VTAILQ_INIT(&prios->head);
 	while ((info = res->srv_result(ibuf, priv, &state)) != NULL) {
 		DBG(&ctx, srv, "DNS SRV %s:%d priority %d weight %d ttl %d",
@@ -623,13 +617,14 @@ service_start(VRT_CTX, struct vmod_dynamic_director *obj)
 {
 	struct dynamic_service *srv;
 
+	(void) ctx;
 	Lck_AssertHeld(&obj->mtx);
 
 	VTAILQ_FOREACH(srv, &obj->active_services, list) {
 		CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
 		assert(srv->status == DYNAMIC_ST_READY);
 		AZ(srv->thread);
-		AZ(pthread_create(&srv->thread, NULL, &service_lookup_thread,
+		AZ(pthread_create(&srv->thread, NULL, service_lookup_thread,
 		    srv));
 	}
 }
@@ -720,7 +715,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	AZ(pthread_cond_init(&srv->cond, NULL));
 	AZ(pthread_cond_init(&srv->resolve, NULL));
 
-	AZ(pthread_create(&srv->thread, NULL, &service_lookup_thread, srv));
+	AZ(pthread_create(&srv->thread, NULL, service_lookup_thread, srv));
 
 	VTAILQ_INSERT_TAIL(&obj->active_services, srv, list);
 

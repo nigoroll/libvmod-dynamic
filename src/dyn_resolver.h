@@ -81,5 +81,5 @@ struct res_cb {
 	res_details_f	*details;
 };
 
-extern struct res_cb res_gai;
-extern struct res_cb res_getdns;
+extern const struct res_cb res_gai;
+extern const struct res_cb res_getdns;

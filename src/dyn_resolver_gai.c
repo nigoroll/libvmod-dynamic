@@ -61,7 +61,7 @@ gai_lookup(struct VPFX(dynamic_resolver) *r,
 	    (struct addrinfo **)priv));
 }
 
-void *gai_last = &gai_last;
+static void *gai_last = &gai_last;
 
 static struct res_info *
 gai_result(struct res_info *info, void *priv, void **state)
@@ -107,7 +107,7 @@ gai_fini(void **priv)
 		freeaddrinfo(res);
 }
 
-struct res_cb res_gai = {
+const struct res_cb res_gai = {
 	.name = "getaddrinfo",
 	.lookup = gai_lookup,
 	.result = gai_result,

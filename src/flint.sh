@@ -19,7 +19,7 @@ flexelint \
 	-I.. \
 	-I${VARNISHSRC}/include \
 	-I${VARNISHSRC}/bin/varnishd \
-	*.c \
+	$(ls *.c | grep -v .stub) \
 	2>&1 | tee _.fl
 
 if [ -f _.fl.old ] ; then

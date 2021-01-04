@@ -105,7 +105,7 @@ vmod_resolver__init(VRT_CTX,
 	int i;
 	getdns_return_t err;
 	struct VPFX(dynamic_resolver) *r;
-	struct VPFX(dynamic_resolver_context) *rctx;
+	struct VPFX(dynamic_resolver_context) *rctx, *c;
 
 	AN(rp);
 	AZ(*rp);
@@ -135,7 +135,8 @@ vmod_resolver__init(VRT_CTX,
 
 	VSLIST_INIT(&r->contexts);
 	for (i = 0; i < parallel; i++) {
-		INIT_OBJ(&rctx[i], DYNAMIC_RESOLVER_CONTEXT_MAGIC);
+		c = &rctx[i];
+		INIT_OBJ(c, DYNAMIC_RESOLVER_CONTEXT_MAGIC);
 		err = getdns_context_create(&rctx[i].context, set_from_os);
 		if (err != GETDNS_RETURN_GOOD) {
 			VRT_fail(ctx, "dynamic.resolver context init failed "
@@ -152,7 +153,7 @@ vmod_resolver__init(VRT_CTX,
 	AZ(pthread_mutex_init(&r->mtx, NULL));
 	AZ(pthread_cond_init(&r->cond, NULL));
 
-	VSLIST_FOREACH(rctx, &r->contexts, list)
+	VSLIST_FOREACH(c, &r->contexts, list)
 		CHECK_OBJ_NOTNULL(rctx, DYNAMIC_RESOLVER_CONTEXT_MAGIC);
 
 	r->n_contexts = parallel;
@@ -213,7 +214,7 @@ vmod_resolver_use(VRT_CTX,
 	    DYNAMIC_RESOLVER_BLOB));
 }
 
-const char * const funcpfx = "vmod_resolver_";
+static const char * const funcpfx = "vmod_resolver_";
 
 #define met_name(var)				\
 	const char * var = __func__;		\
@@ -230,7 +231,7 @@ const char * const funcpfx = "vmod_resolver_";
 	}
 
 #define check_err(ctx, ret)						\
-	if ((ret) != 0) {						\
+	if ((ret) != GETDNS_RETURN_GOOD) {				\
 		met_name(name);						\
 		VRT_fail((ctx), "xresolver.%s"				\
 		    " failed with error %d (%s)",			\
@@ -272,9 +273,9 @@ struct res_cfg {
 	unsigned		magic;
 #define RES_CFG_MAGIC		0x04e50cf6
 	size_t			namespace_count;
-	getdns_namespace_t	namespaces[_GETDNS_NAMESPACE_COUNT];
+	getdns_namespace_t	namespaces[GETDNS_NAMESPACE_COUNT];
 	size_t			transport_count;
-	getdns_transport_list_t transports[_GETDNS_TRANSPORT_COUNT];
+	getdns_transport_list_t transports[GETDNS_TRANSPORT_COUNT];
 };
 
 static struct res_cfg *
@@ -455,7 +456,7 @@ VCL_BOOL
 vmod_resolver_set_idle_timeout(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_DURATION d)
 {
-	uint64_t idle_timeout = d * 1e3;
+	uint64_t idle_timeout = (uint64_t)(d * 1e3);
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
@@ -492,7 +493,7 @@ VCL_BOOL
 vmod_resolver_set_timeout(VRT_CTX,
     struct VPFX(dynamic_resolver) *r, VCL_DURATION d)
 {
-	uint64_t timeout = d * 1e3;
+	uint64_t timeout = (uint64_t)(d * 1e3);
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
