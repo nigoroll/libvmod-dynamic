@@ -1,0 +1,10 @@
+-efile(537, tbl*)
+-efile(451, tbl*)
+
+-ecall(835, dlopen)
+-e801	// goto
+-ecall(840, VSB_bcat)
+-e793	// significant characters in an external identifier
+
+// we can not change external interfaces / code
+-efile(766, *_if.c)
