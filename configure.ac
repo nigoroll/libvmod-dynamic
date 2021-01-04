@@ -38,15 +38,6 @@ PKG_CHECK_MODULES([GETDNS], [getdns],
 	 AM_CONDITIONAL([HAVE_GETDNS], [false])
 	 AC_SUBST([VTC_TESTS], "$(cd $srcdir/src && echo tests/*.vtc)")])
 
-
-
-AS_VERSION_COMPARE([$VARNISH_VERSION], [5.0], [
-	AC_DEFINE([HAVE_VCL_EVENT_USE], [1], [Define if USE events are sent.])])
-
-AS_VERSION_COMPARE([$VARNISH_VERSION], [5.1], [], [
-	AC_DEFINE([HAVE_BACKEND_PROXY], [1], [Define if backends support PROXY.])], [
-	AC_DEFINE([HAVE_BACKEND_PROXY], [1], [Define if backends support PROXY.])])
-
 AC_CONFIG_FILES([
 	Makefile
 	src/Makefile

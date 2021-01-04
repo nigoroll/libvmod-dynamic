@@ -395,10 +395,8 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	vrt.first_byte_timeout = dom->obj->first_byte_tmo;
 	vrt.between_bytes_timeout = dom->obj->between_bytes_tmo;
 	vrt.max_connections = dom->obj->max_connections;
-#if HAVE_BACKEND_PROXY
 	vrt.proxy_header = dom->obj->proxy_header;
 	assert(vrt.proxy_header <= 2);
-#endif
 	INIT_OBJ(&ep, VRT_ENDPOINT_MAGIC);
 
 	switch (VSA_Get_Proto(sa)) {
@@ -774,10 +772,6 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 		CAST_OBJ(vcl_vsc_seg, priv->priv, DYN_VSC_SEG_MAGIC);
 
 	switch (e) {
-#if HAVE_VCL_EVENT_USE
-	case VCL_EVENT_USE:
-		return (0);
-#endif
 	case VCL_EVENT_LOAD:
 		if (loadcnt == 0) {
 			lck_dir = Lck_CreateClass(&vcl_vsc_seg->vsc_seg,
@@ -910,11 +904,7 @@ vmod_director__init(VRT_CTX,
 	assert(first_byte_timeout >= 0);
 	assert(between_bytes_timeout >= 0);
 	assert(max_connections >= 0);
-#ifdef HAVE_BACKEND_PROXY
 	assert(proxy_header >= 0);
-#else
-	assert(proxy_header == 0);
-#endif
 
 	ALLOC_OBJ(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AN(obj);
