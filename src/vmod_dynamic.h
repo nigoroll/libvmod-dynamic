@@ -177,9 +177,7 @@ struct vmod_dynamic_director {
 	enum dynamic_ttl_e			ttl_from;
 };
 
-VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director) objects;
-
-extern struct vmod_dynamic_head objects;
+VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director);
 
 struct dynamic_domain *
 dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
