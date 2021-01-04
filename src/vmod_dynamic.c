@@ -40,7 +40,6 @@
 #include <string.h>
 
 #include <cache/cache.h>
-#include <cache/cache_director.h>
 
 #include <vsb.h>
 #include <vcl.h>
@@ -85,7 +84,8 @@
 
 static struct vmod_dynamic_head objects = VTAILQ_HEAD_INITIALIZER(objects);
 
-struct VSC_lck *lck_dir, *lck_be;
+struct VSC_lck *lck_be;
+static struct VSC_lck *lck_dir;
 
 static unsigned loadcnt = 0;
 
@@ -257,10 +257,9 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 	DBG(ctx, dom, "delete-backend %s", b->vcl_name);
 
 	VTAILQ_REMOVE(&dom->obj->backends, b, list);
-	if (ctx) {
-		AN(ctx->vcl);
-		VRT_delete_backend(ctx, &b->dir);
-	}
+	AN(ctx->vcl);
+	VRT_delete_backend(ctx, &b->dir);
+
 	free(b->vcl_name);
 	free(b->ip_addr);
 	free(b->ip_suckaddr);
@@ -273,8 +272,8 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 	struct dynamic_ref *r;
 
 	r = malloc(sizeof *r);
-	memset(r, 0, sizeof *r);
 	AN(r);
+	memset(r, 0, sizeof *r);
 	r->dom = dom;
 	r->be = b;
 	r->mark = dom->mark;
@@ -655,7 +654,7 @@ dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		assert(dom->status == DYNAMIC_ST_READY);
 		AZ(dom->thread);
-		AZ(pthread_create(&dom->thread, NULL, &dynamic_lookup_thread,
+		AZ(pthread_create(&dom->thread, NULL, dynamic_lookup_thread,
 		    dom));
 	}
 	service_start(ctx, obj);
@@ -738,7 +737,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	AZ(pthread_cond_init(&dom->resolve, NULL));
 
 	if (ctx->method != VCL_MET_INIT)
-		AZ(pthread_create(&dom->thread, NULL, &dynamic_lookup_thread,
+		AZ(pthread_create(&dom->thread, NULL, dynamic_lookup_thread,
 			dom));
 
 	VTAILQ_INSERT_TAIL(&obj->active_domains, dom, list);
@@ -768,7 +767,7 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 		priv->priv = vcl_vsc_seg;
 	}
 	else
-		CAST_OBJ(vcl_vsc_seg, priv->priv, DYN_VSC_SEG_MAGIC);
+		CAST_OBJ_NOTNULL(vcl_vsc_seg, priv->priv, DYN_VSC_SEG_MAGIC);
 
 	switch (e) {
 #if HAVE_VCL_EVENT_USE
@@ -786,7 +785,6 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 		}
 		loadcnt++;
 		return (0);
-		break;
 	case VCL_EVENT_DISCARD:
 		assert(loadcnt > 0);
 		loadcnt--;
@@ -794,7 +792,6 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 			Lck_DestroyClass(&vcl_vsc_seg->vsc_seg);
 		}
 		return (0);
-		break;
 	case VCL_EVENT_WARM:
 		active = 1;
 		break;
@@ -824,30 +821,27 @@ static inline enum dynamic_share_e
 dynamic_share_parse(const char *share_s)
 {
 	switch (share_s[0]) {
-	case 'D':	return DIRECTOR; break;
-	case 'H':	return HOST; break;
+	case 'D':	return DIRECTOR;
+	case 'H':	return HOST;
 	default:	INCOMPL();
 	}
-	INCOMPL();
-	NEEDLESS(return(0));
 }
 
 static inline enum dynamic_ttl_e
 dynamic_ttl_parse(const char *ttl_s)
 {
 	switch (ttl_s[0]) {
-	case 'c':	return cfg; break;
-	case 'd':	return dns; break;
+	case 'c':	return cfg;
+	case 'd':	return dns;
 	default:	break;
 	}
 	assert(ttl_s[0] == 'm');
 	switch (ttl_s[1]) {
-	case 'i':	return min; break;
-	case 'a':	return max; break;
+	case 'i':	return min;
+	case 'a':	return max;
 	default:	break;
 	}
 	INCOMPL();
-	NEEDLESS(return(0));
 }
 
 

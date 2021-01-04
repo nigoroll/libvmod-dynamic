@@ -117,7 +117,7 @@ getdns_common_more_answers(struct dyn_getdns_common_state *state)
 static int
 getdns_common_lookup_check(struct dyn_getdns_common_state *state)
 {
-	getdns_return_t ret;
+	int		ret;
 	uint32_t	status;
 
 	AN(state);
@@ -166,10 +166,10 @@ static int
 getdns_lookup(struct VPFX(dynamic_resolver) *r,
     const char *node, const char *service, void **priv)
 {
-	struct VPFX(dynamic_resolver_context) *c = NULL;
+	struct VPFX(dynamic_resolver_context) *c;
 	struct dyn_getdns_addr_state *addrstate;
 	struct dyn_getdns_common_state *state;
-	getdns_return_t ret = GETDNS_RETURN_GENERIC_ERROR;
+	getdns_return_t ret;
 
 	char		buf[1024];
 	struct servent	servent_buf[1];
@@ -206,16 +206,16 @@ getdns_lookup(struct VPFX(dynamic_resolver) *r,
 	return (getdns_common_lookup_check(state));
 }
 
-void *getdns_last = &getdns_last;
+static void *getdns_last = &getdns_last;
 
 static struct res_info *
 getdns_result(struct res_info *info, void *priv, void **answerp)
 {
 	struct dyn_getdns_addr_state *addrstate;
 	struct dyn_getdns_common_state *state;
-	getdns_dict *rr;
-	getdns_bindata *addr;
-	getdns_return_t ret = 0;
+	getdns_dict *rr = NULL;
+	getdns_bindata *addr = NULL;
+	int ret = 0;
 	struct sockaddr_in sa4;
 	struct sockaddr_in6 sa6;
 
@@ -256,6 +256,8 @@ getdns_result(struct res_info *info, void *priv, void **answerp)
 		return (NULL);
 	}
 
+	AN(rr);
+	AN(addr);
 	(void) getdns_dict_get_int(rr, "/ttl", &info->ttl);
 
 	/* why dont the getdns folks provide with an interface to
@@ -312,7 +314,7 @@ static int
 getdns_srv_lookup(struct VPFX(dynamic_resolver) *r,
     const char *service, void **priv)
 {
-	struct VPFX(dynamic_resolver_context) *c = NULL;
+	struct VPFX(dynamic_resolver_context) *c;
 	struct dyn_getdns_srv_state *srvstate;
 	struct dyn_getdns_common_state *state;
 	getdns_return_t ret;
@@ -431,7 +433,7 @@ getdns_details(void *priv)
 	return (getdns_pretty_print_dict(state->response));
 }
 
-struct res_cb res_getdns = {
+const struct res_cb res_getdns = {
 	.name = "getdns",
 
 	.lookup = getdns_lookup,

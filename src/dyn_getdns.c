@@ -40,7 +40,7 @@ dyn_getdns_strerror(int ra)
 {
 	const char *s;
 
-	if (ra >=0 && ra < UINT64_MAX) {
+	if (ra >= 0) {
 		s = getdns_get_errorstr_by_id(ra);
 		if (s != NULL)
 			return (s);

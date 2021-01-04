@@ -5,6 +5,22 @@
 -e801	// goto
 -ecall(840, VSB_bcat)
 -e793	// significant characters in an external identifier
+-efunc(818, *_lookup)
+-emacro(527, check_met_init)
+-emacro(506, check_err)
+-emacro(774, check_err)
 
 // we can not change external interfaces / code
 -efile(766, *_if.c)
+-efunc(818, vmod_resolver_*)
+
+// must always be included to ensure sanity
+-efile(766, config.h)
+
+// TODO / not understood
+-e767	// LOG defined differently in another module
+-e755	// VMB not referenced
+-esym(526, __builtin_nanf)
+-esym(526, __builtin_isnan)
+-esym(628, __builtin_nanf)
+-esym(628, __builtin_isnan)

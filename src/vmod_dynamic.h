@@ -33,6 +33,8 @@
  * when both are needed.
  */
 
+extern struct VSC_lck *lck_be;
+
 struct dynamic_backend {
 	VCL_BACKEND			dir;
 	VTAILQ_ENTRY(dynamic_backend)	list;
@@ -180,7 +182,7 @@ struct vmod_dynamic_director {
 	enum dynamic_ttl_e			ttl_from;
 };
 
-VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director) objects;
+VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director);
 
 struct dynamic_domain *
 dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
