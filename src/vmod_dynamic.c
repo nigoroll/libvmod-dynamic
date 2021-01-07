@@ -367,18 +367,17 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	AN(vsb);
 
 	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
-	vrt.port = dom_port(dom);
 
 	switch (dom->obj->share) {
 	case DIRECTOR:
 		vrt.hosthdr = dom->obj->hosthdr;
 		VSB_printf(vsb, "%s(%s:%s)", dom->obj->vcl_name, b->ip_addr,
-		    vrt.port);
+		    dom_port(dom));
 		break;
 	case HOST:
 		vrt.hosthdr = dom->obj->hosthdr ? dom->obj->hosthdr : dom->addr;
 		VSB_printf(vsb, "%s.%s(%s:%s)", dom->obj->vcl_name, dom->addr,
-		    b->ip_addr, vrt.port);
+		    b->ip_addr, dom_port(dom));
 		break;
 	default:
 		INCOMPL();
@@ -401,11 +400,9 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	switch (VSA_Get_Proto(sa)) {
 	case AF_INET:
 		ep.ipv4 = sa;
-		vrt.ipv4_addr = b->ip_addr;
 		break;
 	case AF_INET6:
 		ep.ipv6 = sa;
-		vrt.ipv6_addr = b->ip_addr;
 		break;
 	default:
 		WRONG("unexpected family");
