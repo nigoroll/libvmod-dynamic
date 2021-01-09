@@ -29,7 +29,15 @@ PKG_CHECK_VAR([LIBVARNISHAPI_LIBDIR], [varnishapi], [libdir])
 AC_SUBST([VARNISH_LIBRARY_PATH],
 	[$LIBVARNISHAPI_LIBDIR:$LIBVARNISHAPI_LIBDIR/varnish])
 
-PKG_CHECK_MODULES([GETDNS], [getdns],
+AC_ARG_WITH([getdns],
+	[AS_HELP_STRING([--with-getdns],
+         [use getdns for service discovery by SRV [default check pkg-config]])],
+        [],
+        [with_getdns=yes])
+
+GETDNS=
+AS_IF([test "x$with_getdns" != xno],
+  [PKG_CHECK_MODULES([GETDNS], [getdns],
 	[AC_DEFINE([HAVE_GETDNS], [1], [Define if getdns is available.])
 	 AM_CONDITIONAL([HAVE_GETDNS], [true])
 	 AC_SUBST([VTC_TESTS], "$(cd $srcdir/src &&
@@ -37,6 +45,11 @@ PKG_CHECK_MODULES([GETDNS], [getdns],
 	[AC_MSG_WARN([extended resolver functions will not be available])
 	 AM_CONDITIONAL([HAVE_GETDNS], [false])
 	 AC_SUBST([VTC_TESTS], "$(cd $srcdir/src && echo tests/*.vtc)")])
+  ],
+  [AS_MESSAGE([extended resolver functions will not be available])
+   AM_CONDITIONAL([HAVE_GETDNS], [false])
+   AC_SUBST([VTC_TESTS], "$(cd $srcdir/src && echo tests/*.vtc)")
+  ])
 
 AC_CONFIG_FILES([
 	Makefile
