@@ -512,6 +512,57 @@ $Method BOOL .set_follow_redirects(
 May only be called from ``vcl_init{}``
 
 
+FULL EXAMPLE: BEHAVE LIKE SQUID
+===============================
+
+For illustrative purposes, here is an example to turn Varnish into a
+caching forward proxy for any host. This example is for http only, for
+https support, *via* support from the ``proxy_via_6`` branch is
+required.
+
+.. _vmod_re: https://code.uplex.de/uplex-varnish/libvmod-re
+
+While the same functionality could be achieved without it, this
+example uses `vmod_re`_ for clarity::
+
+  vcl 4.1;
+
+  import dynamic;
+  import re;
+
+  backend proforma None;
+
+  acl ipv4_only { "0.0.0.0"/0; }
+
+  sub vcl_init {
+          new http = dynamic.director(
+              whitelist = ipv4_only	# remove if IPv6 is ok
+              );
+          new proxyurl = re.regex("^http://([^:/]+(?::(\d+))?)(/.*)");
+          new hostport = re.regex("^(?:[^:]+)(?::(\d+))?");
+  }
+
+  sub vcl_recv {
+          if (req.method == "CONNECT") {
+                  return (synth(400, "CONNECT is not supported"));
+          }
+          if (proxyurl.match(req.url)) {
+                  set req.url = proxyurl.backref(3, "");
+                  set req.http.Host = proxyurl.backref(1, "");
+                  set req.backend_hint =
+                      http.backend(port=proxyurl.backref(2, "80"));
+          } else if (hostport.match(req.http.Host)) {
+                  set req.backend_hint =
+                      http.backend(port=hostport.backref(1, "80"));
+          } else {
+                  return (synth(400, "URL/Host format unknown"));
+          }
+  }
+
+
+
+
+
 PITFALLS
 ========
 
