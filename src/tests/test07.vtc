@@ -20,7 +20,7 @@ varnish v1 -vcl {
 
 	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
 
-	acl ipv4_loopback {
+	acl ipv4_loopback +log {
 		"127/24";
 	}
 
