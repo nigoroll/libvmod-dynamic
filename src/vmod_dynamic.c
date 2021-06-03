@@ -113,11 +113,39 @@ static const struct vdi_methods vmod_dynamic_methods[1] = {{
  * Director implementation
  */
 
+static const struct director * v_matchproto_(vdi_resolve_f)
+dynamic_resolve_rr(VRT_CTX, struct dynamic_domain *dom)
+{
+	struct dynamic_ref *next;
+	VCL_BACKEND dir;
+
+	next = dom->current;
+
+	do {
+		if (next != NULL)
+			next = VTAILQ_NEXT(next, list);
+		if (next == NULL)
+			next = VTAILQ_FIRST(&dom->refs);
+	} while (next != dom->current &&
+		 !VRT_Healthy(ctx, next->be->dir, NULL));
+
+	dom->current = next;
+
+	if (next == NULL)
+		return (NULL);
+
+	dir = next->be->dir;
+
+	if (!VRT_Healthy(ctx, dir, NULL))
+		return (NULL);
+
+	return (dir);
+}
+
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
-	struct dynamic_ref *next;
 	VCL_BACKEND dir;
 	double deadline;
 	int ret;
@@ -141,27 +169,9 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 
 	if (dom->current == NULL)
 		dom->current = VTAILQ_FIRST(&dom->refs);
-	next = dom->current;
-
-	do {
-		if (next != NULL)
-			next = VTAILQ_NEXT(next, list);
-		if (next == NULL)
-			next = VTAILQ_FIRST(&dom->refs);
-	} while (next != dom->current &&
-		 !VRT_Healthy(ctx, next->be->dir, NULL));
-
-	dom->current = next;
+	dir = dynamic_resolve_rr(ctx, dom);
 
 	Lck_Unlock(&dom->mtx);
-
-	if (next == NULL)
-		return (NULL);
-
-	dir = next->be->dir;
-
-	if (!VRT_Healthy(ctx, dir, NULL))
-		return (NULL);
 
 	return (dir);
 }
