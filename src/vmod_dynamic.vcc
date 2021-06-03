@@ -225,10 +225,12 @@ $Object director(
 	DURATION domain_usage_timeout		= 7200,
 	DURATION first_lookup_timeout		= 10,
 	INT max_connections			= 0,
+	INT slow_start_max_connections = 0,
+	INT slow_start_percentage   = 5,
 	INT proxy_header			= 0,
 	BLOB resolver				= NULL,
 	ENUM { cfg, dns, min, max } ttl_from	= "cfg",
-	ENUM { RR, LEAST } algorithm = "RR",
+	ENUM { RR, LEAST, WEIGHTED_LEAST } algorithm = "RR",
 	DURATION retry_after			= 30)
 
 Description
@@ -302,6 +304,31 @@ Parameters:
 	  as the DNS ttl.
 
 	  For no *resolver*, only "cfg" is valid.
+
+	- *slow_start_max_connections*
+
+	  The number of connections that a backend must reach before leaving
+	  the slow-start. Slow-start helps backends warm up, and also helps
+	  avoid the least connections algorithm sending all traffic to a backend
+	  that refuses all connections (before the health check detects it).
+
+	- *slow_start_percentage*
+
+	  The percentage weighting to slow-start a backend at. A backend will
+	  scale up from slow_start_percentage% to 100% weighting once it reaches
+	  the ``slow_start_max_connections`` number of connections.
+
+	- *algorithm*
+
+	  Load balancing algorithm to use. Defaults to round-robin, which cycles between
+	  each healthy backend.
+
+	  LEAST chooses the healthy backend with the most number of connections available
+	  (i.e. the difference between ``max_connections`` and the backends current connections).
+	  The algorithm works in a similar way if ``max_connections`` isn't set.
+
+	  WEIGHTED_LEAST randomly chooses a backend with weighting based on the number of
+	  connections available.
 
 	- *retry_after*
 
