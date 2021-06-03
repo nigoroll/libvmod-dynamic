@@ -228,6 +228,7 @@ $Object director(
 	INT proxy_header			= 0,
 	BLOB resolver				= NULL,
 	ENUM { cfg, dns, min, max } ttl_from	= "cfg",
+	ENUM { RR, LEAST } algorithm = "RR",
 	DURATION retry_after			= 30)
 
 Description

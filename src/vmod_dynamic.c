@@ -43,6 +43,7 @@
 #include <string.h>
 
 #include <cache/cache.h>
+#include <cache/cache_backend.h>
 
 #include <vsb.h>
 #include <vcl.h>
@@ -142,6 +143,46 @@ dynamic_resolve_rr(VRT_CTX, struct dynamic_domain *dom)
 	return (dir);
 }
 
+static const struct director * v_matchproto_(vdi_resolve_f)
+dynamic_resolve_leastconn(VRT_CTX, struct dynamic_domain *dom)
+{
+	struct dynamic_ref *next;
+	struct dynamic_ref *best_next;
+	unsigned most_connections_available;
+	
+	next = dom->current;
+	best_next = next;
+	most_connections_available = 0;
+
+	do {
+		if (next != NULL)
+			next = VTAILQ_NEXT(next, list);
+		if (next == NULL)
+			next = VTAILQ_FIRST(&dom->refs);
+
+		if (VRT_Healthy(ctx, next->be->dir, NULL)) {
+			if (VALID_OBJ((struct backend *)next->be->dir->priv, VRT_BACKEND_MAGIC)) {
+				struct backend *be;
+				unsigned connections_available;
+
+				CAST_OBJ_NOTNULL(be, next->be->dir->priv, VRT_BACKEND_MAGIC);
+				connections_available = be->max_connections > 0 ? be->max_connections - be->n_conn : - be->n_conn;
+				if (connections_available > most_connections_available) {
+					best_next = next;
+					most_connections_available = connections_available;
+				}
+			}
+		}
+	} while (next != dom->current);
+
+	if (best_next != NULL) {
+		dom->current = best_next;
+	}
+
+	assert(best_next == NULL || best_next->be->dir != NULL);
+	return (best_next == NULL ? NULL : best_next->be->dir);
+}
+
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 {
@@ -169,7 +210,14 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 
 	if (dom->current == NULL)
 		dom->current = VTAILQ_FIRST(&dom->refs);
-	dir = dynamic_resolve_rr(ctx, dom);
+	
+	dir = NULL;
+	if (dom->obj->algorithm == LEAST) {
+		dir = dynamic_resolve_leastconn(ctx, dom);
+	}
+	if (dir == NULL) {
+		dir = dynamic_resolve_rr(ctx, dom);
+	}
 
 	Lck_Unlock(&dom->mtx);
 
@@ -842,6 +890,18 @@ dynamic_ttl_parse(const char *ttl_s)
 	INCOMPL();
 }
 
+static inline enum dynamic_algorithm_e
+dynamic_algorithm_parse(const char *algorithm_s)
+{
+	switch (algorithm_s[0]) {
+	case 'R':	return RR; break;
+	case 'L':	return LEAST; break;
+	default:	INCOMPL();
+	}
+	INCOMPL();
+	NEEDLESS(return(0));
+}
+
 
 VCL_VOID v_matchproto_()
 vmod_director__init(VRT_CTX,
@@ -862,6 +922,7 @@ vmod_director__init(VRT_CTX,
     VCL_INT proxy_header,
     VCL_BLOB resolver,
     VCL_ENUM ttl_from_s,
+	VCL_ENUM algorithm_s,
     VCL_DURATION retry_after)
 {
 	struct vmod_dynamic_director *obj;
@@ -928,6 +989,7 @@ vmod_director__init(VRT_CTX,
 	obj->max_connections = (unsigned)max_connections;
 	obj->proxy_header = (unsigned)proxy_header;
 	obj->ttl_from = dynamic_ttl_parse(ttl_from_s);
+	obj->algorithm = dynamic_algorithm_parse(algorithm_s);
 
 	if (resolver != NULL) {
 		obj->resolver = &res_getdns;
