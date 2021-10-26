@@ -17,7 +17,7 @@ varnish v1 -vcl {
 	import ${vmod_dynamic};
 	import directors;
 
-	backend dummy None;
+	backend proforma none;
 
 	sub vcl_init {
 		new d1 = dynamic.director(port = "${s1_port}");

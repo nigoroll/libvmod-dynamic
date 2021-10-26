@@ -47,9 +47,7 @@ varnish v1 -vcl {
 	import ${vmod_dynamic};
 	import vtc;
 
-	backend dummy {
-	    .host = "${bad_ip}";
-	}
+	backend proforma none;
 
 	probe simple {
 	    .initial = 3;

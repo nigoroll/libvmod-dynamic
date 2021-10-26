@@ -36,7 +36,7 @@ server s1 -listen 0.0.0.0 0 {
 varnish v1 -vcl {
 	import ${vmod_dynamic};
 
-	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	backend proforma none;
 
 	sub vcl_init {
 		new d1 = dynamic.director(port = "${s1_port}");

@@ -22,9 +22,7 @@ server s1 {
 varnish v1 -arg "-p thread_pools=1" -vcl {
 	import ${vmod_dynamic};
 
-	backend dummy {
-		.host = "${bad_ip}";
-	}
+	backend proforma none;
 
 	sub vcl_init {
 		new d1 = dynamic.director(port = "${s1_port}");

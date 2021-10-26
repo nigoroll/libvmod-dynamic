@@ -3,7 +3,7 @@ varnishtest "dynamic.resolver configuration"
 varnish v1 -vcl {
 	import ${vmod_dynamic};
 
-	backend b { .host = "${bad_ip}"; }
+	backend proforma none;
 
 	sub vcl_init {
 		new r1 = dynamic.resolver();
@@ -77,7 +77,7 @@ logexpect l1 -wait
 varnish v1 -errvcl "tried to add namespace DNS twice" {
 	import ${vmod_dynamic};
 
-	backend b { .host = "${bad_ip}"; }
+	backend proforma none;
 
 	sub vcl_init {
 		new r1 = dynamic.resolver();
@@ -90,7 +90,7 @@ varnish v1 -errvcl "tried to add namespace DNS twice" {
 varnish v1 -errvcl "tried to add transport UDP twice" {
 	import ${vmod_dynamic};
 
-	backend b { .host = "${bad_ip}"; }
+	backend proforma none;
 
 	sub vcl_init {
 		new r1 = dynamic.resolver();
@@ -103,7 +103,7 @@ varnish v1 -errvcl "tried to add transport UDP twice" {
 varnish v1 -errvcl "error 311 (A required parameter had an invalid value.)" {
 	import ${vmod_dynamic};
 
-	backend b { .host = "${bad_ip}"; }
+	backend proforma none;
 
 	sub vcl_init {
 		new r1 = dynamic.resolver();

@@ -5,7 +5,7 @@ varnishtest "bug #51 regression: port=0 in SRV record"
 varnish v1 -vcl {
 	import ${vmod_dynamic};
 
-	backend dummy { .host = "${bad_backend}"; }
+	backend proforma none;
 
 	sub vcl_init {
 		new r1 = dynamic.resolver();

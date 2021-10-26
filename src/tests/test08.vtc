@@ -6,7 +6,7 @@ varnish v1 -vcl+backend { } -start
 
 varnish v1 -errvcl "dynamic.director(): port may not be empty" {
 	import ${vmod_dynamic};
-	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	backend proforma none;
 	sub vcl_init {
 		new d1 = dynamic.director(port = "");
 	}
@@ -14,7 +14,7 @@ varnish v1 -errvcl "dynamic.director(): port may not be empty" {
 
 varnish v1 -errvcl "dynamic.director(): ttl may not be 0s" {
 	import ${vmod_dynamic};
-	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	backend proforma none;
 	sub vcl_init {
 		new d1 = dynamic.director(ttl = 0s);
 	}
@@ -22,7 +22,7 @@ varnish v1 -errvcl "dynamic.director(): ttl may not be 0s" {
 
 varnish v1 -errvcl "dynamic.director(): domain_usage_timeout may not be 0s" {
 	import ${vmod_dynamic};
-	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	backend proforma none;
 	sub vcl_init {
 		new d1 = dynamic.director(domain_usage_timeout = 0s);
 	}
@@ -30,7 +30,7 @@ varnish v1 -errvcl "dynamic.director(): domain_usage_timeout may not be 0s" {
 
 varnish v1 -errvcl "dynamic.director(): first_lookup_timeout may not be 0s" {
 	import ${vmod_dynamic};
-	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	backend proforma none;
 	sub vcl_init {
 		new d1 = dynamic.director(first_lookup_timeout = 0s);
 	}

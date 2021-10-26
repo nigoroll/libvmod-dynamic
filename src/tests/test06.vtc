@@ -10,7 +10,7 @@ server s1 {
 varnish v1 -vcl {
 	import ${vmod_dynamic};
 
-	backend dummy { .host = "${bad_ip}"; .port = "9080"; }
+	backend proforma none;
 
 	acl gandalf {
 		"${bad_ip}";
