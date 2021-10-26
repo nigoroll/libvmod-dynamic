@@ -43,12 +43,9 @@ server s1 {
 	barrier b1 sync
 } -start
 
-varnish v1 -arg "-p vcc_allow_inline_c=true" -vcl {
+varnish v1 -vcl {
 	import ${vmod_dynamic};
-
-	C{
-		#include <unistd.h>
-	}C
+	import vtc;
 
 	backend dummy {
 	    .host = "${bad_ip}";
@@ -72,9 +69,7 @@ varnish v1 -arg "-p vcc_allow_inline_c=true" -vcl {
 	    set req.backend_hint = d1.backend();
 	    unset req.http.Host;
 	    # let the probe win the race for the backend
-	    # using inline-C to be compatible with varnish versions
-	    # not having the vtc vmod
-	    C{ (void)sleep(1); }C
+	    vtc.sleep(1s);
 	    return (pass);
 	}
 
