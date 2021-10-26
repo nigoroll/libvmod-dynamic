@@ -108,7 +108,6 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 	const struct service_prios *prios;
 	const struct service_prio *p;
 	const struct service_target *t;
-	double deadline;
 	int ret;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -118,8 +117,8 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 	Lck_Lock(&srv->mtx);
 
 	if (srv->status < DYNAMIC_ST_ACTIVE) {
-		deadline = VTIM_real() + srv->obj->first_lookup_tmo;
-		ret = Lck_CondWait(&srv->resolve, &srv->mtx, deadline);
+		ret = Lck_CondWaitTimeout(&srv->resolve, &srv->mtx,
+		    srv->obj->first_lookup_tmo);
 		assert(ret == 0 || ret == ETIMEDOUT);
 	}
 
@@ -232,7 +231,6 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 	char portbuf[6];
 	unsigned n;
 	int ret;
-	double deadline;
 
 	CHECK_OBJ_NOTNULL(prios, SERVICE_PRIOS_MAGIC);
 
@@ -264,10 +262,9 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 				continue;
 			Lck_Lock(&dom->mtx);
 			while (dom->status < DYNAMIC_ST_ACTIVE) {
-				deadline = VTIM_real() +
-				    dom->obj->first_lookup_tmo;
-				ret = Lck_CondWait(&dom->resolve, &dom->mtx,
-				    deadline);
+				ret = Lck_CondWaitTimeout(&dom->resolve,
+				    &dom->mtx,
+				    dom->obj->first_lookup_tmo);
 				assert(ret == 0 || ret == ETIMEDOUT);
 			}
 			Lck_Unlock(&dom->mtx);
@@ -532,7 +529,7 @@ service_lookup_thread(void *priv)
 
 		/* Check status again after the blocking call */
 		if (obj->active && srv->status <= DYNAMIC_ST_ACTIVE) {
-			ret = Lck_CondWait(&srv->cond, &srv->mtx,
+			ret = Lck_CondWaitUntil(&srv->cond, &srv->mtx,
 			    srv->deadline);
 			assert(ret == 0 || ret == ETIMEDOUT);
 		}

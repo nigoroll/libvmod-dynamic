@@ -119,7 +119,6 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 	struct dynamic_domain *dom;
 	struct dynamic_ref *next;
 	VCL_BACKEND dir;
-	double deadline;
 	int ret;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -129,8 +128,8 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 	Lck_Lock(&dom->mtx);
 
 	if (dom->status < DYNAMIC_ST_ACTIVE) {
-		deadline = VTIM_real() + dom->obj->first_lookup_tmo;
-		ret = Lck_CondWait(&dom->resolve, &dom->mtx, deadline);
+		ret = Lck_CondWaitTimeout(&dom->resolve, &dom->mtx,
+		    dom->obj->first_lookup_tmo);
 		assert(ret == 0 || ret == ETIMEDOUT);
 	}
 
@@ -532,7 +531,7 @@ dynamic_lookup_thread(void *priv)
 
 		/* Check status again after the blocking call */
 		if (obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
-			ret = Lck_CondWait(&dom->cond, &dom->mtx,
+			ret = Lck_CondWaitUntil(&dom->cond, &dom->mtx,
 			    dom->deadline);
 			assert(ret == 0 || ret == ETIMEDOUT);
 		}
