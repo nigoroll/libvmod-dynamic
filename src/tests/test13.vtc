@@ -94,3 +94,17 @@ varnish v1 -cliexpect "d1\\.img\\.localhost.*4/8" "backend.list"
 
 varnish v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}:${s1_port}).req == 1
 varnish v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}:${s1_port}).req == 1
+
+varnish v1 -expect MAIN.backend_unhealthy == 0
+
+varnish v1 -cliok "backend.set_health d1*${s1_port}* sick"
+
+varnish v1 -cliok "backend.list"
+
+client c1 {
+	txreq -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 503
+} -run
+
+varnish v1 -expect MAIN.backend_unhealthy >= 2

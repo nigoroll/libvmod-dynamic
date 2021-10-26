@@ -159,9 +159,6 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 
 	dir = next->be->dir;
 
-	if (!VRT_Healthy(ctx, dir, NULL))
-		return (NULL);
-
 	return (dir);
 }
 
