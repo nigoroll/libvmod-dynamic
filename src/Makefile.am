@@ -37,13 +37,13 @@ pdf-local: vmod_dynamic.pdf
 .rst.pdf:
 	rst2pdf $< $@
 
-dyn_getdns.c: vcc_dynamic_if.h
-dyn_resolver_gai.c: vcc_dynamic_if.h
-dyn_resolver_getdns.c: vcc_dynamic_if.h
-vmod_dynamic.c: vcc_dynamic_if.h
-vmod_dynamic_service.c: vcc_dynamic_if.h
-vmod_resolver.c: vcc_dynamic_if.h
-vmod_resolver.stub.c: vcc_dynamic_if.h
+$(srcdir)/dyn_getdns.c: vcc_dynamic_if.h
+$(srcdir)/dyn_resolver_gai.c: vcc_dynamic_if.h
+$(srcdir)/dyn_resolver_getdns.c: vcc_dynamic_if.h
+$(srcdir)/vmod_dynamic.c: vcc_dynamic_if.h
+$(srcdir)/vmod_dynamic_service.c: vcc_dynamic_if.h
+$(srcdir)/vmod_resolver.c: vcc_dynamic_if.h
+$(srcdir)/vmod_resolver.stub.c: vcc_dynamic_if.h
 
 @BUILD_VMOD_DYNAMIC@
 
