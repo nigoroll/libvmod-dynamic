@@ -244,7 +244,8 @@ $Object director(
 	BLOB resolver				= NULL,
 	ENUM { cfg, dns, min, max } ttl_from	= "cfg",
 	DURATION retry_after			= 30,
-	BACKEND via				= NULL)
+	BACKEND via				= NULL,
+	STRING authority			= NULL)
 
 Description
 	Create a DNS director.
@@ -341,6 +342,15 @@ Parameters to set attributes of backends
 	  additional PROXY protocol header containing the actual
 	  address to connect to. Primary use case is SSL/TLS onloading
 	  via haproxy.
+	- *authority* if *via* is also set, then this value is set as
+	  the authority TLV in the PROXY header sent to the
+	  backend. The "true" backend may use the authority TLV to set
+	  the SNI in a TLS connection to a remote backend. If
+	  *authority* is set to the empty string, or if *via* is not
+	  set, then the TLV is not sent. If *via* is set but
+	  *authority* is not set, then the authority TLV is set to the
+	  value of *host_header* (which in turn may fall back to the
+	  the address string for the backend).
 
 .. raw:: pdf
 

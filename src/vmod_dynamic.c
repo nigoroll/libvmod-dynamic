@@ -365,13 +365,12 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 
 	switch (dom->obj->share) {
 	case DIRECTOR:
-		vrt.authority = vrt.hosthdr = dom->obj->hosthdr;
+		vrt.hosthdr = dom->obj->hosthdr;
 		VSB_printf(vsb, "%s(%s:%s)", dom->obj->vcl_name, b->ip_addr,
 		    dom_port(dom));
 		break;
 	case HOST:
-		vrt.authority = vrt.hosthdr =
-		    dom->obj->hosthdr ? dom->obj->hosthdr : dom->addr;
+		vrt.hosthdr = dom->obj->hosthdr ? dom->obj->hosthdr : dom->addr;
 		VSB_printf(vsb, "%s.%s(%s:%s)", dom->obj->vcl_name, dom->addr,
 		    b->ip_addr, dom_port(dom));
 		break;
@@ -382,6 +381,15 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	b->vcl_name = strdup(VSB_data(vsb));
 	AN(b->vcl_name);
 	VSB_destroy(&vsb);
+
+	if (dom->obj->via != NULL) {
+		if (dom->obj->authority != NULL)
+			vrt.authority = dom->obj->authority;
+		else
+			vrt.authority = vrt.hosthdr;
+	}
+	else
+		vrt.authority = NULL;
 
 	vrt.vcl_name = b->vcl_name;
 	vrt.probe = dom->obj->probe;
@@ -857,7 +865,8 @@ vmod_director__init(VRT_CTX,
     VCL_BLOB resolver,
     VCL_ENUM ttl_from_s,
     VCL_DURATION retry_after,
-    VCL_BACKEND via)
+    VCL_BACKEND via,
+    VCL_STRING authority)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -910,6 +919,7 @@ vmod_director__init(VRT_CTX,
 	obj->vcl = ctx->vcl;
 	obj->active = 0;
 	obj->hosthdr = hosthdr;
+	obj->authority = authority;
 	obj->share = dynamic_share_parse(share_s);
 	obj->probe = probe;
 	obj->whitelist = whitelist;
