@@ -27,6 +27,7 @@
 # SUCH DAMAGE.
 
 $Module dynamic 3 "Varnish dynamic backends module"
+$ABI vrt
 
 .. role:: ref(emphasis)
 
