@@ -217,11 +217,33 @@ service_healthy(const struct director *d, const struct busyobj *bo,
  * Background job
  */
 
+static VCL_BOOL
+dom_in_prios(struct dynamic_domain *dom, struct service_prios *prios)
+{
+	struct dynamic_domain *dom1;
+	const struct service_prio *p;
+	const struct service_target *t;
+
+	VTAILQ_FOREACH(p, &prios->head, list) {
+		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
+		VTAILQ_FOREACH(t, &p->targets, list) {
+			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
+			dom1 = t->dom;
+			CHECK_OBJ_NOTNULL(dom1, DYNAMIC_DOMAIN_MAGIC);
+
+			if (dom1 == dom) {
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
 /* add all the dom objects an ensure they are active */
 
 static void
 service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
-    struct service_prios *prios)
+    struct service_prios *prios, struct service_prios *cur_prios)
 {
 	struct dynamic_domain *dom;
 	struct service_prio *p;
@@ -242,7 +264,9 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 			bprintf(portbuf, "%u", t->port);
 			t->dom = dynamic_get(ctx, obj, t->target, portbuf);
 			AN(t->dom);
-			t->dom->last_used = ctx->now;
+			if (cur_prios == NULL || !dom_in_prios(t->dom, cur_prios)) {
+				t->dom->refcount++;
+			}
 			n++;
 		}
 		p->n_targets = n;
@@ -268,6 +292,47 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 				assert(ret == 0 || ret == ETIMEDOUT);
 			}
 			Lck_Unlock(&dom->mtx);
+		}
+	}
+}
+
+static void
+update_dom_refcounts(struct dynamic_service *srv, VCL_BOOL flush)
+{
+	struct dynamic_domain *dom;
+	const struct service_prio *p;
+	const struct service_target *t;
+	struct service_prios *prios, *prios_cold;
+
+	if (flush) {
+		Lck_AssertHeld(&srv->obj->mtx);
+		prios = NULL;
+
+		VRMB();
+		prios_cold = srv->prios;
+	} else {
+		prios = srv->prios;
+		prios_cold = srv->prios_cold;
+	}
+
+	if (prios_cold == NULL)
+		return;
+
+	VTAILQ_FOREACH(p, &prios_cold->head, list) {
+		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
+		VTAILQ_FOREACH(t, &p->targets, list) {
+			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
+			dom = t->dom;
+			CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+			if (prios == NULL || !dom_in_prios(dom, prios)) {
+				if (flush) {
+					dom->refcount--;
+				} else {
+					Lck_Lock(&srv->obj->mtx);
+					dom->refcount--;
+					Lck_Unlock(&srv->obj->mtx);
+				}
+			}
 		}
 	}
 }
@@ -430,7 +495,7 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 	res->srv_fini(&res_priv);
 	AZ(res_priv);
 
-	service_doms(&ctx, srv->obj, prios);
+	service_doms(&ctx, srv->obj, prios, srv->prios);
 
 	if (srv->prios_cold != NULL)
 		service_prios_free(&srv->prios_cold);
@@ -439,6 +504,8 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 	AZ(srv->prios_cold);
 	srv->prios_cold = srv->prios;
 	srv->prios = prios;
+
+	update_dom_refcounts(srv, 0);
 
 	if (isnan(ttl)) {
 		ttl = srv->obj->ttl;
@@ -510,12 +577,6 @@ service_lookup_thread(void *priv)
 			update += 0.01;
 			if (srv->deadline < update)
 				srv->deadline = update;
-			// maximum update delay
-			if (obj->domain_usage_tmo > 0) {
-				update += obj->domain_usage_tmo / 2;
-				if (srv->deadline > update)
-					srv->deadline = update;
-			}
 		} else {
 			LOG(&ctx, SLT_Error, srv, "%s %d (%s)",
 			    res->name, ret, res->strerror(ret));
@@ -682,6 +743,7 @@ service_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	VTAILQ_FOREACH_SAFE(s, &obj->purged_services, list, s2) {
 		CHECK_OBJ_NOTNULL(s, DYNAMIC_SERVICE_MAGIC);
 		if (s->status == DYNAMIC_ST_DONE) {
+			update_dom_refcounts(s, 1);
 			service_join(s);
 			VTAILQ_REMOVE(&obj->purged_services, s, list);
 			service_free(ctx, s);
@@ -735,6 +797,9 @@ VCL_BACKEND v_matchproto_(td_dynamic_director_service)
 vmod_director_service(VRT_CTX, struct VPFX(dynamic_director) *obj,
     VCL_STRING service) {
 	struct dynamic_service *srv;
+	const struct service_prios *prios;
+	const struct service_prio *p;
+	const struct service_target *t;
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
@@ -748,6 +813,20 @@ vmod_director_service(VRT_CTX, struct VPFX(dynamic_director) *obj,
 	srv = service_get(ctx, obj, service);
 	AN(srv);
 	srv->last_used = ctx->now;
+
+	VRMB();
+	prios = srv->prios;
+
+	if (prios != NULL) {
+		VTAILQ_FOREACH(p, &prios->head, list) {
+			CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
+			VTAILQ_FOREACH(t, &p->targets, list) {
+				CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
+				CHECK_OBJ_NOTNULL(t->dom, DYNAMIC_DOMAIN_MAGIC);
+				t->dom->last_used = ctx->now;
+			}
+		}
+	}
 	Lck_Unlock(&obj->mtx);
 
 	return (&srv->dir);

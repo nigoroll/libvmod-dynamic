@@ -86,6 +86,7 @@ struct dynamic_domain {
 	unsigned			mark;
 	volatile enum dynamic_status_e	status;
 	vtim_real			deadline;
+	unsigned			refcount;
 };
 
 struct service_target {

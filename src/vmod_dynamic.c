@@ -668,7 +668,7 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 			dom = d;
 		}
 		if (dom != d && d->status == DYNAMIC_ST_ACTIVE &&
-		    obj->domain_usage_tmo > 0 &&
+		    obj->domain_usage_tmo > 0 && !d->refcount &&
 		    ctx->now - d->last_used > obj->domain_usage_tmo) {
 			LOG(ctx, SLT_VCL_Log, d, "%s", "timeout");
 			Lck_Lock(&d->mtx);
