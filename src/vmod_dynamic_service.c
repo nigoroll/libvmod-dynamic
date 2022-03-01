@@ -368,7 +368,7 @@ service_target(struct service_prio *prio, const struct srv_info *i)
 
 static void
 service_update(struct dynamic_service *srv, const struct res_cb *res,
-    void *priv, vtim_real now)
+    void **res_privp, vtim_real now)
 {
 	struct vrt_ctx ctx;
 	struct srv_info ibuf[1] = {{ 0 }};
@@ -378,10 +378,16 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 	struct service_prios *prios;
 	struct service_prio *prio = NULL;
 	struct service_target *target;
+	void *res_priv;
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = srv->obj->vcl;
 	ctx.now = now;
+
+	AN(res_privp);
+	res_priv = *res_privp;
+	AN(res_priv);
+	*res_privp = NULL;
 
 	/*
 	 * we free any cold prio/target tree, create a new one, then swap
@@ -393,7 +399,7 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 	ALLOC_OBJ(prios, SERVICE_PRIOS_MAGIC);
 	AN(prios);
 	VTAILQ_INIT(&prios->head);
-	while ((info = res->srv_result(ibuf, priv, &state)) != NULL) {
+	while ((info = res->srv_result(ibuf, res_priv, &state)) != NULL) {
 		DBG(&ctx, srv, "DNS SRV %s:%d priority %d weight %d ttl %d",
 		    info->target, info->port, info->priority,
 		    info->weight, info->ttl);
@@ -426,6 +432,9 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 		    target->target, target->port, prio->priority,
 		    target->weight, ttl);
 	}
+
+	res->srv_fini(&res_priv);
+	AZ(res_priv);
 
 	service_doms(&ctx, srv->obj, prios);
 
@@ -499,7 +508,7 @@ service_lookup_thread(void *priv)
 		    results - lookup);
 
 		if (ret == 0) {
-			service_update(srv, res, res_priv, results);
+			service_update(srv, res, &res_priv, results);
 			update = VTIM_real();
 			service_timestamp(srv, "Update", update,
 			    update - lookup, update - results);
@@ -518,9 +527,9 @@ service_lookup_thread(void *priv)
 			    res->name, ret, res->strerror(ret));
 			srv->deadline = results + obj->retry_after;
 			dbg_res_details(NULL, srv->obj, res, res_priv);
+			res->srv_fini(&res_priv);
 		}
 
-		res->srv_fini(&res_priv);
 		AZ(res_priv);
 
 		Lck_Lock(&srv->mtx);
