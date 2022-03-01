@@ -13,15 +13,15 @@ License:        BSD
 
 Source:         %{name}-%{version}.tar.gz
 
-BuildRequires:  varnish-devel == 6.4.0
+BuildRequires:  varnish-devel == 7.0.2
 BuildRequires:  pkgconfig
 BuildRequires:  make
 BuildRequires:  gcc
 BuildRequires:  python-docutils >= 0.6
 
-# varnish from varnish64 at packagecloud
+# varnish from varnish70 at packagecloud
 # Require getdns, so that resolver objects may be used.
-Requires:       varnish == 6.4.0
+Requires:       varnish == 7.0.2
 Requires:       getdns
 
 Provides: %{name}, %{name}-debuginfo
@@ -58,7 +58,10 @@ make %{?_smp_mflags} check
 
 
 %changelog
-* Mon Jun 22 2020 Geoff Simmons <geoff[AT]uplex.de> - %{_version}-%{_release}
+* Tue Mar 01 2022 Geoff Simmons <geoff[AT]uplex.de> - %{_version}-%{_release}
+- Compatibility with Varnish 7.0.2
+
+* Mon Jun 22 2020 Geoff Simmons <geoff[AT]uplex.de> - 2.5.0-1
 - Compatibility with Varnish 6.4.0
 
 * Fri Jun 19 2020 Geoff Simmons <geoff[AT]uplex.de> - 2.1.0-1
