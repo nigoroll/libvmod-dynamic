@@ -13,6 +13,8 @@ AM_PROG_AR
 LT_PREREQ([2.2.6])
 LT_INIT([dlopen disable-static])
 
+AC_CHECK_HEADERS([stdatomic.h])
+
 AC_ARG_WITH([rst2man],
 	AS_HELP_STRING(
 		[--with-rst2man=PATH],
