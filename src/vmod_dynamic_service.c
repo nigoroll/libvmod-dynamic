@@ -119,7 +119,7 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 
 	if (srv->status < DYNAMIC_ST_ACTIVE) {
 		deadline = VTIM_real() + srv->obj->first_lookup_tmo;
-		ret = Lck_CondWait(&srv->resolve, &srv->mtx, deadline);
+		ret = Lck_CondWaitTimeout(&srv->resolve, &srv->mtx, deadline);
 		assert(ret == 0 || ret == ETIMEDOUT);
 	}
 
@@ -266,7 +266,7 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 			while (dom->status < DYNAMIC_ST_ACTIVE) {
 				deadline = VTIM_real() +
 				    dom->obj->first_lookup_tmo;
-				ret = Lck_CondWait(&dom->resolve, &dom->mtx,
+				ret = Lck_CondWaitTimeout(&dom->resolve, &dom->mtx,
 				    deadline);
 				assert(ret == 0 || ret == ETIMEDOUT);
 			}
@@ -541,7 +541,7 @@ service_lookup_thread(void *priv)
 
 		/* Check status again after the blocking call */
 		if (obj->active && srv->status <= DYNAMIC_ST_ACTIVE) {
-			ret = Lck_CondWait(&srv->cond, &srv->mtx,
+			ret = Lck_CondWaitTimeout(&srv->cond, &srv->mtx,
 			    srv->deadline);
 			assert(ret == 0 || ret == ETIMEDOUT);
 		}

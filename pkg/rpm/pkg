@@ -10,8 +10,8 @@
 # - this script (named pkg)
 # - VMOD dynamic tarball (vmod-dynamic-$VERSION.tar.gz)
 # - RPM spec file (vmod-dynamic.spec)
-# - yum repo config for varnish70@packagecloud (varnishcache_varnish70.repo)
-#   (see https://packagecloud.io/varnishcache/varnish70/install#manual-rpm)
+# - yum repo config for varnish71@packagecloud (varnishcache_varnish71.repo)
+#   (see https://packagecloud.io/varnishcache/varnish71/install#manual-rpm)
 
 # So this is a sample docker invocation:
 #
@@ -47,9 +47,9 @@ sudo yum install -y -q \
      https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 
 # set up varnish repo
-sudo cp /srv/varnishcache_varnish70.repo /etc/yum.repos.d/
+sudo cp /srv/varnishcache_varnish71.repo /etc/yum.repos.d/
 
-sudo yum -q makecache -y --disablerepo='*' --enablerepo='varnishcache_varnish70'
+sudo yum -q makecache -y --disablerepo='*' --enablerepo='varnishcache_varnish71'
 
 # build requirements
 sudo yum install -y -q varnish-devel pkgconfig make gcc python-docutils \

@@ -2,7 +2,7 @@
 vmod-dynamic
 ============
 
-This branch is for varnish 7.0
+This branch is for varnish 7.1
 
 Description
 ===========

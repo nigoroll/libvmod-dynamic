@@ -13,15 +13,15 @@ License:        BSD
 
 Source:         %{name}-%{version}.tar.gz
 
-BuildRequires:  varnish-devel == 7.0.2
+BuildRequires:  varnish-devel == 7.1.1
 BuildRequires:  pkgconfig
 BuildRequires:  make
 BuildRequires:  gcc
 BuildRequires:  python-docutils >= 0.6
 
-# varnish from varnish70 at packagecloud
+# varnish from varnish71 at packagecloud
 # Require getdns, so that resolver objects may be used.
-Requires:       varnish == 7.0.2
+Requires:       varnish == 7.1.1
 Requires:       getdns
 
 Provides: %{name}, %{name}-debuginfo
@@ -58,6 +58,9 @@ make %{?_smp_mflags} check
 
 
 %changelog
+* Wed Aug 10 2022 Janos Miko <info[AT]janosmiko.com> - %{_version}-%{_release}
+- Compatibility with Varnish 7.1.1
+
 * Tue Mar 01 2022 Geoff Simmons <geoff[AT]uplex.de> - %{_version}-%{_release}
 - Compatibility with Varnish 7.0.2
 
