@@ -33,6 +33,10 @@
  * when both are needed.
  */
 
+#ifndef NO_VXID
+#define NO_VXID (0U)
+#endif
+
 extern struct VSC_lck *lck_be;
 
 struct dynamic_backend {
@@ -213,7 +217,7 @@ dbg_res_details(struct vsl_log *vsl, const struct vmod_dynamic_director *obj,
 			VSLb(vsl, SLT_Debug, "vmod-dynamic resolver: %s",
 			    line);
 		else
-			VSL(SLT_Debug, 0, "vmod-dynamic resolver: %s",
+			VSL(SLT_Debug, NO_VXID, "vmod-dynamic resolver: %s",
 			    line);
 		return;
 	}
@@ -224,7 +228,7 @@ dbg_res_details(struct vsl_log *vsl, const struct vmod_dynamic_director *obj,
 			VSLb(vsl, SLT_Debug, "vmod-dynamic resolver: %s",
 			    line);
 		else
-			VSL(SLT_Debug, 0, "vmod-dynamic resolver: %s",
+			VSL(SLT_Debug, NO_VXID, "vmod-dynamic resolver: %s",
 			    line);
 		line = strtok_r(NULL, "\n", &save);
 	}

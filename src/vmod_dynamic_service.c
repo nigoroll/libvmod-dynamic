@@ -66,7 +66,7 @@
 			    (srv)->obj->vcl_name,		\
 			    (srv)->service, __VA_ARGS__);	\
 		else						\
-			VSL(slt, 0,				\
+			VSL(slt, NO_VXID,			\
 			    "vmod-dynamic: %s %s %s " fmt,	\
 			    (srv)->obj->vcl_conf,		\
 			    (srv)->obj->vcl_name,		\
@@ -466,7 +466,8 @@ service_timestamp(struct dynamic_service *srv, const char *event, double start,
     double dfirst, double dprev)
 {
 
-	VSL(SLT_Timestamp, 0, "vmod-dynamic %s.%s(srv %s) %s: %.6f %.6f %.6f",
+	VSL(SLT_Timestamp, NO_VXID,
+	    "vmod-dynamic %s.%s(srv %s) %s: %.6f %.6f %.6f",
 	    srv->obj->vcl_conf, srv->obj->vcl_name, srv->service,
 	    event, start, dfirst, dprev);
 }

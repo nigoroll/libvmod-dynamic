@@ -63,7 +63,7 @@
 			    (dom)->obj->vcl_name, (dom)->addr,	\
 			    dom_port(dom), __VA_ARGS__);		\
 		else						\
-			VSL(slt, 0,				\
+			VSL(slt, NO_VXID,				\
 			    "vmod-dynamic: %s %s %s:%s " fmt,	\
 			    (dom)->obj->vcl_conf,		\
 			    (dom)->obj->vcl_name, (dom)->addr,	\
@@ -470,7 +470,7 @@ dynamic_timestamp(struct dynamic_domain *dom, const char *event, double start,
     double dfirst, double dprev)
 {
 
-	VSL(SLT_Timestamp, 0, "vmod-dynamic %s.%s(%s:%s) %s: %.6f %.6f %.6f",
+	VSL(SLT_Timestamp, NO_VXID, "vmod-dynamic %s.%s(%s:%s) %s: %.6f %.6f %.6f",
 	    dom->obj->vcl_conf, dom->obj->vcl_name, dom->addr, dom_port(dom),
 	    event, start, dfirst, dprev);
 }
