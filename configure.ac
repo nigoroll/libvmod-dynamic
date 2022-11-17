@@ -1,5 +1,5 @@
 AC_PREREQ([2.68])
-AC_INIT([libvmod-dynamic], [trunk], [varnish-support@uplex.de], [vmod-dynamic])
+AC_INIT([libvmod-dynamic], [2.8.0], [varnish-support@uplex.de], [vmod-dynamic])
 AC_COPYRIGHT([Copyright 2019 UPLEX - Nils Goroll Systemoptimierung])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -24,7 +24,7 @@ AC_ARG_WITH([rst2man],
 
 m4_ifndef([VARNISH_PREREQ], AC_MSG_ERROR([Need varnish.m4 -- see README.rst]))
 
-VARNISH_PREREQ([7.0.0])
+VARNISH_PREREQ([7.2.0])
 VARNISH_VMODS([dynamic])
 
 PKG_CHECK_VAR([LIBVARNISHAPI_LIBDIR], [varnishapi], [libdir])
