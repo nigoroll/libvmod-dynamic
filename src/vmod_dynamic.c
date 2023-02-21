@@ -257,7 +257,7 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 
 	free(b->vcl_name);
 	free(b->ip_addr);
-	free(b->ip_suckaddr);
+	VSA_free(&b->ip_suckaddr);
 	free(b);
 }
 
@@ -322,7 +322,6 @@ dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
 static void
 dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 {
-	struct suckaddr *sa;
 	struct vrt_backend vrt;
 	struct vrt_endpoint ep;
 	struct dynamic_backend *b;
@@ -348,12 +347,11 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 		return;
 
 	VTCP_name(info->sa, addr, sizeof addr, port, sizeof port);
-	sa = VSA_Clone(info->sa);
 
 	b = malloc(sizeof *b);
 	AN(b);
 	memset(b, 0, sizeof *b);
-	b->ip_suckaddr = sa;
+	b->ip_suckaddr = VSA_Clone(info->sa);
 
 	b->ip_addr = strdup(addr);
 	AN(b->ip_addr);
@@ -393,12 +391,12 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	assert(vrt.proxy_header <= 2);
 	INIT_OBJ(&ep, VRT_ENDPOINT_MAGIC);
 
-	switch (VSA_Get_Proto(sa)) {
+	switch (VSA_Get_Proto(b->ip_suckaddr)) {
 	case AF_INET:
-		ep.ipv4 = sa;
+		ep.ipv4 = b->ip_suckaddr;
 		break;
 	case AF_INET6:
-		ep.ipv6 = sa;
+		ep.ipv6 = b->ip_suckaddr;
 		break;
 	default:
 		WRONG("unexpected family");

@@ -36,7 +36,7 @@ struct VPFX(dynamic_resolver) * dyn_resolver_blob(VCL_BLOB);
 // info returned by resolver
 struct res_info {
 	uint8_t	*suckbuf; // vsa_suckaddr_len
-	struct suckaddr	*sa; // == suckbuf on success
+	const struct suckaddr	*sa; // == suckbuf on success
 	uint32_t		ttl; // 0 for unset
 };
 struct srv_info {
