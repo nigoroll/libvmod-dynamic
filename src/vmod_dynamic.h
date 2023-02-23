@@ -57,6 +57,7 @@ struct dynamic_ref {
 
 enum dynamic_status_e {
 	DYNAMIC_ST_READY	= 0,
+	DYNAMIC_ST_STARTING,
 	DYNAMIC_ST_ACTIVE,
 	DYNAMIC_ST_STALE,
 	DYNAMIC_ST_DONE

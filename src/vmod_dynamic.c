@@ -501,6 +501,8 @@ dynamic_lookup_thread(void *priv)
 	obj = dom->obj;
 	res = obj->resolver;
 
+	assert(dom->status == DYNAMIC_ST_STARTING);
+
 	while (obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
 
 		lookup = VTIM_real();
@@ -530,7 +532,7 @@ dynamic_lookup_thread(void *priv)
 
 		Lck_Lock(&dom->mtx);
 
-		if (dom->status == DYNAMIC_ST_READY) {
+		if (dom->status == DYNAMIC_ST_STARTING) {
 			AZ(pthread_cond_broadcast(&dom->resolve));
 			dom->status = DYNAMIC_ST_ACTIVE;
 		}
@@ -641,7 +643,10 @@ static void
 dynamic_start_domain(struct dynamic_domain *dom)
 {
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+	if (dom->status >= DYNAMIC_ST_STARTING)
+		return;
 	assert(dom->status == DYNAMIC_ST_READY);
+	dom->status = DYNAMIC_ST_STARTING;
 	AZ(dom->thread);
 	AZ(pthread_create(&dom->thread, NULL, dynamic_lookup_thread, dom));
 }
@@ -743,8 +748,8 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	AZ(pthread_cond_init(&dom->cond, NULL));
 	AZ(pthread_cond_init(&dom->resolve, NULL));
 
-	if (ctx->method != VCL_MET_INIT)
-		dynamic_start_domain(dom);
+	obj->active = 1;
+	dynamic_start_domain(dom);
 
 	VTAILQ_INSERT_TAIL(&obj->active_domains, dom, list);
 
@@ -804,7 +809,6 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 		if (obj->vcl != ctx->vcl)
 			continue;
 
-		assert(obj->active != active);
 		obj->active = active;
 		if (active)
 			dynamic_start(ctx, obj);
