@@ -57,9 +57,9 @@ struct dynamic_ref {
 
 enum dynamic_status_e {
 	DYNAMIC_ST_READY	= 0,
-	DYNAMIC_ST_ACTIVE	= 1,
-	DYNAMIC_ST_STALE	= 2,
-	DYNAMIC_ST_DONE		= 3,
+	DYNAMIC_ST_ACTIVE,
+	DYNAMIC_ST_STALE,
+	DYNAMIC_ST_DONE
 };
 
 enum dynamic_share_e {
