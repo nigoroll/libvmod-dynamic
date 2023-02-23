@@ -4,6 +4,8 @@ vmod-dynamic
 
 This branch is for varnish post 7.2
 
+.. _`CHANGES.rst`: CHANGES.rst
+
 See `CHANGES.rst`_ to stay informed about important changes between
 versions.
 
