@@ -628,6 +628,15 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 }
 
 static void
+dynamic_start_domain(struct dynamic_domain *dom)
+{
+	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+	assert(dom->status == DYNAMIC_ST_READY);
+	AZ(dom->thread);
+	AZ(pthread_create(&dom->thread, NULL, dynamic_lookup_thread, dom));
+}
+
+static void
 dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 {
 	struct dynamic_domain *dom;
@@ -642,13 +651,9 @@ dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 	obj->vclref = VRT_VCL_Prevent_Discard(ctx, buf);
 
 	Lck_Lock(&obj->mtx);
-	VTAILQ_FOREACH(dom, &obj->active_domains, list) {
-		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-		assert(dom->status == DYNAMIC_ST_READY);
-		AZ(dom->thread);
-		AZ(pthread_create(&dom->thread, NULL, dynamic_lookup_thread,
-		    dom));
-	}
+	VTAILQ_FOREACH(dom, &obj->active_domains, list)
+	    dynamic_start_domain(dom);
+
 	service_start(ctx, obj);
 	Lck_Unlock(&obj->mtx);
 }
@@ -729,8 +734,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	AZ(pthread_cond_init(&dom->resolve, NULL));
 
 	if (ctx->method != VCL_MET_INIT)
-		AZ(pthread_create(&dom->thread, NULL, dynamic_lookup_thread,
-			dom));
+		dynamic_start_domain(dom);
 
 	VTAILQ_INSERT_TAIL(&obj->active_domains, dom, list);
 
