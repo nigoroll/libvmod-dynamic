@@ -113,13 +113,27 @@ static const struct vdi_methods vmod_dynamic_methods[1] = {{
  * Director implementation
  */
 
+static void
+dynamic_wait_active(struct dynamic_domain *dom)
+{
+	int ret;
+
+	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+
+	if (dom->status >= DYNAMIC_ST_ACTIVE)
+		return;
+
+	ret = Lck_CondWaitTimeout(&dom->resolve, &dom->mtx,
+	    dom->obj->first_lookup_tmo);
+	assert(ret == 0 || ret == ETIMEDOUT);
+}
+
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
 	struct dynamic_ref *next;
 	VCL_BACKEND dir;
-	int ret;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
@@ -127,11 +141,7 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 
 	Lck_Lock(&dom->mtx);
 
-	if (dom->status < DYNAMIC_ST_ACTIVE) {
-		ret = Lck_CondWaitTimeout(&dom->resolve, &dom->mtx,
-		    dom->obj->first_lookup_tmo);
-		assert(ret == 0 || ret == ETIMEDOUT);
-	}
+	dynamic_wait_active(dom);
 
 	if (dom->status > DYNAMIC_ST_ACTIVE) {
 		Lck_Unlock(&dom->mtx);
