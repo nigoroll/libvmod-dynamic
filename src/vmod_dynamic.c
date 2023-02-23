@@ -192,6 +192,8 @@ dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 		return (dom->healthy_cached);
 	}
 
+	dynamic_wait_active(dom);
+
 	/* One healthy backend is enough for the director to be healthy */
 	VTAILQ_FOREACH(r, &dom->refs, list) {
 		CHECK_OBJ_NOTNULL(r->be->dir, DIRECTOR_MAGIC);
