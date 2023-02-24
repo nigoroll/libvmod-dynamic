@@ -101,6 +101,21 @@ struct backend_select {
 	uint32_t	w;
 };
 
+static void
+service_wait_active(struct dynamic_service *srv)
+{
+	int ret;
+
+	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
+
+	if (srv->status >= DYNAMIC_ST_ACTIVE)
+		return;
+
+	ret = Lck_CondWaitTimeout(&srv->resolve, &srv->mtx,
+	    srv->obj->first_lookup_tmo);
+	assert(ret == 0 || ret == ETIMEDOUT);
+}
+
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 service_resolve(VRT_CTX, VCL_BACKEND d)
 {
@@ -108,7 +123,6 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 	const struct service_prios *prios;
 	const struct service_prio *p;
 	const struct service_target *t;
-	int ret;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
@@ -116,11 +130,7 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 
 	Lck_Lock(&srv->mtx);
 
-	if (srv->status < DYNAMIC_ST_ACTIVE) {
-		ret = Lck_CondWaitTimeout(&srv->resolve, &srv->mtx,
-		    srv->obj->first_lookup_tmo);
-		assert(ret == 0 || ret == ETIMEDOUT);
-	}
+	service_wait_active(srv);
 
 	if (srv->status > DYNAMIC_ST_ACTIVE) {
 		Lck_Unlock(&srv->mtx);
