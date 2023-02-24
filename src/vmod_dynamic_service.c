@@ -497,6 +497,8 @@ service_lookup_thread(void *priv)
 	AN(res->srv_result);
 	AN(res->srv_fini);
 
+	assert(srv->status == DYNAMIC_ST_STARTING);
+
 	while (obj->active && srv->status <= DYNAMIC_ST_ACTIVE) {
 
 		lookup = VTIM_real();
@@ -536,7 +538,7 @@ service_lookup_thread(void *priv)
 
 		Lck_Lock(&srv->mtx);
 
-		if (srv->status == DYNAMIC_ST_READY) {
+		if (srv->status == DYNAMIC_ST_STARTING) {
 			AZ(pthread_cond_broadcast(&srv->resolve));
 			srv->status = DYNAMIC_ST_ACTIVE;
 		}
@@ -629,7 +631,10 @@ static void
 service_start_service(struct dynamic_service *srv)
 {
 	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
+	if (srv->status >= DYNAMIC_ST_STARTING)
+		return;
 	assert(srv->status == DYNAMIC_ST_READY);
+	srv->status = DYNAMIC_ST_STARTING;
 	AZ(srv->thread);
 	AZ(pthread_create(&srv->thread, NULL, service_lookup_thread, srv));
 }
@@ -733,6 +738,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	AZ(pthread_cond_init(&srv->cond, NULL));
 	AZ(pthread_cond_init(&srv->resolve, NULL));
 
+	obj->active = 1;
 	service_start_service(srv);
 
 	VTAILQ_INSERT_TAIL(&obj->active_services, srv, list);
