@@ -163,6 +163,39 @@ If you have problems or questions concerning the RPMs, post an issue
 to one of the source repository web sites, or contact
 <varnish-support@uplex.de>.
 
+SUPPORT
+=======
+
+.. _github.com issues: https://github.com/nigoroll/libvmod-dynamic/issues
+
+To report bugs, use `github.com issues`_.
+
+For enquiries about professional service and support, please contact
+info@uplex.de\ .
+
+CONTRIBUTING
+============
+
+.. _pull requests on github.com: https://github.com/nigoroll/libvmod-dynamic/pulls
+
+To contribute to the project, please use `pull requests on github.com`_.
+
+To support the project's development and maintenance, there are
+several options:
+
+.. _paypal: https://www.paypal.com/donate/?hosted_button_id=BTA6YE2H5VSXA
+
+.. _github sponsor: https://github.com/sponsors/nigoroll
+
+* Donate money through `paypal`_. If you wish to receive a commercial
+  invoice, please add your details (address, email, any requirements
+  on the invoice text) to the message sent with your donation.
+
+* Become a `github sponsor`_.
+
+* Contact info@uplex.de to receive a commercial invoice for SWIFT
+  payment.
+
 See also
 ========
 
