@@ -2,6 +2,8 @@
 vmod-dynamic
 ============
 
+.. role:: ref(emphasis)
+
 This branch is for varnish post 7.2
 
 .. _`CHANGES.rst`: CHANGES.rst
@@ -30,15 +32,15 @@ In contrast, for dynamic backends provided by this module,
 
 * name resolution information will be refreshed by background threads
   after a configurable time to live (ttl) or after the ttl from DNS
-  with a `getdns`_ `vmod_dynamic.resolver`_.
+  with a `getdns`_ `vmod_dynamic.resolver`.
 
 * resolution to multiple network addresses is supported
 
-In addition, with a `getdns`_ `vmod_dynamic.resolver`_, service
+In addition, with a `getdns`_ `vmod_dynamic.resolver`, service
 discovery by DNS SRV records is possible, in which case this module
 also allows to configure host names (*targets*), their ports, priority
 and weight though DNS. See https://en.wikipedia.org/wiki/SRV_record
-for a good basic explanation and `vmod_dynamic.director.service`_ for
+for a good basic explanation and `vmod_dynamic.director.service` for
 details.
 
 Further documentation is available in the manual page ``vmod_dynamic(3)``.
