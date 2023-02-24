@@ -240,7 +240,6 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 	struct service_target *t;
 	char portbuf[6];
 	unsigned n;
-	int ret;
 
 	CHECK_OBJ_NOTNULL(prios, SERVICE_PRIOS_MAGIC);
 
@@ -271,12 +270,7 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 			if (dom->status >= DYNAMIC_ST_ACTIVE)
 				continue;
 			Lck_Lock(&dom->mtx);
-			while (dom->status < DYNAMIC_ST_ACTIVE) {
-				ret = Lck_CondWaitTimeout(&dom->resolve,
-				    &dom->mtx,
-				    dom->obj->first_lookup_tmo);
-				assert(ret == 0 || ret == ETIMEDOUT);
-			}
+			dynamic_wait_active(dom);
 			Lck_Unlock(&dom->mtx);
 		}
 	}

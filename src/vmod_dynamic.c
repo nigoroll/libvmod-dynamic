@@ -113,7 +113,7 @@ static const struct vdi_methods vmod_dynamic_methods[1] = {{
  * Director implementation
  */
 
-static void
+void
 dynamic_wait_active(struct dynamic_domain *dom)
 {
 	int ret;
