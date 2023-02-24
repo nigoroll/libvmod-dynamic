@@ -202,6 +202,10 @@ service_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(srv, d->priv, DYNAMIC_SERVICE_MAGIC);
 
+	Lck_Lock(&srv->mtx);
+	service_wait_active(srv);
+	Lck_Unlock(&srv->mtx);
+
 	VRMB();
 	prios = srv->prios;
 
