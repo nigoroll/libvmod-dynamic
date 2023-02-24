@@ -621,6 +621,15 @@ service_stop(struct vmod_dynamic_director *obj)
 	}
 }
 
+static void
+service_start_service(struct dynamic_service *srv)
+{
+	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
+	assert(srv->status == DYNAMIC_ST_READY);
+	AZ(srv->thread);
+	AZ(pthread_create(&srv->thread, NULL, service_lookup_thread, srv));
+}
+
 // called from dynamic_start
 void
 service_start(VRT_CTX, struct vmod_dynamic_director *obj)
@@ -630,13 +639,8 @@ service_start(VRT_CTX, struct vmod_dynamic_director *obj)
 	(void) ctx;
 	Lck_AssertHeld(&obj->mtx);
 
-	VTAILQ_FOREACH(srv, &obj->active_services, list) {
-		CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
-		assert(srv->status == DYNAMIC_ST_READY);
-		AZ(srv->thread);
-		AZ(pthread_create(&srv->thread, NULL, service_lookup_thread,
-		    srv));
-	}
+	VTAILQ_FOREACH(srv, &obj->active_services, list)
+	    service_start_service(srv);
 }
 
 // calledn from vmod_director__fini
@@ -725,7 +729,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	AZ(pthread_cond_init(&srv->cond, NULL));
 	AZ(pthread_cond_init(&srv->resolve, NULL));
 
-	AZ(pthread_create(&srv->thread, NULL, service_lookup_thread, srv));
+	service_start_service(srv);
 
 	VTAILQ_INSERT_TAIL(&obj->active_services, srv, list);
 
