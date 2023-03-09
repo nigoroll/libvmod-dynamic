@@ -47,6 +47,20 @@ Further documentation is available in the manual page ``vmod_dynamic(3)``.
 
 .. _getdns: https://getdnsapi.net/
 
+Supported Operating Systems
+===========================
+
+We encourage the use of open source operating systems and primarily
+support Linux and FreeBSD / OpenBSD.
+
+This vmod should also work on any other sane UNIX-ish platform like
+the Solaris Descendents and MacOS.
+
+We specifically do not support any Windows based environments, also
+not Docker on Windows. Feel free to use the VMOD, but do not expect us
+to support you, unless you are willing to put substantial amounts of
+money into a sponsorship.
+
 Installation
 ============
 
