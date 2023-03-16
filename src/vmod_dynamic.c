@@ -213,6 +213,8 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 	struct dynamic_domain *dom;
 	struct dynamic_backend *b;
 	struct vrt_ctx tmp;
+	struct backend *be;
+	VCL_BACKEND d;
 
 	AN(r);
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
@@ -244,19 +246,24 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 	AN(b->refcount);
 	b->refcount--;
 
-	DBG(ctx, dom, "unref-backend %s (%d remaining)", b->vcl_name,
+	d = b->dir;
+	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(be, d->priv, BACKEND_MAGIC);
+
+	DBG(ctx, dom, "unref-backend %s (%d remaining)", be->vcl_name,
 	    b->refcount);
 
 	if (b->refcount > 0)
 		return;
 
-	DBG(ctx, dom, "delete-backend %s", b->vcl_name);
+	DBG(ctx, dom, "delete-backend %s", be->vcl_name);
+
+	free(be->vcl_name);
 
 	VTAILQ_REMOVE(&dom->obj->backends, b, list);
 	AN(ctx->vcl);
 	VRT_delete_backend(ctx, &b->dir);
 
-	free(b->vcl_name);
 	free(b->ip_addr);
 	free(b);
 }
@@ -265,6 +272,8 @@ static void
 dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 {
 	struct dynamic_ref *r;
+	struct backend *be;
+	VCL_BACKEND d;
 
 	r = malloc(sizeof *r);
 	AN(r);
@@ -275,7 +284,11 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 	b->refcount++;
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 
-	DBG(ctx, dom, "ref-backend %s (%d in total)", b->vcl_name,
+	d = b->dir;
+	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(be, d->priv, BACKEND_MAGIC);
+
+	DBG(ctx, dom, "ref-backend %s (%d in total)", be->vcl_name,
 	    b->refcount);
 }
 
@@ -411,11 +424,10 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 		INCOMPL();
 	}
 	AZ(VSB_finish(vsb));
-	b->vcl_name = strdup(VSB_data(vsb));
-	AN(b->vcl_name);
+	vrt.vcl_name = strdup(VSB_data(vsb));
+	AN(vrt.vcl_name);
 	VSB_destroy(&vsb);
 
-	vrt.vcl_name = b->vcl_name;
 	vrt.probe = dom->obj->probe;
 	vrt.connect_timeout = dom->obj->connect_tmo;
 	vrt.first_byte_timeout = dom->obj->first_byte_tmo;
@@ -440,7 +452,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	b->dir = VRT_new_backend(ctx, &vrt, dom->obj->via);
 	AN(b->dir);
 
-	DBG(ctx, dom, "add-backend %s", b->vcl_name);
+	DBG(ctx, dom, "add-backend %s", vrt.vcl_name);
 
 	dynamic_ref(ctx, dom, b);
 
