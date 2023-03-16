@@ -264,7 +264,6 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 	AN(ctx->vcl);
 	VRT_delete_backend(ctx, &b->dir);
 
-	free(b->ip_addr);
 	free(b);
 }
 
@@ -400,9 +399,6 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	AN(b);
 	memset(b, 0, sizeof *b);
 
-	b->ip_addr = strdup(addr);
-	AN(b->ip_addr);
-
 	vsb = VSB_new_auto();
 	AN(vsb);
 
@@ -411,14 +407,14 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	switch (dom->obj->share) {
 	case DIRECTOR:
 		vrt.authority = vrt.hosthdr = dom->obj->hosthdr;
-		VSB_printf(vsb, "%s(%s:%s)", dom->obj->vcl_name, b->ip_addr,
+		VSB_printf(vsb, "%s(%s:%s)", dom->obj->vcl_name, addr,
 		    dom_port(dom));
 		break;
 	case HOST:
 		vrt.authority = vrt.hosthdr =
 		    dom->obj->hosthdr ? dom->obj->hosthdr : dom->addr;
 		VSB_printf(vsb, "%s.%s(%s:%s)", dom->obj->vcl_name, dom->addr,
-		    b->ip_addr, dom_port(dom));
+		    addr, dom_port(dom));
 		break;
 	default:
 		INCOMPL();
