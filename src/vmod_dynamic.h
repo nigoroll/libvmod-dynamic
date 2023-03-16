@@ -42,7 +42,6 @@ extern struct VSC_lck *lck_be;
 struct dynamic_backend {
 	VCL_BACKEND			dir;
 	VTAILQ_ENTRY(dynamic_backend)	list;
-	const struct suckaddr		*ip_suckaddr;
 	char				*ip_addr;
 	char				*vcl_name;
 	unsigned			refcount;

@@ -43,6 +43,7 @@
 #include <string.h>
 
 #include <cache/cache.h>
+#include <cache/cache_backend.h>
 
 #include <vsb.h>
 #include <vcl.h>
@@ -257,7 +258,6 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 
 	free(b->vcl_name);
 	free(b->ip_addr);
-	VSA_free(&b->ip_suckaddr);
 	free(b);
 }
 
@@ -279,6 +279,43 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 	    b->refcount);
 }
 
+/* select endpoint address matching sa proto */
+static const struct suckaddr *
+vep_select(const struct vrt_endpoint *vep, const struct suckaddr *sa)
+{
+
+	CHECK_OBJ_NOTNULL(vep, VRT_ENDPOINT_MAGIC);
+	switch (VSA_Get_Proto(sa)) {
+	case AF_INET:
+		return(vep->ipv4);
+	case AF_INET6:
+		return(vep->ipv6);
+	default:
+		WRONG("unexpected family");
+	}
+}
+
+static int
+vep_compare(const struct vrt_endpoint *vep, const struct suckaddr *sa)
+{
+	const struct suckaddr *vepsa;
+
+	vepsa = vep_select(vep, sa);
+	if (vepsa == NULL)
+		return (-1);
+	return (VSA_Compare(vepsa, sa));
+}
+
+static int
+bedir_compare_ip(VCL_BACKEND d, const struct suckaddr *sa)
+{
+	struct backend *be;
+
+	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(be, d->priv, BACKEND_MAGIC);
+	return (vep_compare(be->endpoint, sa));
+}
+
 static unsigned
 dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
 {
@@ -296,8 +333,7 @@ dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
 			continue;
 
 		b = r->be;
-		CHECK_OBJ_NOTNULL(b->dir, DIRECTOR_MAGIC);
-		if (!VSA_Compare(b->ip_suckaddr, sa)) {
+		if (! bedir_compare_ip(b->dir, sa)) {
 			r->mark = dom->mark;
 			return (1);
 		}
@@ -308,8 +344,7 @@ dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
 
 	/* search the rest of the backends */
 	VTAILQ_FOREACH(b, &dom->obj->backends, list) {
-		CHECK_OBJ_NOTNULL(b->dir, DIRECTOR_MAGIC);
-		if (!VSA_Compare(b->ip_suckaddr, sa)) {
+		if (! bedir_compare_ip(b->dir, sa)) {
 			dynamic_ref(&ctx, dom, b);
 			return (1);
 		}
@@ -351,7 +386,6 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	b = malloc(sizeof *b);
 	AN(b);
 	memset(b, 0, sizeof *b);
-	b->ip_suckaddr = VSA_Clone(info->sa);
 
 	b->ip_addr = strdup(addr);
 	AN(b->ip_addr);
@@ -391,12 +425,12 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	assert(vrt.proxy_header <= 2);
 	INIT_OBJ(&ep, VRT_ENDPOINT_MAGIC);
 
-	switch (VSA_Get_Proto(b->ip_suckaddr)) {
+	switch (VSA_Get_Proto(info->sa)) {
 	case AF_INET:
-		ep.ipv4 = b->ip_suckaddr;
+		ep.ipv4 = info->sa;
 		break;
 	case AF_INET6:
-		ep.ipv6 = b->ip_suckaddr;
+		ep.ipv6 = info->sa;
 		break;
 	default:
 		WRONG("unexpected family");
