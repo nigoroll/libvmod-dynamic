@@ -267,7 +267,7 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 	free(b);
 }
 
-static void
+static struct dynamic_ref *
 dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 {
 	struct dynamic_ref *r;
@@ -289,6 +289,8 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 
 	DBG(ctx, dom, "ref-backend %s (%d in total)", be->vcl_name,
 	    b->refcount);
+
+	return (r);
 }
 
 /* select endpoint address matching sa proto */
@@ -357,7 +359,7 @@ dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
 	/* search the rest of the backends */
 	VTAILQ_FOREACH(b, &dom->obj->backends, list) {
 		if (! bedir_compare_ip(b->dir, sa)) {
-			dynamic_ref(&ctx, dom, b);
+			(void) dynamic_ref(&ctx, dom, b);
 			return (1);
 		}
 	}
@@ -463,7 +465,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 
 	DBG(ctx, dom, "add-backend %s", vrt.vcl_name);
 
-	dynamic_ref(ctx, dom, b);
+	(void) dynamic_ref(ctx, dom, b);
 
 	VTAILQ_INSERT_TAIL(&dom->obj->backends, b, list);
 	return;
