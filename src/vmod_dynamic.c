@@ -365,6 +365,30 @@ dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
 	return (0);
 }
 
+static int
+dynamic_whitelisted(VRT_CTX, const struct dynamic_domain *dom,
+    const struct suckaddr *sa)
+{
+	const struct vmod_dynamic_director *obj;
+	char addr[VTCP_ADDRBUFSIZE];
+	char port[VTCP_PORTBUFSIZE];
+
+	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+	obj = dom->obj;
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
+
+	if (obj->whitelist == NULL)
+		return (1);
+
+	if (VRT_acl_match(ctx, obj->whitelist, sa))
+		return (1);
+
+	VTCP_name(sa, addr, sizeof addr, port, sizeof port);
+	LOG(ctx, SLT_Error, dom, "whitelist mismatch %s:%s", addr, port);
+
+	return (0);
+}
+
 /* all parameters owned by caller */
 static void
 dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
@@ -373,8 +397,6 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	struct vrt_endpoint ep;
 	struct dynamic_backend *b;
 	struct vsb *vsb;
-	char addr[VTCP_ADDRBUFSIZE];
-	char port[VTCP_PORTBUFSIZE];
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
@@ -382,17 +404,14 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	Lck_AssertHeld(&dom->mtx);
 	Lck_AssertHeld(&dom->obj->mtx);
 
-	if (dom->obj->whitelist != NULL &&
-	    ! VRT_acl_match(ctx, dom->obj->whitelist, info->sa)) {
-		VTCP_name(info->sa, addr, sizeof addr, port, sizeof port);
-		LOG(ctx, SLT_Error, dom, "whitelist mismatch %s:%s",
-		    addr, port);
+	if (! dynamic_whitelisted(ctx, dom, info->sa))
 		return;
-	}
 
 	if (dynamic_find(dom, info->sa))
 		return;
 
+	char addr[VTCP_ADDRBUFSIZE];
+	char port[VTCP_PORTBUFSIZE];
 	VTCP_name(info->sa, addr, sizeof addr, port, sizeof port);
 
 	b = malloc(sizeof *b);
