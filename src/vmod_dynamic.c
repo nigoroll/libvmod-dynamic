@@ -393,6 +393,8 @@ dynamic_whitelisted(VRT_CTX, const struct dynamic_domain *dom,
 static void
 dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 {
+	char addr[VTCP_ADDRBUFSIZE];
+	char port[VTCP_PORTBUFSIZE];
 	struct vrt_backend vrt;
 	struct vrt_endpoint ep;
 	struct dynamic_backend *b;
@@ -404,14 +406,6 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	Lck_AssertHeld(&dom->mtx);
 	Lck_AssertHeld(&dom->obj->mtx);
 
-	if (! dynamic_whitelisted(ctx, dom, info->sa))
-		return;
-
-	if (dynamic_find(dom, info->sa))
-		return;
-
-	char addr[VTCP_ADDRBUFSIZE];
-	char port[VTCP_PORTBUFSIZE];
 	VTCP_name(info->sa, addr, sizeof addr, port, sizeof port);
 
 	b = malloc(sizeof *b);
@@ -496,6 +490,11 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	dom->mark++;
 
 	while ((info = res->result(ibuf, priv, &state)) != NULL) {
+		if (! dynamic_whitelisted(&ctx, dom, info->sa))
+			continue;
+		if (dynamic_find(dom, info->sa))
+			continue;
+
 		dynamic_add(&ctx, dom, info);
 		if (info->ttl != 0 && (isnan(ttl) || info->ttl < ttl))
 			ttl = info->ttl;
