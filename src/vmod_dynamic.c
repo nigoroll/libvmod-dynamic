@@ -97,18 +97,6 @@ static const struct gethdr_s HDR_BEREQ_HOST = { HDR_BEREQ, "\005Host:"};
 
 static struct vsc_seg * vsc = NULL;
 
-static VCL_BACKEND v_matchproto_(vdi_resolve_f)
-dynamic_resolve(VRT_CTX, VCL_BACKEND);
-static VCL_BOOL v_matchproto_(vdi_healthy_f)
-dynamic_healthy(VRT_CTX, VCL_BACKEND, VCL_TIME *);
-
-static const struct vdi_methods vmod_dynamic_methods[1] = {{
-	.magic =	VDI_METHODS_MAGIC,
-	.type =		"dynamic",
-	.healthy =	dynamic_healthy,
-	.resolve =	dynamic_resolve
-}};
-
 /*--------------------------------------------------------------------
  * Director implementation
  */
@@ -720,6 +708,13 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 
 	return (dom);
 }
+
+static const struct vdi_methods vmod_dynamic_methods[1] = {{
+	.magic =	VDI_METHODS_MAGIC,
+	.type =		"dynamic",
+	.healthy =	dynamic_healthy,
+	.resolve =	dynamic_resolve
+}};
 
 struct dynamic_domain *
 dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
