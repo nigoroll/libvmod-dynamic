@@ -37,6 +37,8 @@
 #define NO_VXID (0U)
 #endif
 
+VTAILQ_HEAD(dynamic_ref_head, dynamic_ref);
+
 extern struct VSC_lck *lck_be;
 
 struct dynamic_backend {
@@ -84,7 +86,7 @@ struct dynamic_domain {
 	pthread_cond_t			resolve;
 	VCL_TIME			last_used;
 	VTAILQ_ENTRY(dynamic_domain)	list;
-	VTAILQ_HEAD(, dynamic_ref)	refs;
+	struct dynamic_ref_head	refs;
 	struct dynamic_ref		*current;
 	char				*addr;
 	char				*port;
