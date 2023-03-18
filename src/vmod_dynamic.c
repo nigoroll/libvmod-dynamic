@@ -330,7 +330,7 @@ bedir_compare_ip(VCL_BACKEND d, const struct suckaddr *sa)
 	return (vep_compare(be->endpoint, sa));
 }
 
-static unsigned
+static struct dynamic_ref *
 dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
 {
 	struct dynamic_backend *b;
@@ -349,7 +349,7 @@ dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
 		b = r->be;
 		if (! bedir_compare_ip(b->dir, sa)) {
 			r->mark = dom->mark;
-			return (1);
+			return (r);
 		}
 	}
 
@@ -358,13 +358,11 @@ dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
 
 	/* search the rest of the backends */
 	VTAILQ_FOREACH(b, &dom->obj->backends, list) {
-		if (! bedir_compare_ip(b->dir, sa)) {
-			(void) dynamic_ref(&ctx, dom, b);
-			return (1);
-		}
+		if (! bedir_compare_ip(b->dir, sa))
+			return (dynamic_ref(&ctx, dom, b));
 	}
 
-	return (0);
+	return (NULL);
 }
 
 static int
