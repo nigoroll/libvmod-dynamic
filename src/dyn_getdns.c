@@ -48,7 +48,7 @@ dyn_getdns_strerror(int ra)
 #define GETDNS_RETURN(r, s)				\
 	if (ra == GETDNS_RETURN_ ## r) return(s);
 #include "tbl/getdns_return.h"
-	return ("INVALID");
+return ("INVALID");
 }
 
 struct VPFX(dynamic_resolver_context) *

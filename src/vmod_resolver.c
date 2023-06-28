@@ -47,7 +47,7 @@ parse_res_namespace_e(VCL_ENUM e)
 {
 #define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_NAMESPACE_ ## n);
 #include "tbl/enum/res_namespace.h"
-       WRONG("illegal enum");
+WRONG("illegal enum");
 }
 
 static getdns_redirects_t
@@ -55,7 +55,7 @@ parse_res_redirects_e(VCL_ENUM e)
 {
 #define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_ ## n);
 #include "tbl/enum/res_redirects.h"
-       WRONG("illegal enum");
+WRONG("illegal enum");
 }
 
 static getdns_resolution_t
@@ -63,7 +63,7 @@ parse_res_resolution_type_e(VCL_ENUM e)
 {
 #define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_RESOLUTION_ ## n);
 #include "tbl/enum/res_resolution_type.h"
-       WRONG("illegal enum");
+WRONG("illegal enum");
 }
 
 static getdns_transport_list_t
@@ -71,7 +71,7 @@ parse_res_transport_e(VCL_ENUM e)
 {
 #define VMODENUM(n) if (e == VENUM(n)) return(GETDNS_TRANSPORT_ ## n);
 #include "tbl/enum/res_transport.h"
-       WRONG("illegal enum");
+WRONG("illegal enum");
 }
 
 /* ------------------------------------------------------------
