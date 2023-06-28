@@ -51,7 +51,6 @@ struct dynamic_ref {
 	struct dynamic_domain		*dom;
 	VTAILQ_ENTRY(dynamic_ref)	list;
 	struct dynamic_backend		*be;
-	unsigned			mark;
 };
 
 enum dynamic_status_e {
@@ -78,7 +77,6 @@ enum dynamic_ttl_e {
 struct dynamic_domain {
 	unsigned			magic;
 #define DYNAMIC_DOMAIN_MAGIC		0x1bfe1345
-	unsigned			mark;
 	struct vmod_dynamic_director	*obj;
 	pthread_t			thread;
 	struct lock			mtx;

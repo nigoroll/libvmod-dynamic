@@ -238,10 +238,6 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 		ctx = &tmp;
 	}
 
-	if (r == dom->current)
-		dom->current = VTAILQ_NEXT(r, list);
-
-	VTAILQ_REMOVE(&dom->refs, r, list);
 	free(r);
 
 	AN(b->refcount);
@@ -280,7 +276,6 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 	memset(r, 0, sizeof *r);
 	r->dom = dom;
 	r->be = b;
-	r->mark = dom->mark;
 	b->refcount++;
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 
@@ -457,6 +452,7 @@ static void
 dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
     void *priv, vtim_real now)
 {
+	struct dynamic_ref_head oldrefs[1];
 	struct dynamic_ref *r, *r2;
 	struct dynamic_backend *b;
 	struct vrt_ctx ctx;
@@ -466,13 +462,15 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	void *state = NULL;
 	vtim_dur ttl = NAN;
 
+	VTAILQ_INIT(oldrefs);
+
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = dom->obj->vcl;
 
 	Lck_Lock(&dom->obj->mtx);
 	Lck_Lock(&dom->mtx);
 
-	dom->mark++;
+	VTAILQ_SWAP(&dom->refs, oldrefs, dynamic_ref, list);
 
 	while ((info = res->result(ibuf, priv, &state)) != NULL) {
 		if (! dynamic_whitelisted(&ctx, dom, info->sa))
@@ -482,18 +480,16 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 			ttl = info->ttl;
 
 		/* search this domain's backends */
-		VTAILQ_FOREACH(r, &dom->refs, list) {
-			if (r->mark == dom->mark)
-				continue;
-
+		VTAILQ_FOREACH(r, oldrefs, list) {
 			b = r->be;
-			if (! bedir_compare_ip(b->dir, info->sa)) {
-				r->mark = dom->mark;
+			if (! bedir_compare_ip(b->dir, info->sa))
 				break;
-			}
 		}
-		if (r != NULL)
+		if (r != NULL) {
+			VTAILQ_REMOVE(oldrefs, r, list);
+			VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 			continue;
+		}
 
 		/* search all of director's backends if sharing allows */
 		if (dom->obj->share != HOST &&
@@ -505,9 +501,11 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 		dynamic_add(&ctx, dom, info);
 	}
 
-	VTAILQ_FOREACH_SAFE(r, &dom->refs, list, r2)
-		if (r->mark != dom->mark)
-			dynamic_del(&ctx, r);
+	VTAILQ_FOREACH_SAFE(r, oldrefs, list, r2) {
+		if (r == dom->current)
+			dom->current = VTAILQ_FIRST(&dom->refs);
+		dynamic_del(&ctx, r);
+	}
 
 	Lck_Unlock(&dom->mtx);
 	Lck_Unlock(&dom->obj->mtx);
@@ -763,6 +761,7 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 static void v_matchproto_(vdi_release_f)
 dynamic_release(VCL_BACKEND dir)
 {
+	struct dynamic_ref *r, *r2;
 	struct dynamic_domain *dom;
 
 	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
@@ -772,8 +771,10 @@ dynamic_release(VCL_BACKEND dir)
 	assert(dom->status == DYNAMIC_ST_READY);
 
 	Lck_Lock(&dom->mtx);
-	while (!VTAILQ_EMPTY(&dom->refs))
-		dynamic_del(NULL, VTAILQ_FIRST(&dom->refs));
+	VTAILQ_FOREACH_SAFE(r, &dom->refs, list, r2) {
+		VTAILQ_REMOVE(&dom->refs, r, list);
+		dynamic_del(NULL, r);
+	}
 	Lck_Unlock(&dom->mtx);
 }
 
@@ -787,6 +788,7 @@ dynamic_destroy(VCL_BACKEND dir)
 
 	AZ(dom->thread);
 	assert(dom->status == DYNAMIC_ST_READY);
+	assert(VTAILQ_EMPTY(&dom->refs));
 
 	AZ(pthread_cond_destroy(&dom->resolve));
 	AZ(pthread_cond_destroy(&dom->cond));
