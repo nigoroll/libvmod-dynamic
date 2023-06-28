@@ -476,6 +476,9 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 		if (! dynamic_whitelisted(&ctx, dom, info->sa))
 			continue;
 
+		if (info->ttl != 0 && (isnan(ttl) || info->ttl < ttl))
+			ttl = info->ttl;
+
 		/* search this domain's backends */
 		VTAILQ_FOREACH(r, &dom->refs, list) {
 			if (r->mark == dom->mark)
@@ -498,8 +501,6 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 		}
 
 		dynamic_add(&ctx, dom, info);
-		if (info->ttl != 0 && (isnan(ttl) || info->ttl < ttl))
-			ttl = info->ttl;
 	}
 
 	VTAILQ_FOREACH_SAFE(r, &dom->refs, list, r2)
