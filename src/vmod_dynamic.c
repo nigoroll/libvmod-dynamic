@@ -408,7 +408,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 		break;
 	case HOST:
 		vrt.authority = vrt.hosthdr =
-		    dom->obj->hosthdr ? dom->obj->hosthdr : dom->addr;
+		    (dom->obj->hosthdr ? dom->obj->hosthdr : dom->addr);
 		VSB_printf(vsb, "%s.%s(%s:%s)", dom->obj->vcl_name, dom->addr,
 		    addr, dom_port(dom));
 		break;

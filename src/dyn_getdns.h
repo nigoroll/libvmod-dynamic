@@ -34,7 +34,6 @@
 #define GETDNS_RETURN_NO_SERVBYNAME -2
 #define GETDNS_RETURN_NO_ANSWERS -3
 
-struct VPFX(dynamic_resolver_context);
 struct VPFX(dynamic_resolver);
 
 struct VPFX(dynamic_resolver_context) {
