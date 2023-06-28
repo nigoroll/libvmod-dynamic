@@ -885,13 +885,16 @@ dynamic_share_parse(const char *share_s)
 	case 'D':
 		switch (share_s[1]) {
 		case 'E':
-			return DEFAULT; break;
+			return DEFAULT;
 		case 'I':
-			return DIRECTOR; break;
-		default:	INCOMPL();
+			return DIRECTOR;
+		default:
+			INCOMPL();
 		}
-	case 'H':	return HOST; break;
-	default:	INCOMPL();
+	case 'H':
+		return HOST;
+	default:
+		INCOMPL();
 	}
 }
 
