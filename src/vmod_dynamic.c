@@ -46,7 +46,6 @@
 #include <cache/cache_backend.h>
 
 #include <vsb.h>
-#include <vcl.h>
 #include <vsa.h>
 #include <vtim.h>
 #include <vtcp.h>
