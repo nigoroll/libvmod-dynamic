@@ -330,36 +330,19 @@ bedir_compare_ip(VCL_BACKEND d, const struct suckaddr *sa)
 	return (vep_compare(be->endpoint, sa));
 }
 
-static struct dynamic_ref *
-dynamic_find(struct dynamic_domain *dom, const struct suckaddr *sa)
+static struct dynamic_backend *
+dynamic_director_find(struct vmod_dynamic_director *obj,
+    const struct suckaddr *sa)
 {
 	struct dynamic_backend *b;
-	struct dynamic_ref *r;
-	struct vrt_ctx ctx;
 
-	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
-	/* search this domain's backends */
-	VTAILQ_FOREACH(r, &dom->refs, list) {
-		if (r->mark == dom->mark)
-			continue;
+	assert (obj->share != HOST);
 
-		b = r->be;
-		if (! bedir_compare_ip(b->dir, sa)) {
-			r->mark = dom->mark;
-			return (r);
-		}
-	}
-
-	if (dom->obj->share == HOST)
-		return (0);
-
-	/* search the rest of the backends */
-	VTAILQ_FOREACH(b, &dom->obj->backends, list) {
+	VTAILQ_FOREACH(b, &obj->backends, list) {
 		if (! bedir_compare_ip(b->dir, sa))
-			return (dynamic_ref(&ctx, dom, b));
+			return (b);
 	}
 
 	return (NULL);
@@ -474,6 +457,7 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
     void *priv, vtim_real now)
 {
 	struct dynamic_ref *r, *r2;
+	struct dynamic_backend *b;
 	struct vrt_ctx ctx;
 	uint8_t suckbuf[vsa_suckaddr_len];
 	struct res_info ibuf[1] = {{ .suckbuf = suckbuf }};
@@ -492,8 +476,27 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	while ((info = res->result(ibuf, priv, &state)) != NULL) {
 		if (! dynamic_whitelisted(&ctx, dom, info->sa))
 			continue;
-		if (dynamic_find(dom, info->sa))
+
+		/* search this domain's backends */
+		VTAILQ_FOREACH(r, &dom->refs, list) {
+			if (r->mark == dom->mark)
+				continue;
+
+			b = r->be;
+			if (! bedir_compare_ip(b->dir, info->sa)) {
+				r->mark = dom->mark;
+				break;
+			}
+		}
+		if (r != NULL)
 			continue;
+
+		/* search all of director's backends if sharing allows */
+		if (dom->obj->share != HOST &&
+		    (b = dynamic_director_find(dom->obj, info->sa)) != NULL) {
+			(void) dynamic_ref(&ctx, dom, b);
+			continue;
+		}
 
 		dynamic_add(&ctx, dom, info);
 		if (info->ttl != 0 && (isnan(ttl) || info->ttl < ttl))
