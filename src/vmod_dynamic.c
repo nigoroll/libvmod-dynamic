@@ -225,12 +225,14 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 
 	dom = r->dom;
 
+	/* TODO - change locking regime
 	if (ctx != NULL) {
 		Lck_AssertHeld(&dom->mtx);
 		Lck_AssertHeld(&dom->obj->mtx);
 	}
-	else {
-		ASSERT_CLI();
+	*/
+	if (ctx == NULL) {
+		// TODO ASSERT_CLI();
 		INIT_OBJ(&tmp, VRT_CTX_MAGIC);
 		tmp.vcl = dom->obj->vcl;
 		ctx = &tmp;
@@ -622,11 +624,6 @@ dynamic_free(VRT_CTX, struct dynamic_domain *dom)
 		LOG(ctx, SLT_VCL_Log, dom, "%s", "deleted");
 	}
 
-	Lck_Lock(&dom->mtx);
-	while (!VTAILQ_EMPTY(&dom->refs))
-		dynamic_del(ctx, VTAILQ_FIRST(&dom->refs));
-	Lck_Unlock(&dom->mtx);
-
 	AZ(pthread_cond_destroy(&dom->resolve));
 	AZ(pthread_cond_destroy(&dom->cond));
 	Lck_Delete(&dom->mtx);
@@ -772,11 +769,29 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	return (dom);
 }
 
+static void v_matchproto_(vdi_release_f)
+dynamic_release(VCL_BACKEND dir)
+{
+	struct dynamic_domain *dom;
+
+	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
+
+	AZ(dom->thread);
+	assert(dom->status == DYNAMIC_ST_READY);
+
+	Lck_Lock(&dom->mtx);
+	while (!VTAILQ_EMPTY(&dom->refs))
+		dynamic_del(NULL, VTAILQ_FIRST(&dom->refs));
+	Lck_Unlock(&dom->mtx);
+}
+
 static const struct vdi_methods vmod_dynamic_methods[1] = {{
 	.magic =	VDI_METHODS_MAGIC,
 	.type =		"dynamic",
 	.healthy =	dynamic_healthy,
-	.resolve =	dynamic_resolve
+	.resolve =	dynamic_resolve,
+	.release =	dynamic_release
 }};
 
 struct dynamic_domain *
