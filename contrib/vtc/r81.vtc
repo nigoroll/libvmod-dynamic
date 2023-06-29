@@ -1,0 +1,149 @@
+varnishtest "bug #81 Assertion error on dynamic_domain"
+
+# this test case is in the contrib/vtc directory because of the additional requirements
+#
+# Requires dnsmasq and pkill installed.
+# 
+# 1. Configuration for "/etc/dnsmasq.conf":
+#
+#	no-resolv
+#	server=8.8.8.8
+#	address=/p-test-2.example.svc.cluster.local/127.0.0.1
+#	address=/p-test-3.example.svc.cluster.local/127.0.0.1
+#	srv-host=_http._tcp.p-test-2.example.svc.cluster.local,p-test-2.example.svc.cluster.local,8892
+#	srv-host=_http._tcp.p-test-3.example.svc.cluster.local,p-test-3.example.svc.cluster.local,8893
+#
+# 2. Configuration for "/etc/resolv.conf" (use your local IP as nameserver):
+#
+#	nameserver YOUR_IP_HERE
+#	search localdomain
+#	options timeout:1
+#	options attempts:1
+#
+# 3. Start dnsmasq "dnsmasq -C /etc/dnsmasq.conf"
+
+varnish v1 -vcl {
+	import ${vmod_dynamic};
+
+	backend dummy { .host = "${bad_backend}"; }
+
+	sub vcl_init {
+		new r1 = dynamic.resolver();
+		r1.set_resolution_type(STUB);
+		new d1 = dynamic.director(
+			resolver = r1.use(),
+			share = HOST,
+			ttl = 100s,
+			port = 0,
+			domain_usage_timeout = 3s);
+	}
+
+	sub vcl_recv {
+		if ( req.http.foo == "bar" ) {
+			set req.backend_hint = d1.service("_http._tcp.p-test-2.example.svc.cluster.local");
+		} else {
+			set req.backend_hint = d1.service("_http._tcp.p-test-3.example.svc.cluster.local");
+		}
+
+		return(pass);
+	}
+
+	sub vcl_backend_fetch {
+		set bereq.first_byte_timeout = 0.1s;
+		set bereq.connect_timeout = 0.1s;
+	}
+	sub vcl_backend_error {
+		set beresp.ttl = 100s;
+	}
+	sub vcl_backend_response {
+		set beresp.ttl = 100s;
+	}
+} -start
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1.5
+	txreq
+	rxresp
+	expect resp.status == 503
+} -run
+
+shell "sudo pkill dnsmasq || true"
+
+client c2 {
+	delay 1.5
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1.5
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1.5
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1.5
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1.5
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1.5
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1.5
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1.5
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1.5
+	txreq
+	rxresp
+	expect resp.status == 503
+} -run
+
+shell "sudo dnsmasq -C /etc/dnsmasq.conf"
+
+client c3 {
+	txreq -hdr "foo: bar"
+	rxresp
+	expect resp.status == 503
+	txreq -hdr "foo: bar"
+	rxresp
+	expect resp.status == 503
+	delay 0.1
+	txreq -hdr "foo: bar"
+	rxresp
+	expect resp.status == 503
+	txreq
+	rxresp
+	expect resp.status == 503
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1
+	txreq
+	rxresp
+	expect resp.status == 503
+	delay 1
+	txreq
+	rxresp
+	expect resp.status == 503
+} -run
