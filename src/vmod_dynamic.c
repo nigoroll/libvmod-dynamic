@@ -614,22 +614,13 @@ dynamic_free(VRT_CTX, struct dynamic_domain *dom)
 
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-	AZ(dom->thread);
-	assert(dom->status == DYNAMIC_ST_READY);
-
-	VRT_DelDirector(&dom->dir);
 
 	if (ctx != NULL) {
 		Lck_AssertHeld(&dom->obj->mtx);
 		LOG(ctx, SLT_VCL_Log, dom, "%s", "deleted");
 	}
 
-	AZ(pthread_cond_destroy(&dom->resolve));
-	AZ(pthread_cond_destroy(&dom->cond));
-	Lck_Delete(&dom->mtx);
-	REPLACE(dom->addr, NULL);
-	REPLACE(dom->port, NULL);
-	FREE_OBJ(dom);
+	VRT_DelDirector(&dom->dir);
 }
 
 static void
@@ -786,12 +777,32 @@ dynamic_release(VCL_BACKEND dir)
 	Lck_Unlock(&dom->mtx);
 }
 
+static void v_matchproto_(vdi_destroy_f)
+dynamic_destroy(VCL_BACKEND dir)
+{
+	struct dynamic_domain *dom;
+
+	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
+
+	AZ(dom->thread);
+	assert(dom->status == DYNAMIC_ST_READY);
+
+	AZ(pthread_cond_destroy(&dom->resolve));
+	AZ(pthread_cond_destroy(&dom->cond));
+	Lck_Delete(&dom->mtx);
+	REPLACE(dom->addr, NULL);
+	REPLACE(dom->port, NULL);
+	FREE_OBJ(dom);
+}
+
 static const struct vdi_methods vmod_dynamic_methods[1] = {{
 	.magic =	VDI_METHODS_MAGIC,
 	.type =		"dynamic",
 	.healthy =	dynamic_healthy,
 	.resolve =	dynamic_resolve,
-	.release =	dynamic_release
+	.release =	dynamic_release,
+	.destroy =	dynamic_destroy
 }};
 
 struct dynamic_domain *
