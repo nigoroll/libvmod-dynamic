@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2016 Varnish Software AS
- * Copyright 2017-2019 UPLEX - Nils Goroll Systemoptimierung
+ * Copyright 2017-2023 UPLEX - Nils Goroll Systemoptimierung
  * All rights reserved.
  *
  * Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
@@ -41,16 +41,10 @@ VTAILQ_HEAD(dynamic_ref_head, dynamic_ref);
 
 extern struct VSC_lck *lck_be;
 
-struct dynamic_backend {
-	VCL_BACKEND			dir;
-	struct lock			mtx;
-	unsigned			refcount;
-};
-
 struct dynamic_ref {
-	struct dynamic_domain		*dom;
 	VTAILQ_ENTRY(dynamic_ref)	list;
-	struct dynamic_backend		*be;
+	struct dynamic_domain		*dom;
+	VCL_BACKEND			dir;
 };
 
 enum dynamic_status_e {

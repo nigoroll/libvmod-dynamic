@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2015-2016 Varnish Software AS
- * Copyright 2017-2019 UPLEX - Nils Goroll Systemoptimierung
+ * Copyright 2017-2023 UPLEX - Nils Goroll Systemoptimierung
  * All rights reserved.
  *
  * Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
@@ -45,7 +45,6 @@
 #include <cache/cache.h>
 #include <cache/cache_backend.h>
 
-#include <vsb.h>
 #include <vsa.h>
 #include <vtim.h>
 #include <vtcp.h>
@@ -56,6 +55,7 @@
 
 #define LOG(ctx, slt, dom, fmt, ...)				\
 	do {							\
+		/*lint -e{506,774}*/				\
 		if (ctx != NULL && (ctx)->vsl != NULL)		\
 			VSLb((ctx)->vsl, slt,			\
 			    "vmod-dynamic: %s %s %s:%s " fmt,	\
@@ -146,7 +146,7 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 		if (next == NULL)
 			next = VTAILQ_FIRST(&dom->refs);
 	} while (next != dom->current &&
-		 !VRT_Healthy(ctx, next->be->dir, NULL));
+		 !VRT_Healthy(ctx, next->dir, NULL));
 
 	dom->current = next;
 
@@ -155,7 +155,7 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 	if (next == NULL)
 		return (NULL);
 
-	dir = next->be->dir;
+	dir = next->dir;
 
 	return (dir);
 }
@@ -184,8 +184,8 @@ dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 
 	/* One healthy backend is enough for the director to be healthy */
 	VTAILQ_FOREACH(r, &dom->refs, list) {
-		CHECK_OBJ_NOTNULL(r->be->dir, DIRECTOR_MAGIC);
-		retval = VRT_Healthy(ctx, r->be->dir, &c);
+		CHECK_OBJ_NOTNULL(r->dir, DIRECTOR_MAGIC);
+		retval = VRT_Healthy(ctx, r->dir, &c);
 		if (c > cc)
 			cc = c;
 		if (retval)
@@ -209,87 +209,48 @@ dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 static void
 dynamic_del(VRT_CTX, struct dynamic_ref *r)
 {
-	struct dynamic_domain *dom;
-	struct dynamic_backend *b;
-	struct vrt_ctx tmp;
 	struct backend *be;
-	unsigned refcount;
-	VCL_BACKEND d;
 
 	AN(r);
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r->dom, DYNAMIC_DOMAIN_MAGIC);
 
-	b = r->be;
-	AN(b);
-	CHECK_OBJ_NOTNULL(b->dir, DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(r->dir, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(be, r->dir->priv, BACKEND_MAGIC);
 
-	dom = r->dom;
-
-	/* TODO - change locking regime
-	if (ctx != NULL) {
-		Lck_AssertHeld(&dom->mtx);
-		Lck_AssertHeld(&dom->obj->mtx);
-	}
-	*/
-	if (ctx == NULL) {
-		// TODO ASSERT_CLI();
-		INIT_OBJ(&tmp, VRT_CTX_MAGIC);
-		tmp.vcl = dom->obj->vcl;
-		ctx = &tmp;
-	}
-
+	DBG(ctx, r->dom, "unref-backend %s", be->vcl_name);
+	VRT_Assign_Backend(&r->dir, NULL);
 	free(r);
-
-	Lck_Lock(&b->mtx);
-	AN(b->refcount);
-	refcount = --b->refcount;
-	d = b->dir;
-	Lck_Unlock(&b->mtx);
-
-	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
-	CAST_OBJ_NOTNULL(be, d->priv, BACKEND_MAGIC);
-
-	DBG(ctx, dom, "unref-backend %s (%d remaining)", be->vcl_name,
-	    refcount);
-
-	if (refcount > 0)
-		return;
-
-	DBG(ctx, dom, "delete-backend %s", be->vcl_name);
-
-	AN(ctx->vcl);
-	VRT_delete_backend(ctx, &b->dir);
-	AZ(b->dir);
-	Lck_Delete(&b->mtx);
-
-	free(b);
 }
 
 static struct dynamic_ref *
-dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
+ref_new(struct dynamic_domain *dom)
 {
 	struct dynamic_ref *r;
-	struct backend *be;
-	unsigned refcount;
-	VCL_BACKEND d;
 
 	r = malloc(sizeof *r);
 	AN(r);
 	memset(r, 0, sizeof *r);
 	r->dom = dom;
-	r->be = b;
-	Lck_Lock(&b->mtx);
-	refcount= ++b->refcount;
-	Lck_Unlock(&b->mtx);
+	return (r);
+}
+
+static struct dynamic_ref *
+dynamic_ref(VRT_CTX, struct dynamic_domain *dom, VCL_BACKEND dir)
+{
+	struct dynamic_ref *r;
+	struct backend *be;
+
+	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+
+	r = ref_new(dom);
+	VRT_Assign_Backend(&r->dir, dir);
+
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 
-	d = b->dir;
-	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
-	CAST_OBJ_NOTNULL(be, d->priv, BACKEND_MAGIC);
+	CAST_OBJ_NOTNULL(be, dir->priv, BACKEND_MAGIC);
 
-	DBG(ctx, dom, "ref-backend %s (%d in total)", be->vcl_name,
-	    refcount);
+	DBG(ctx, dom, "ref-backend %s", be->vcl_name);
 
 	return (r);
 }
@@ -334,10 +295,8 @@ bedir_compare_ip(VCL_BACKEND d, const struct suckaddr *sa)
 static inline int
 ref_compare_ip(struct dynamic_ref *r, const struct suckaddr *sa)
 {
-	struct dynamic_backend *b;
 
-	b = r->be;
-	return (bedir_compare_ip(b->dir, sa));
+	return (bedir_compare_ip(r->dir, sa));
 }
 
 static int
@@ -373,7 +332,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	char vcl_name[1024];
 	struct vrt_backend vrt;
 	struct vrt_endpoint ep;
-	struct dynamic_backend *b;
+	struct dynamic_ref *r;
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
@@ -382,11 +341,6 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	Lck_AssertHeld(&dom->obj->mtx);
 
 	VTCP_name(info->sa, addr, sizeof addr, port, sizeof port);
-
-	b = malloc(sizeof *b);
-	AN(b);
-	memset(b, 0, sizeof *b);
-	Lck_New(&b->mtx, lck_be);
 
 	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
 
@@ -428,12 +382,12 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	}
 	vrt.endpoint = &ep;
 
-	b->dir = VRT_new_backend(ctx, &vrt, dom->obj->via);
-	AN(b->dir);
+	/* VRT_new_backend comes with a reference */
+	r = ref_new(dom);
+	r->dir = VRT_new_backend(ctx, &vrt, dom->obj->via);
+	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 
-	DBG(ctx, dom, "add-backend %s", vrt.vcl_name);
-
-	(void) dynamic_ref(ctx, dom, b);
+	DBG(ctx, dom, "new-backend %s", vrt.vcl_name);
 
 	return;
 }
@@ -499,7 +453,7 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 					break;
 			}
 			if (r != NULL)
-				r = dynamic_ref(&ctx, dom, r->be);
+				r = dynamic_ref(&ctx, dom, r->dir);
 			Lck_Unlock(&dom2->mtx);
 			if (r != NULL)
 				break;
@@ -514,13 +468,11 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	VTAILQ_FOREACH_SAFE(r, oldrefs, list, r2) {
 		if (r == dom->current)
 			dom->current = VTAILQ_FIRST(&dom->refs);
+		dynamic_del(&ctx, r);
 	}
 
 	Lck_Unlock(&dom->mtx);
 	Lck_Unlock(&dom->obj->mtx);
-
-	VTAILQ_FOREACH_SAFE(r, oldrefs, list, r2)
-	    dynamic_del(&ctx, r);
 
 	// deadline only used by this thread - safe outside lock
 	if (isnan(ttl)) {

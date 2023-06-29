@@ -7,6 +7,12 @@ version 2.8.0.
 vmod_dynamic NEXT
 =================
 
+* Internal handling of backends has been substantially refactored,
+  with the ultimate goal to use the updated varnish API for reference
+  counting of backends.
+
+  This should eleminate any use-after-free issues.
+
 * vmod_dynamic now supports *via* backends, which, besides other use
   cases, enables dynamic https backends with a TLS *onloader*
   accepting the connection parameters from a PROXY protocol preamble.
