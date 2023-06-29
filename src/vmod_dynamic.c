@@ -56,7 +56,7 @@
 
 #define LOG(ctx, slt, dom, fmt, ...)				\
 	do {							\
-		if ((ctx)->vsl != NULL)				\
+		if (ctx != NULL && (ctx)->vsl != NULL)		\
 			VSLb((ctx)->vsl, slt,			\
 			    "vmod-dynamic: %s %s %s:%s " fmt,	\
 			    (dom)->obj->vcl_conf,		\
