@@ -258,8 +258,6 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 
 	DBG(ctx, dom, "delete-backend %s", be->vcl_name);
 
-	free(be->vcl_name);
-
 	AN(ctx->vcl);
 	VRT_delete_backend(ctx, &b->dir);
 	AZ(b->dir);
@@ -372,10 +370,10 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 {
 	char addr[VTCP_ADDRBUFSIZE];
 	char port[VTCP_PORTBUFSIZE];
+	char vcl_name[1024];
 	struct vrt_backend vrt;
 	struct vrt_endpoint ep;
 	struct dynamic_backend *b;
-	struct vsb *vsb;
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
@@ -390,31 +388,25 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	memset(b, 0, sizeof *b);
 	Lck_New(&b->mtx, lck_be);
 
-	vsb = VSB_new_auto();
-	AN(vsb);
-
 	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
 
 	switch (dom->obj->share) {
 	case DIRECTOR:
 		vrt.authority = vrt.hosthdr = dom->obj->hosthdr;
-		VSB_printf(vsb, "%s(%s:%s)", dom->obj->vcl_name, addr,
+		bprintf(vcl_name, "%s(%s:%s)", dom->obj->vcl_name, addr,
 		    dom_port(dom));
 		break;
 	case HOST:
 		vrt.authority = vrt.hosthdr =
 		    (dom->obj->hosthdr ? dom->obj->hosthdr : dom->addr);
-		VSB_printf(vsb, "%s.%s(%s:%s)", dom->obj->vcl_name, dom->addr,
+		bprintf(vcl_name, "%s.%s(%s:%s)", dom->obj->vcl_name, dom->addr,
 		    addr, dom_port(dom));
 		break;
 	default:
 		INCOMPL();
 	}
-	AZ(VSB_finish(vsb));
-	vrt.vcl_name = strdup(VSB_data(vsb));
-	AN(vrt.vcl_name);
-	VSB_destroy(&vsb);
 
+	vrt.vcl_name = vcl_name;
 	vrt.probe = dom->obj->probe;
 	vrt.connect_timeout = dom->obj->connect_tmo;
 	vrt.first_byte_timeout = dom->obj->first_byte_tmo;
