@@ -326,6 +326,15 @@ bedir_compare_ip(VCL_BACKEND d, const struct suckaddr *sa)
 	return (vep_compare(be->endpoint, sa));
 }
 
+static inline int
+ref_compare_ip(struct dynamic_ref *r, const struct suckaddr *sa)
+{
+	struct dynamic_backend *b;
+
+	b = r->be;
+	return (bedir_compare_ip(b->dir, sa));
+}
+
 static struct dynamic_backend *
 dynamic_director_find(struct vmod_dynamic_director *obj,
     const struct suckaddr *sa)
@@ -481,8 +490,7 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 
 		/* search this domain's backends */
 		VTAILQ_FOREACH(r, oldrefs, list) {
-			b = r->be;
-			if (! bedir_compare_ip(b->dir, info->sa))
+			if (! ref_compare_ip(r, info->sa))
 				break;
 		}
 		if (r != NULL) {
