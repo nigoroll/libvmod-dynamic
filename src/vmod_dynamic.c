@@ -257,7 +257,6 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 
 	free(be->vcl_name);
 
-	VTAILQ_REMOVE(&dom->obj->backends, b, list);
 	AN(ctx->vcl);
 	VRT_delete_backend(ctx, &b->dir);
 
@@ -333,24 +332,6 @@ ref_compare_ip(struct dynamic_ref *r, const struct suckaddr *sa)
 
 	b = r->be;
 	return (bedir_compare_ip(b->dir, sa));
-}
-
-static struct dynamic_backend *
-dynamic_director_find(struct vmod_dynamic_director *obj,
-    const struct suckaddr *sa)
-{
-	struct dynamic_backend *b;
-
-	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-
-	assert (obj->share != HOST);
-
-	VTAILQ_FOREACH(b, &obj->backends, list) {
-		if (! bedir_compare_ip(b->dir, sa))
-			return (b);
-	}
-
-	return (NULL);
 }
 
 static int
@@ -453,7 +434,6 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 
 	(void) dynamic_ref(ctx, dom, b);
 
-	VTAILQ_INSERT_TAIL(&dom->obj->backends, b, list);
 	return;
 }
 
@@ -462,8 +442,8 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
     void *priv, vtim_real now)
 {
 	struct dynamic_ref_head oldrefs[1];
+	struct dynamic_domain *dom2;
 	struct dynamic_ref *r, *r2;
-	struct dynamic_backend *b;
 	struct vrt_ctx ctx;
 	uint8_t suckbuf[vsa_suckaddr_len];
 	struct res_info ibuf[1] = {{ .suckbuf = suckbuf }};
@@ -499,13 +479,34 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 			continue;
 		}
 
-		/* search all of director's backends if sharing allows */
-		if (dom->obj->share != HOST &&
-		    (b = dynamic_director_find(dom->obj, info->sa)) != NULL) {
-			(void) dynamic_ref(&ctx, dom, b);
-			continue;
-		}
+		if (dom->obj->share == HOST)
+			goto add_dom;
 
+		/*
+		 * search the director's other domains
+		 *
+		 * XXX services
+		 */
+		AZ(r);
+		VTAILQ_FOREACH(dom2, &dom->obj->active_domains, list) {
+			if (dom2 == dom)
+				continue;
+			CHECK_OBJ_NOTNULL(dom2, DYNAMIC_DOMAIN_MAGIC);
+			Lck_Lock(&dom2->mtx);
+			VTAILQ_FOREACH(r, &dom2->refs, list) {
+				if (! ref_compare_ip(r, info->sa))
+					break;
+			}
+			if (r != NULL)
+				r = dynamic_ref(&ctx, dom, r->be);
+			Lck_Unlock(&dom2->mtx);
+			if (r != NULL)
+				break;
+		}
+		if (r != NULL)
+			continue;
+
+	  add_dom:
 		dynamic_add(&ctx, dom, info);
 	}
 
@@ -1017,7 +1018,6 @@ vmod_director__init(VRT_CTX,
 	VTAILQ_INIT(&obj->purged_domains);
 	VTAILQ_INIT(&obj->active_services);
 	VTAILQ_INIT(&obj->purged_services);
-	VTAILQ_INIT(&obj->backends);
 	REPLACE(obj->vcl_name, vcl_name);
 	REPLACE(obj->port, port);
 
@@ -1092,8 +1092,6 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 		VTAILQ_REMOVE(&obj->active_domains, dom, list);
 		dynamic_free(NULL, dom);
 	}
-
-	assert(VTAILQ_EMPTY(&obj->backends));
 
 	Lck_Delete(&obj->mtx);
 	free(obj->vcl_name);

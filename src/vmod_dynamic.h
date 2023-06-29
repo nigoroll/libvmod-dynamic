@@ -43,7 +43,6 @@ extern struct VSC_lck *lck_be;
 
 struct dynamic_backend {
 	VCL_BACKEND			dir;
-	VTAILQ_ENTRY(dynamic_backend)	list;
 	unsigned			refcount;
 };
 
@@ -175,7 +174,6 @@ struct vmod_dynamic_director {
 	VTAILQ_HEAD(,dynamic_domain)		purged_domains;
 	VTAILQ_HEAD(,dynamic_service)		active_services;
 	VTAILQ_HEAD(,dynamic_service)		purged_services;
-	VTAILQ_HEAD(,dynamic_backend)		backends;
 	const char				*vcl_conf;
 	struct vcl				*vcl;
 	struct vclref				*vclref;

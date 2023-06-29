@@ -28,6 +28,7 @@ varnish v1 -vcl+backend {
 
 	sub vcl_recv {
 		set req.backend_hint = d1.backend(req.http.Host);
+		return (pass);
 	}
 
 	sub vcl_backend_error {
@@ -61,6 +62,8 @@ client c1 {
 	expect resp.status == 200
 } -run
 
-varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 3
+varnish v1 -cliok "backend.list"
+# the backend got recreated after the localhost domain went away
+varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
 
 logexpect l1 -wait
