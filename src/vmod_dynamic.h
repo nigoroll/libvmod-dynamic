@@ -43,6 +43,7 @@ extern struct VSC_lck *lck_be;
 
 struct dynamic_backend {
 	VCL_BACKEND			dir;
+	struct lock			mtx;
 	unsigned			refcount;
 };
 

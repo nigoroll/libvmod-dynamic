@@ -213,6 +213,7 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 	struct dynamic_backend *b;
 	struct vrt_ctx tmp;
 	struct backend *be;
+	unsigned refcount;
 	VCL_BACKEND d;
 
 	AN(r);
@@ -240,17 +241,19 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 
 	free(r);
 
+	Lck_Lock(&b->mtx);
 	AN(b->refcount);
-	b->refcount--;
-
+	refcount = --b->refcount;
 	d = b->dir;
+	Lck_Unlock(&b->mtx);
+
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(be, d->priv, BACKEND_MAGIC);
 
 	DBG(ctx, dom, "unref-backend %s (%d remaining)", be->vcl_name,
-	    b->refcount);
+	    refcount);
 
-	if (b->refcount > 0)
+	if (refcount > 0)
 		return;
 
 	DBG(ctx, dom, "delete-backend %s", be->vcl_name);
@@ -259,6 +262,8 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 
 	AN(ctx->vcl);
 	VRT_delete_backend(ctx, &b->dir);
+	AZ(b->dir);
+	Lck_Delete(&b->mtx);
 
 	free(b);
 }
@@ -268,6 +273,7 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 {
 	struct dynamic_ref *r;
 	struct backend *be;
+	unsigned refcount;
 	VCL_BACKEND d;
 
 	r = malloc(sizeof *r);
@@ -275,7 +281,9 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 	memset(r, 0, sizeof *r);
 	r->dom = dom;
 	r->be = b;
-	b->refcount++;
+	Lck_Lock(&b->mtx);
+	refcount= ++b->refcount;
+	Lck_Unlock(&b->mtx);
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 
 	d = b->dir;
@@ -283,7 +291,7 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, struct dynamic_backend *b)
 	CAST_OBJ_NOTNULL(be, d->priv, BACKEND_MAGIC);
 
 	DBG(ctx, dom, "ref-backend %s (%d in total)", be->vcl_name,
-	    b->refcount);
+	    refcount);
 
 	return (r);
 }
@@ -380,6 +388,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	b = malloc(sizeof *b);
 	AN(b);
 	memset(b, 0, sizeof *b);
+	Lck_New(&b->mtx, lck_be);
 
 	vsb = VSB_new_auto();
 	AN(vsb);
@@ -513,11 +522,13 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	VTAILQ_FOREACH_SAFE(r, oldrefs, list, r2) {
 		if (r == dom->current)
 			dom->current = VTAILQ_FIRST(&dom->refs);
-		dynamic_del(&ctx, r);
 	}
 
 	Lck_Unlock(&dom->mtx);
 	Lck_Unlock(&dom->obj->mtx);
+
+	VTAILQ_FOREACH_SAFE(r, oldrefs, list, r2)
+	    dynamic_del(&ctx, r);
 
 	// deadline only used by this thread - safe outside lock
 	if (isnan(ttl)) {
@@ -779,12 +790,10 @@ dynamic_release(VCL_BACKEND dir)
 	AZ(dom->thread);
 	assert(dom->status == DYNAMIC_ST_READY);
 
-	Lck_Lock(&dom->mtx);
 	VTAILQ_FOREACH_SAFE(r, &dom->refs, list, r2) {
 		VTAILQ_REMOVE(&dom->refs, r, list);
 		dynamic_del(NULL, r);
 	}
-	Lck_Unlock(&dom->mtx);
 }
 
 static void v_matchproto_(vdi_destroy_f)
