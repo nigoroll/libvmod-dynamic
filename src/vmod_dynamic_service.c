@@ -83,12 +83,18 @@ static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 service_resolve(VRT_CTX, VCL_BACKEND);
 static VCL_BOOL v_matchproto_(vdi_healthy_f)
 service_healthy(VRT_CTX, VCL_BACKEND, VCL_TIME *);
+static void v_matchproto_(vdi_release_f)
+service_release(VCL_BACKEND dir);
+static void v_matchproto_(vdi_destroy_f)
+service_destroy(VCL_BACKEND dir);
 
 static const struct vdi_methods vmod_dynamic_service_methods[1] = {{
 	.magic =	VDI_METHODS_MAGIC,
 	.type =		"dynamic service",
 	.healthy =	service_healthy,
-	.resolve =	service_resolve
+	.resolve =	service_resolve,
+	.release =	service_release,
+	.destroy =	service_destroy
 }};
 
 /*--------------------------------------------------------------------
@@ -566,25 +572,31 @@ service_lookup_thread(void *priv)
 	return (NULL);
 }
 
-static void
-service_free(VRT_CTX, struct dynamic_service *srv)
+static void v_matchproto_(vdi_release_f)
+service_release(VCL_BACKEND dir)
 {
-	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
+	struct dynamic_service *srv;
+
+	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(srv, dir->priv, DYNAMIC_SERVICE_MAGIC);
+
 	AZ(srv->thread);
 	assert(srv->status == DYNAMIC_ST_READY);
-
-	VRT_DelDirector(&srv->dir);
-
-	if (ctx != NULL) {
-		Lck_AssertHeld(&srv->obj->mtx);
-		LOG(ctx, SLT_VCL_Log, srv, "%s", "deleted");
-	}
 
 	if (srv->prios_cold != NULL)
 		service_prios_free(&srv->prios_cold);
 	if (srv->prios != NULL)
 		service_prios_free(&srv->prios);
+}
+
+static void v_matchproto_(vdi_destroy_f)
+service_destroy(VCL_BACKEND dir)
+{
+	struct dynamic_service *srv;
+
+	CAST_OBJ_NOTNULL(srv, dir->priv, DYNAMIC_SERVICE_MAGIC);
+	AZ(srv->thread);
+	assert(srv->status == DYNAMIC_ST_READY);
 	AZ(srv->prios_cold);
 	AZ(srv->prios);
 
@@ -593,6 +605,22 @@ service_free(VRT_CTX, struct dynamic_service *srv)
 	Lck_Delete(&srv->mtx);
 	REPLACE(srv->service, NULL);
 	FREE_OBJ(srv);
+}
+
+static void
+service_free(VRT_CTX, struct dynamic_service *srv)
+{
+	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
+	AZ(srv->thread);
+	assert(srv->status == DYNAMIC_ST_READY);
+
+	if (ctx != NULL) {
+		Lck_AssertHeld(&srv->obj->mtx);
+		LOG(ctx, SLT_VCL_Log, srv, "%s", "deleted");
+	}
+
+	VRT_DelDirector(&srv->dir);
 }
 
 static void
