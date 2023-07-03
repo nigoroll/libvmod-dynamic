@@ -255,7 +255,7 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 			dom = dynamic_get(ctx, obj, t->target, portbuf);
 			AN(dom);
 			dom->last_used = ctx->now;
-			t->dir = dom->dir;
+			VRT_Assign_Backend(&t->dir, dom->dir);
 			CHECK_OBJ_NOTNULL(t->dir, DIRECTOR_MAGIC);
 			n++;
 		}
@@ -293,6 +293,8 @@ service_prios_free(struct service_prios **priosp)
 		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
 		VTAILQ_FOREACH_SAFE(t, &p->targets, list, tt) {
 			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
+			VRT_Assign_Backend(&t->dir, NULL);
+			AZ(t->dir);
 			AN(t->target);
 			free(t->target);
 			FREE_OBJ(t);
