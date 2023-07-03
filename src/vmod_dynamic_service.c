@@ -156,10 +156,9 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 		n = w = 0;
 		VTAILQ_FOREACH(t, &p->targets, list) {
 			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
-			CHECK_OBJ_NOTNULL(t->dom, DYNAMIC_DOMAIN_MAGIC);
-			if (! VRT_Healthy(ctx, t->dom->dir, NULL))
+			if (! VRT_Healthy(ctx, t->dir, NULL))
 				continue;
-			h[n].d = t->dom->dir;
+			h[n].d = t->dir;
 			h[n].w = t->weight;
 			w += t->weight;
 			n++;
@@ -219,8 +218,7 @@ service_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
 		VTAILQ_FOREACH(t, &p->targets, list) {
 			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
-			CHECK_OBJ_NOTNULL(t->dom, DYNAMIC_DOMAIN_MAGIC);
-			ret |= VRT_Healthy(ctx, t->dom->dir, &c);
+			ret |= VRT_Healthy(ctx, t->dir, &c);
 			if (changed != NULL && c > *changed)
 				*changed = c;
 		}
@@ -254,9 +252,11 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 		VTAILQ_FOREACH(t, &p->targets, list) {
 			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
 			bprintf(portbuf, "%u", t->port);
-			t->dom = dynamic_get(ctx, obj, t->target, portbuf);
-			AN(t->dom);
-			t->dom->last_used = ctx->now;
+			dom = dynamic_get(ctx, obj, t->target, portbuf);
+			AN(dom);
+			dom->last_used = ctx->now;
+			t->dir = dom->dir;
+			CHECK_OBJ_NOTNULL(t->dir, DIRECTOR_MAGIC);
 			n++;
 		}
 		p->n_targets = n;
@@ -269,8 +269,9 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
 		VTAILQ_FOREACH(t, &p->targets, list) {
 			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
-			dom = t->dom;
-			CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+			CHECK_OBJ_NOTNULL(t->dir, DIRECTOR_MAGIC);
+			CAST_OBJ_NOTNULL(dom, t->dir->priv,
+			    DYNAMIC_DOMAIN_MAGIC);
 			if (dom->status >= DYNAMIC_ST_ACTIVE)
 				continue;
 			Lck_Lock(&dom->mtx);

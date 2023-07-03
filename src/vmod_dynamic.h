@@ -94,7 +94,7 @@ struct service_target {
 #define SERVICE_TARGET_MAGIC		0xd15e71c7
 	uint32_t			weight;
 
-	struct dynamic_domain		*dom;
+	VCL_BACKEND			dir;
 	VTAILQ_ENTRY(service_target)	list;
 
 	/* not required, debug info only */
