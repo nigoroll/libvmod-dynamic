@@ -53,21 +53,28 @@
 #include "dyn_resolver.h"
 #include "vmod_dynamic.h"
 
-#define LOG(ctx, slt, dom, fmt, ...)				\
-	do {							\
-		/*lint -e{506,774}*/				\
-		if (ctx != NULL && (ctx)->vsl != NULL)		\
-			VSLb((ctx)->vsl, slt,			\
-			    "vmod-dynamic: %s %s %s:%s " fmt,	\
-			    (dom)->obj->vcl_conf,		\
-			    (dom)->obj->vcl_name, (dom)->addr,	\
-			    dom_port(dom), __VA_ARGS__);		\
-		else						\
-			VSL(slt, NO_VXID,				\
-			    "vmod-dynamic: %s %s %s:%s " fmt,	\
-			    (dom)->obj->vcl_conf,		\
-			    (dom)->obj->vcl_name, (dom)->addr,	\
-			    dom_port(dom), __VA_ARGS__);		\
+static void
+dylog(VRT_CTX, enum VSL_tag_e slt, const char *fmt, ...) v_printflike_(3, 4);
+static void
+dylog(VRT_CTX, enum VSL_tag_e slt, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	if (ctx != NULL && ctx->vsl != NULL)
+		VSLbv(ctx->vsl, slt, fmt, ap);
+	else
+		VSLv(slt, NO_VXID, fmt, ap);
+	va_end(ap);
+}
+
+#define LOG(ctx, slt, dom, fmt, ...)					\
+	do {								\
+		dylog(ctx, slt,					\
+		    "vmod-dynamic: %s %s %s:%s " fmt,			\
+		    (dom)->obj->vcl_conf,				\
+		    (dom)->obj->vcl_name, (dom)->addr,			\
+		    dom_port(dom), __VA_ARGS__);			\
 	} while (0)
 
 #define DBG(ctx, dom, fmt, ...)						\
