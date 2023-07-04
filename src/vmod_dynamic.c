@@ -47,7 +47,6 @@
 #include <cache/cache_backend.h>
 
 #include <vsa.h>
-#include <vsb.h>
 #include <vtim.h>
 #include <vtcp.h>
 
@@ -105,21 +104,6 @@ static const struct gethdr_s HDR_REQ_HOST = { HDR_REQ, "\005Host:"};
 static const struct gethdr_s HDR_BEREQ_HOST = { HDR_BEREQ, "\005Host:"};
 
 static struct vsc_seg * vsc = NULL;
-
-// XXX table?
-static const char * const share_s[SHARE_E_MAX] = {
-	[DEFAULT]	= "DEFAULT",
-	[DIRECTOR]	= "DIRECTOR",
-	[HOST]		= "HOST"
-};
-
-static const char * const ttl_s[TTL_E_MAX] = {
-	[cfg]	= "cfg",
-	[dns]	= "dns",
-	[min]	= "min",
-	[max]	= "max",
-};
-
 
 /*--------------------------------------------------------------------
  * Director implementation
@@ -227,82 +211,6 @@ dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 	dom->changed_cached = cc;
 	dom->healthy_cached = retval;
 	return (retval);
-}
-
-static void v_matchproto_(vdi_list_f)
-dynamic_list(VRT_CTX, VCL_BACKEND dir, struct vsb *vsb, int pflag, int jflag)
-{
-	const struct vmod_dynamic_director *obj;
-	struct dynamic_domain *dom;
-	struct dynamic_ref *r;
-
-	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
-	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
-	obj = dom->obj;
-	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-
-	VCL_BACKEND be;
-	VCL_BOOL h;
-	unsigned i = 0, nh = 0;
-
-	if (pflag) {
-		if (jflag) {
-			VSB_cat(vsb, "{\n");
-			VSB_indent(vsb, 2);
-#define DIRPROP(n, fmt, code)						\
-			VSB_printf(vsb, "\"%s\": " fmt ",\n", n, code);
-#include "tbl/list_prop.h"
-			VSB_cat(vsb, "\"backends\": {\n");
-			VSB_indent(vsb, 2);
-		} else {
-			VSB_cat(vsb, "\n\n\tBackend\tHealth\n");
-		}
-	}
-
-	Lck_Lock(&dom->mtx);
-	VTAILQ_FOREACH(r, &dom->refs, list) {
-		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
-		be = r->dir;
-		h = VRT_Healthy(ctx, be, NULL);
-		if (h)
-			nh++;
-		if (pflag && jflag) {
-			if (i)
-				VSB_cat(vsb, ",\n");
-			VSB_printf(vsb, "\"%s\": {\n",
-			    be->vcl_name);
-			VSB_indent(vsb, 2);
-			VSB_printf(vsb, "\"health\": \"%s\"\n",
-			    h ? "healthy" : "sick");
-			VSB_indent(vsb, -2);
-			VSB_cat(vsb, "}");
-		}
-		else if (pflag) {
-			VSB_printf(vsb, "\t%s\t%s\n",
-			    be->vcl_name,
-			    h ? "healthy" : "sick");
-		}
-		i++;
-	}
-	Lck_Unlock(&dom->mtx);
-
-	if (jflag && (pflag)) {
-		VSB_cat(vsb, "\n");
-		VSB_indent(vsb, -2);
-		VSB_cat(vsb, "}\n");
-		VSB_indent(vsb, -2);
-		VSB_cat(vsb, "},\n");
-	}
-
-	if (pflag)
-		return;
-
-	if (jflag)
-		VSB_printf(vsb, "[%u, %u, \"%s\"]", nh, i,
-		    nh ? "healthy" : "sick");
-	else
-		VSB_printf(vsb, "%u/%u\t%s", nh, i, nh ? "healthy" : "sick");
 }
 
 /*--------------------------------------------------------------------
@@ -894,8 +802,7 @@ static const struct vdi_methods vmod_dynamic_methods[1] = {{
 	.healthy =	dynamic_healthy,
 	.resolve =	dynamic_resolve,
 	.release =	dynamic_release,
-	.destroy =	dynamic_destroy,
-	.list =	dynamic_list
+	.destroy =	dynamic_destroy
 }};
 
 struct dynamic_domain *
@@ -999,11 +906,11 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 }
 
 static inline enum dynamic_share_e
-dynamic_share_parse(const char *s)
+dynamic_share_parse(const char *share_s)
 {
-	switch (s[0]) {
+	switch (share_s[0]) {
 	case 'D':
-		switch (s[1]) {
+		switch (share_s[1]) {
 		case 'E':
 			return DEFAULT;
 		case 'I':
@@ -1019,15 +926,15 @@ dynamic_share_parse(const char *s)
 }
 
 static inline enum dynamic_ttl_e
-dynamic_ttl_parse(const char *s)
+dynamic_ttl_parse(const char *ttl_s)
 {
-	switch (s[0]) {
+	switch (ttl_s[0]) {
 	case 'c':	return cfg;
 	case 'd':	return dns;
 	default:	break;
 	}
-	assert(s[0] == 'm');
-	switch (s[1]) {
+	assert(ttl_s[0] == 'm');
+	switch (ttl_s[1]) {
 	case 'i':	return min;
 	case 'a':	return max;
 	default:	break;
@@ -1042,7 +949,7 @@ vmod_director__init(VRT_CTX,
     const char *vcl_name,
     VCL_STRING port,
     VCL_STRING hosthdr,
-    VCL_ENUM share_arg,
+    VCL_ENUM share_s,
     VCL_PROBE probe,
     VCL_ACL whitelist,
     VCL_DURATION ttl,
@@ -1054,7 +961,7 @@ vmod_director__init(VRT_CTX,
     VCL_INT max_connections,
     VCL_INT proxy_header,
     VCL_BLOB resolver,
-    VCL_ENUM ttl_from_arg,
+    VCL_ENUM ttl_from_s,
     VCL_DURATION retry_after,
     VCL_BACKEND via,
     VCL_INT keep)
@@ -1115,7 +1022,7 @@ vmod_director__init(VRT_CTX,
 	obj->vcl = ctx->vcl;
 	obj->active = 0;
 	obj->hosthdr = hosthdr;
-	obj->share = dynamic_share_parse(share_arg);
+	obj->share = dynamic_share_parse(share_s);
 	obj->probe = probe;
 	obj->whitelist = whitelist;
 	obj->ttl = ttl;
@@ -1127,7 +1034,7 @@ vmod_director__init(VRT_CTX,
 	obj->first_lookup_tmo = first_lookup_timeout;
 	obj->max_connections = (unsigned)max_connections;
 	obj->proxy_header = (unsigned)proxy_header;
-	obj->ttl_from = dynamic_ttl_parse(ttl_from_arg);
+	obj->ttl_from = dynamic_ttl_parse(ttl_from_s);
 	obj->keep = (unsigned)keep;
 
 	if (resolver != NULL) {
@@ -1140,7 +1047,7 @@ vmod_director__init(VRT_CTX,
 		if (obj->ttl_from != cfg)
 			VRT_fail(ctx, "dynamic.director(): "
 			    "ttl_from = %s only valid with resolver",
-			    ttl_from_arg);
+			    ttl_from_s);
 		obj->resolver = &res_gai;
 	}
 

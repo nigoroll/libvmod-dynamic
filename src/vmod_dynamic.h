@@ -63,16 +63,14 @@ enum dynamic_status_e {
 enum dynamic_share_e {
 	DEFAULT,
 	DIRECTOR,
-	HOST,
-	SHARE_E_MAX
+	HOST
 };
 
 enum dynamic_ttl_e {
 	cfg,
 	dns,
 	min,
-	max,
-	TTL_E_MAX
+	max
 };
 
 struct dynamic_domain {
