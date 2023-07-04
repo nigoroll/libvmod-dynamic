@@ -819,8 +819,7 @@ dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 			dom = d;
 		}
 		if (dom != d && d->status == DYNAMIC_ST_ACTIVE &&
-		    obj->domain_usage_tmo > 0 &&
-		    ctx->now - d->last_used > obj->domain_usage_tmo) {
+		    ctx->now > d->expires) {
 			LOG(ctx, SLT_VCL_Log, d, "%s", "timeout");
 			Lck_Lock(&d->mtx);
 			d->status = DYNAMIC_ST_STALE;
@@ -903,14 +902,20 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
     const char *port)
 {
 	struct dynamic_domain *dom;
+	VCL_TIME t;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->mtx);
 	AN(addr);
 
+	t = ctx->now + obj->domain_usage_tmo;
+
 	dom = dynamic_search(ctx, obj, addr, port);
-	if (dom != NULL)
+	if (dom != NULL) {
+		if (t > dom->expires)
+			dom->expires = t;
 		return (dom);
+	}
 
 	ALLOC_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
 	AN(dom);
@@ -920,6 +925,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	REPLACE(dom->port, port);
 
 	dom->obj = obj;
+	dom->expires = t;
 
 	dom->dir = VRT_AddDirector(ctx, vmod_dynamic_methods, dom,
 	    "%s(%s:%s)", obj->vcl_name, addr, port);
@@ -1123,7 +1129,10 @@ vmod_director__init(VRT_CTX,
 	obj->connect_tmo = connect_timeout;
 	obj->first_byte_tmo = first_byte_timeout;
 	obj->between_bytes_tmo = between_bytes_timeout;
-	obj->domain_usage_tmo = domain_usage_timeout;
+	if (domain_usage_timeout == 0)
+		obj->domain_usage_tmo = HUGE_VAL;
+	else
+		obj->domain_usage_tmo = domain_usage_timeout;
 	obj->first_lookup_tmo = first_lookup_timeout;
 	obj->max_connections = (unsigned)max_connections;
 	obj->proxy_header = (unsigned)proxy_header;
@@ -1212,7 +1221,6 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 	Lck_Lock(&obj->mtx);
 	dom = dynamic_get(ctx, obj, host, port);
 	AN(dom);
-	dom->last_used = ctx->now;
 	Lck_Unlock(&obj->mtx);
 
 	return (dom->dir);

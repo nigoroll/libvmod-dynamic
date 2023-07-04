@@ -260,7 +260,6 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 			bprintf(portbuf, "%u", t->port);
 			dom = dynamic_get(ctx, obj, t->target, portbuf);
 			AN(dom);
-			dom->last_used = ctx->now;
 			VRT_Assign_Backend(&t->dir, dom->dir);
 			CHECK_OBJ_NOTNULL(t->dir, DIRECTOR_MAGIC);
 			n++;

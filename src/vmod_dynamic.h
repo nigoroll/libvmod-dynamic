@@ -83,14 +83,14 @@ struct dynamic_domain {
 	struct lock			mtx;
 	pthread_cond_t			cond;
 	pthread_cond_t			resolve;
-	VCL_TIME			last_used;
+	VCL_TIME			expires;
+	VCL_TIME			deadline;
 	VTAILQ_ENTRY(dynamic_domain)	list;
 	struct dynamic_ref_head	refs, oldrefs;
 	struct dynamic_ref		*current;
 	char				*addr;
 	char				*port;
 	VCL_BACKEND			dir;
-	vtim_real			deadline;
 	VCL_TIME			changed_cached;
 	volatile enum dynamic_status_e	status;
 	VCL_BOOL			healthy_cached;
