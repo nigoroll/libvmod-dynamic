@@ -7,6 +7,13 @@ version 2.8.0.
 vmod_dynamic NEXT
 =================
 
+* The new constructor parameter ``keep`` specifies for how many
+  updates to keep no longer referenced backends configured.
+
+  The main use case is to preserve backend statistics when name
+  resolution returns varying a subset of ip addresses from a larger
+  set.
+
 * Internal handling of backends has been substantially refactored,
   with the ultimate goal to use the updated varnish API for reference
   counting of backends.

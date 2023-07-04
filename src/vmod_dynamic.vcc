@@ -245,7 +245,8 @@ $Object director(
 	BLOB resolver				= NULL,
 	ENUM { cfg, dns, min, max } ttl_from	= "cfg",
 	DURATION retry_after			= 30,
-	BACKEND via				= NULL)
+	BACKEND via				= NULL,
+	INT keep				= 3)
 
 Description
 	Create a DNS director.
@@ -275,10 +276,12 @@ Parameters:
 
 	  Only name resolution results matching the acl will be used.
 
-	- *ttl* - delay between lookups (defaults to one hour)
+	- *ttl* - interval between lookups (defaults to one hour)
 
 	  Minimum configured backend lifetime before address resultion
-	  is re-checked, see also *ttl_from*
+	  is re-checked, see also :ref:`ref_ttl_from`.
+
+	  Related parameter: :ref:`ref_keep`
 
 	- *domain_usage_timeout*
 
@@ -327,6 +330,35 @@ Parameters:
 	  lookup errors (NXDOMAIN). After successful resolution,
 	  dynamic directors preserve existing address information if
 	  DNS resources are temporarily unavailable.
+
+.. _ref_keep:
+
+	- *keep* (default: 3)
+
+	  For how many subsequent updates to keep backends configured
+	  which are no longer returned by name resolution.
+
+	  Some DNS services do not return a stable set of IP addresses
+	  for consecutive queries, but rather a varying subset from a
+	  larger pool. The *keep* parameter is intended to keep
+	  backends configured but unused for such scenarios, in case
+	  they re-appear later.
+
+	  ``keep = 0`` releases backends immediately as soon as they
+	  are no longer contained in a resolution result.
+
+	  Any other number specifies for how many updates (in
+	  *ttl* intervals) to keep backends configured while they are
+	  not contained in the resolution result.
+
+	  .. _3949: https://github.com/varnishcache/varnish-cache/issues/3949
+
+	  Until Varnish-Cache issue `3949`_ is addressed, it is
+	  recommended to use a *keep* value of at least 1.
+
+	  The ``keep`` value must not be negative and it is capped to
+	  a high positive value (``UINT_MAX``, usually 4 294 967 295,
+	  see :ref:`limits.h(7POSIX)`).
 
 Parameters to set attributes of backends
 

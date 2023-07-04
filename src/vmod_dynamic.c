@@ -36,6 +36,7 @@
 #include <sys/types.h>
 
 #include <errno.h>
+#include <limits.h>
 #include <netdb.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -241,6 +242,7 @@ ref_new(struct dynamic_domain *dom)
 	ALLOC_OBJ(r, DYNAMIC_REF_MAGIC);
 	AN(r);
 	r->dom = dom;
+	r->keep = dom->obj->keep;
 	return (r);
 }
 
@@ -256,6 +258,7 @@ dynamic_ref(VRT_CTX, struct dynamic_domain *dom, VCL_BACKEND dir)
 	VRT_Assign_Backend(&r->dir, dir);
 
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
+	r->keep = dom->obj->keep;
 
 	CAST_OBJ_NOTNULL(be, dir->priv, BACKEND_MAGIC);
 
@@ -418,18 +421,13 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = dom->obj->vcl;
 
-	VTAILQ_FOREACH_SAFE(r, &dom->oldrefs, list, r2) {
-		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
-		VTAILQ_REMOVE(&dom->oldrefs, r, list);
-		dynamic_del(&ctx, r);
-	}
-
-	assert(VTAILQ_EMPTY(&dom->oldrefs));
-
 	Lck_Lock(&dom->obj->mtx);
 	Lck_Lock(&dom->mtx);
 
+	// refs first in oldrefs
 	VTAILQ_SWAP(&dom->refs, &dom->oldrefs, dynamic_ref, list);
+	VTAILQ_CONCAT(&dom->oldrefs, &dom->refs, list);
+	assert(VTAILQ_EMPTY(&dom->refs));
 
 	while ((info = res->result(ibuf, priv, &state)) != NULL) {
 		if (! dynamic_whitelisted(&ctx, dom, info->sa))
@@ -446,6 +444,7 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 		if (r != NULL) {
 			VTAILQ_REMOVE(&dom->oldrefs, r, list);
 			VTAILQ_INSERT_TAIL(&dom->refs, r, list);
+			r->keep = dom->obj->keep;
 			continue;
 		}
 
@@ -485,6 +484,14 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	}
 
 	Lck_Unlock(&dom->mtx);
+
+	VTAILQ_FOREACH_SAFE(r, &dom->oldrefs, list, r2) {
+		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
+		if (r->keep--)
+			continue;
+		VTAILQ_REMOVE(&dom->oldrefs, r, list);
+		dynamic_del(&ctx, r);
+	}
 
 	// deadline only used by this thread - safe outside lock
 	if (isnan(ttl)) {
@@ -946,7 +953,8 @@ vmod_director__init(VRT_CTX,
     VCL_BLOB resolver,
     VCL_ENUM ttl_from_s,
     VCL_DURATION retry_after,
-    VCL_BACKEND via)
+    VCL_BACKEND via,
+    VCL_INT keep)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -975,6 +983,12 @@ vmod_director__init(VRT_CTX,
                     "not be 0s");
                 return;
         }
+	if (keep < 0) {
+		VRT_fail(ctx, "dynamic.director(): keep may not be negative");
+                return;
+        }
+	if (keep > UINT_MAX)
+		keep = UINT_MAX;
 
         assert(ttl > 0);
         assert(domain_usage_timeout > 0);
@@ -1011,6 +1025,7 @@ vmod_director__init(VRT_CTX,
 	obj->max_connections = (unsigned)max_connections;
 	obj->proxy_header = (unsigned)proxy_header;
 	obj->ttl_from = dynamic_ttl_parse(ttl_from_s);
+	obj->keep = (unsigned)keep;
 
 	if (resolver != NULL) {
 		obj->resolver = &res_getdns;

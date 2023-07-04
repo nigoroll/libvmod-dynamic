@@ -44,6 +44,7 @@ extern struct VSC_lck *lck_be;
 struct dynamic_ref {
 	unsigned			magic;
 #define DYNAMIC_REF_MAGIC		0x79a19d81
+	unsigned			keep;
 	VTAILQ_ENTRY(dynamic_ref)	list;
 	struct dynamic_domain		*dom;
 	VCL_BACKEND			dir;
@@ -149,6 +150,7 @@ struct dynamic_service {
 struct vmod_dynamic_director {
 	unsigned				magic;
 #define VMOD_DYNAMIC_DIRECTOR_MAGIC		0x8a3e7fd1
+	unsigned				keep;
 	struct lock				mtx;
 	char					*vcl_name;
 	char					*port;
