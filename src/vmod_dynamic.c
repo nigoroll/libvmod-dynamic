@@ -148,6 +148,7 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 	next = dom->current;
 
 	do {
+		CHECK_OBJ_ORNULL(next, DYNAMIC_REF_MAGIC);
 		if (next != NULL)
 			next = VTAILQ_NEXT(next, list);
 		if (next == NULL)
@@ -161,6 +162,8 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 
 	if (next == NULL)
 		return (NULL);
+
+	CHECK_OBJ(next, DYNAMIC_REF_MAGIC);
 
 	dir = next->dir;
 
@@ -227,7 +230,7 @@ dynamic_del(VRT_CTX, struct dynamic_ref *r)
 
 	DBG(ctx, r->dom, "unref-backend %s", be->vcl_name);
 	VRT_Assign_Backend(&r->dir, NULL);
-	free(r);
+	FREE_OBJ(r);
 }
 
 static struct dynamic_ref *
@@ -235,9 +238,8 @@ ref_new(struct dynamic_domain *dom)
 {
 	struct dynamic_ref *r;
 
-	r = malloc(sizeof *r);
+	ALLOC_OBJ(r, DYNAMIC_REF_MAGIC);
 	AN(r);
-	memset(r, 0, sizeof *r);
 	r->dom = dom;
 	return (r);
 }
@@ -303,6 +305,7 @@ static inline int
 ref_compare_ip(struct dynamic_ref *r, const struct suckaddr *sa)
 {
 
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_REF_MAGIC);
 	return (bedir_compare_ip(r->dir, sa));
 }
 
@@ -416,6 +419,7 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	ctx.vcl = dom->obj->vcl;
 
 	VTAILQ_FOREACH_SAFE(r, &dom->oldrefs, list, r2) {
+		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
 		VTAILQ_REMOVE(&dom->oldrefs, r, list);
 		dynamic_del(&ctx, r);
 	}
@@ -472,9 +476,11 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 		dynamic_add(&ctx, dom, info);
 	}
 
-	VTAILQ_FOREACH_SAFE(r, &dom->oldrefs, list, r2)
+	VTAILQ_FOREACH_SAFE(r, &dom->oldrefs, list, r2) {
+		CHECK_OBJ_NOTNULL(r, DYNAMIC_REF_MAGIC);
 		if (r == dom->current)
 			dom->current = VTAILQ_FIRST(&dom->refs);
+	}
 
 	Lck_Unlock(&dom->mtx);
 	Lck_Unlock(&dom->obj->mtx);
@@ -740,10 +746,12 @@ dynamic_release(VCL_BACKEND dir)
 	assert(dom->status == DYNAMIC_ST_READY);
 
 	VTAILQ_FOREACH_SAFE(r, &dom->refs, list, r2) {
+		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
 		VTAILQ_REMOVE(&dom->refs, r, list);
 		dynamic_del(NULL, r);
 	}
 	VTAILQ_FOREACH_SAFE(r, &dom->oldrefs, list, r2) {
+		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
 		VTAILQ_REMOVE(&dom->oldrefs, r, list);
 		dynamic_del(NULL, r);
 	}

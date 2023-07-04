@@ -42,6 +42,8 @@ VTAILQ_HEAD(dynamic_ref_head, dynamic_ref);
 extern struct VSC_lck *lck_be;
 
 struct dynamic_ref {
+	unsigned			magic;
+#define DYNAMIC_REF_MAGIC		0x79a19d81
 	VTAILQ_ENTRY(dynamic_ref)	list;
 	struct dynamic_domain		*dom;
 	VCL_BACKEND			dir;
