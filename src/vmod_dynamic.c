@@ -323,6 +323,8 @@ ref_del(VRT_CTX, struct dynamic_ref *r)
 
 	DBG(ctx, r->dom, "unref-backend %s", be->vcl_name);
 	VRT_Assign_Backend(&r->dir, NULL);
+	if (r->sa != NULL)
+		VSA_free(&r->sa);
 	FREE_OBJ(r);
 }
 
@@ -352,9 +354,11 @@ ref_clone(VRT_CTX, struct dynamic_domain *dom, const struct dynamic_ref *s)
 
 	r = ref_new(dom);
 	VRT_Assign_Backend(&r->dir, s->dir);
+	r->keep = dom->obj->keep;
+	if (s->sa)
+		r->sa = VSA_Clone(s->sa);
 
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
-	r->keep = dom->obj->keep;
 
 	CAST_OBJ_NOTNULL(be, s->dir->priv, BACKEND_MAGIC);
 
@@ -405,7 +409,7 @@ ref_compare_ip(struct dynamic_ref *r, const struct suckaddr *sa)
 {
 
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_REF_MAGIC);
-	return (bedir_compare_ip(r->dir, sa));
+	return (r->sa ? VSA_Compare(r->sa, sa) : bedir_compare_ip(r->dir, sa));
 }
 
 static int
@@ -494,6 +498,8 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	/* VRT_new_backend comes with a reference */
 	r = ref_new(dom);
 	r->dir = VRT_new_backend(ctx, &vrt, dom->obj->via);
+	if (dom->obj->via != NULL)
+		r->sa = VSA_Clone(info->sa);
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 
 	DBG(ctx, dom, "new-backend %s", vrt.vcl_name);

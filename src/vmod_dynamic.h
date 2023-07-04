@@ -48,6 +48,8 @@ struct dynamic_ref {
 	VTAILQ_ENTRY(dynamic_ref)	list;
 	struct dynamic_domain		*dom;
 	VCL_BACKEND			dir;
+	// if via is used
+	const struct suckaddr		*sa;
 };
 
 enum dynamic_status_e {
