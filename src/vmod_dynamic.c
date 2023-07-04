@@ -476,6 +476,8 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 		dynamic_add(&ctx, dom, info);
 	}
 
+	Lck_Unlock(&dom->obj->mtx);
+
 	VTAILQ_FOREACH_SAFE(r, &dom->oldrefs, list, r2) {
 		CHECK_OBJ_NOTNULL(r, DYNAMIC_REF_MAGIC);
 		if (r == dom->current)
@@ -483,7 +485,6 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	}
 
 	Lck_Unlock(&dom->mtx);
-	Lck_Unlock(&dom->obj->mtx);
 
 	// deadline only used by this thread - safe outside lock
 	if (isnan(ttl)) {
