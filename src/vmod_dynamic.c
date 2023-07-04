@@ -338,21 +338,25 @@ ref_new(struct dynamic_domain *dom)
 	return (r);
 }
 
+/* clone an existing reference under a different domain */
 static struct dynamic_ref *
-dynamic_ref(VRT_CTX, struct dynamic_domain *dom, VCL_BACKEND dir)
+ref_clone(VRT_CTX, struct dynamic_domain *dom, const struct dynamic_ref *s)
 {
 	struct dynamic_ref *r;
 	struct backend *be;
 
-	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+	CHECK_OBJ_NOTNULL(s, DYNAMIC_REF_MAGIC);
+	CHECK_OBJ_NOTNULL(s->dir, DIRECTOR_MAGIC);
+
+	assert(dom != s->dom);
 
 	r = ref_new(dom);
-	VRT_Assign_Backend(&r->dir, dir);
+	VRT_Assign_Backend(&r->dir, s->dir);
 
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 	r->keep = dom->obj->keep;
 
-	CAST_OBJ_NOTNULL(be, dir->priv, BACKEND_MAGIC);
+	CAST_OBJ_NOTNULL(be, s->dir->priv, BACKEND_MAGIC);
 
 	DBG(ctx, dom, "ref-backend %s", be->vcl_name);
 
@@ -555,7 +559,7 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 					break;
 			}
 			if (r != NULL)
-				r = dynamic_ref(&ctx, dom, r->dir);
+				r = ref_clone(&ctx, dom, r);
 			Lck_Unlock(&dom2->mtx);
 			if (r != NULL)
 				break;
