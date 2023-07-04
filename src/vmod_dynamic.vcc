@@ -614,9 +614,171 @@ example uses `vmod_re`_ for clarity::
           }
   }
 
+STATUS DETAILS
+==============
 
+Status about dynamic backends can be queried using the
+``backend.list`` :ref:`varnish-cli(7)` command. There are four
+variants of the output, explained as examples with a vcl named ``vcl``
+and a dynamic director named ``dyn`` with a probe definition, having
+resolved ``www.****.de`` (some actual domain hosted by Akamai). All
+examples are abbreviated.
 
+* ``backend.list``
 
+  Shows terse, textual information about the director for the dynamic
+  domain with the number of backends in the ``Probe`` column and all
+  configured backends (which may be more than the actively used ones,
+  see `keep`_)::
+
+    Backend name                 Admin  Probe  Health   Last change
+    vcl.dyn(www.****.de:(null))  probe  9/9    healthy  Tue, 04 Jul 2023 15:08:55 GMT
+    vcl.dyn(88.221.123.83:http)  probe  8/8    healthy  Tue, 04 Jul 2023 15:08:55 GMT
+    vcl.dyn(88.221.123.65:http)  probe  8/8    healthy  Tue, 04 Jul 2023 15:08:55 GMT
+    vcl.dyn(88.221.123.43:http)  probe  8/8    healthy  Tue, 04 Jul 2023 15:08:55 GMT
+    vcl.dyn(88.221.123.73:http)  probe  8/8    healthy  Tue, 04 Jul 2023 15:08:55 GMT
+    ...
+
+* ``backend.list -p``
+
+  Shows detailed, textual information about the director for the
+  dynamic domain with details about all active backends, followed by
+  configured backends (which may be more than the actively used ones,
+  see `keep`_)::
+
+    Backend name                 Admin                     Probe    Health   Last change
+    vcl.dyn(www.****.de:(null))  probe                     9/9      healthy  Tue, 04 Jul 2023 15:08:55 GMT
+    
+                                 Backend                   Health
+                                 dyn(88.221.123.106:http)  healthy
+                                 dyn(88.221.123.120:http)  healthy
+                                 dyn(88.221.123.98:http)   healthy
+                                 dyn(88.221.123.83:http)   healthy
+                                 dyn(88.221.123.105:http)  healthy
+                                 dyn(88.221.123.112:http)  healthy
+                                 dyn(88.221.123.122:http)  healthy
+                                 dyn(88.221.123.91:http)   healthy
+                                 dyn(88.221.123.88:http)   healthy
+    
+    vcl.dyn(88.221.123.83:http)  probe                     8/8      healthy  Tue, 04 Jul 2023 15:08:55 GMT
+     Current states  good:  8 threshold:  3 window:  8
+      Average response time of good probes: 0.114404
+      Oldest ================================================== Newest
+      --------------------------------44444444444444444444444444444444 Good IPv4
+      --------------------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX Good Xmit
+      --------------------------------RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR Good Recv
+      ------------------------------HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH Happy
+    ...
+
+* ``backend.list -j``
+
+  Shows terse information in JSON format. Information about the
+  dynamic domain does not exceed that of an ordinary backend, the
+  probe message gives the number of healthy backends, total number of
+  backends and the overall health status::
+
+    [ 3, ["backend.list", "-j"], 1688484208.766,
+      {
+        "vcl.dyn(www.****.de:(null))": {
+          "type": "dynamic",
+          "admin_health": "probe",
+          "probe_message": [9, 9, "healthy"],
+          "last_change": 1688484005.035
+        },
+        "vcl.dyn(88.221.123.19:http)": {
+          "type": "backend",
+          "admin_health": "probe",
+          "probe_message": [8, 8, "healthy"],
+          "last_change": 1688484005.037
+        },
+        ...
+
+* ``backend.list -pj``
+
+  Shows detailed information in JSON format. The dynamic domain object
+  contains as ``probe_details`` most properties of the dynamic
+  director VCL object. Note that, due to Varnish-Cache API
+  limitations, for ``probe`` and ``whitelist``, only a boolean value
+  can be returned. The list of backends represents the active
+  backends::
+
+    [ 3, ["backend.list", "-jp"], 1688484368.378,
+      {
+        "vcl.dyn(www.****.de:(null))": {
+          "type": "dynamic",
+          "admin_health": "probe",
+          "probe_message": [8, 9, "healthy"],
+          "probe_details": {
+            "port": "http",
+            "hosthdr": "",
+            "share": "DIRECTOR",
+            "probe": true,
+            "whitelist": false,
+            "connect_timeout": 0.00,
+            "first_byte_timeout": 0.00,
+            "between_bytes_timeout": 0.00,
+            "domain_usage_timeout": 7200.00,
+            "first_lookup_timeout": 10.00,
+            "max_connections": 0,
+            "proxy_header": 0,
+            "resolver": "getaddrinfo",
+            "retry_after": 30.00,
+            "via": "",
+            "ttl_from": "cfg",
+            "ttl": 1.00,
+            "keep": 600,
+            "backends": {
+              "dyn(88.221.123.120:http)": {
+                "health": "healthy"
+              },
+              "dyn(88.221.123.106:http)": {
+                "health": "healthy"
+              },
+              "dyn(88.221.123.90:http)": {
+                "health": "sick"
+              },
+              "dyn(88.221.123.112:http)": {
+                "health": "healthy"
+              },
+              "dyn(88.221.123.24:http)": {
+                "health": "healthy"
+              },
+              "dyn(88.221.123.16:http)": {
+                "health": "healthy"
+              },
+              "dyn(88.221.123.82:http)": {
+                "health": "healthy"
+              },
+              "dyn(88.221.123.25:http)": {
+                "health": "healthy"
+              },
+              "dyn(88.221.123.18:http)": {
+                "health": "healthy"
+              }
+            }
+          },
+          "last_change": 1688484005.035
+        },
+        "vcl.dyn(88.221.123.19:http)": {
+          "type": "backend",
+          "admin_health": "probe",
+          "probe_message": [8, 8, "healthy"],
+          "probe_details": {
+            "bits_4": 18446744073709551615,
+            "bits_6": 0,
+            "bits_U": 0,
+            "bits_x": 0,
+            "bits_X": 18446744073709551615,
+            "bits_r": 0,
+            "bits_R": 18446744073709551615,
+            "bits_H": 18446744073709551615,
+            "good": 8,
+            "threshold": 3,
+            "window": 8
+          },
+          "last_change": 1688484005.037
+        },
+        ...
 
 PITFALLS
 ========

@@ -7,6 +7,9 @@ version 2.8.0.
 vmod_dynamic NEXT
 =================
 
+* A ``backend.list`` callback has been implemented to query details
+  about dynamic domains and their active backends.
+
 * The new constructor parameter ``keep`` specifies for how many
   updates to keep no longer referenced backends configured.
 
