@@ -1,6 +1,6 @@
 #-
 # Copyright (c) 2015-2016 Dridi Boukelmoune
-# Copyright 2017-2019 UPLEX - Nils Goroll Systemoptimierung
+# Copyright 2017-2023 UPLEX - Nils Goroll Systemoptimierung
 #
 # Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
 #	   Nils Goroll <nils.goroll@uplex.de>
@@ -137,7 +137,7 @@ either ``dns``, ``min`` or ``max`` as in this example::
 			);
 	}
 
-See `ref_ttl_from`_ for details.
+See `ttl_from`_ for details.
 
 .. _ref_vmod_dynamic_names:
 
@@ -261,16 +261,16 @@ Parameters:
 
 	- *share* (defaults to ``"DIRECTOR"``)
 
-	  Backend sharing scope, see :ref:`ref_vmod_dynamic_share`
+	  Backend sharing scope, see `BACKEND SHARING`_
 
 	- *host_header* (defaults to none)
 
 	  `host_header` attribute for dynamically created backends.
-	  See also :ref:`ref_vmod_dynamic_probe`
+	  See also `PROBING`_
 
 	- *probe* (defaults to none)
 
-	  Probe to use. See also :ref:`ref_vmod_dynamic_probe`
+	  Probe to use. See also `PROBING`_
 
 	- *whitelist* - an acl (defaults to none)
 
@@ -279,9 +279,9 @@ Parameters:
 	- *ttl* - interval between lookups (defaults to one hour)
 
 	  Minimum configured backend lifetime before address resultion
-	  is re-checked, see also :ref:`ref_ttl_from`.
+	  is re-checked, see also `ttl_from`_
 
-	  Related parameter: :ref:`ref_keep`
+	  Related parameter: `keep`_
 
 	- *domain_usage_timeout*
 
@@ -302,7 +302,7 @@ Parameters:
 	  The argument to the *resolver* parameter must be the return
 	  value of the `xresolver.use()`_ method.
 
-.. _ref_ttl_from:
+.. _ttl_from:
 
 	- *ttl_from*
 
@@ -331,7 +331,7 @@ Parameters:
 	  dynamic directors preserve existing address information if
 	  DNS resources are temporarily unavailable.
 
-.. _ref_keep:
+.. _keep:
 
 	- *keep* (default: 3)
 
@@ -654,7 +654,7 @@ Breaking CHANGES
   ``whitelist mismatch`` and port information has been added.
 
 * Port information has been added to director/backend names and the
-  documentation section `ref_vmod_dynamic_names`_ has been added.
+  documentation section `NAMES`_ has been added.
 
 ACKNOWLEDGEMENTS
 ================
