@@ -310,7 +310,7 @@ dynamic_list(VRT_CTX, VCL_BACKEND dir, struct vsb *vsb, int pflag, int jflag)
  */
 
 static void
-dynamic_del(VRT_CTX, struct dynamic_ref *r)
+ref_del(VRT_CTX, struct dynamic_ref *r)
 {
 	struct backend *be;
 
@@ -586,7 +586,7 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 		if (r->keep--)
 			continue;
 		VTAILQ_REMOVE(&dom->oldrefs, r, list);
-		dynamic_del(&ctx, r);
+		ref_del(&ctx, r);
 	}
 
 	// deadline only used by this thread - safe outside lock
@@ -852,12 +852,12 @@ dynamic_release(VCL_BACKEND dir)
 	VTAILQ_FOREACH_SAFE(r, &dom->refs, list, r2) {
 		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
 		VTAILQ_REMOVE(&dom->refs, r, list);
-		dynamic_del(NULL, r);
+		ref_del(NULL, r);
 	}
 	VTAILQ_FOREACH_SAFE(r, &dom->oldrefs, list, r2) {
 		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
 		VTAILQ_REMOVE(&dom->oldrefs, r, list);
-		dynamic_del(NULL, r);
+		ref_del(NULL, r);
 	}
 }
 
