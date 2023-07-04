@@ -644,18 +644,6 @@ SEE ALSO
 * :ref:`nscd(8)`
 * :ref:`nsswitch.conf(5)`
 
-Breaking CHANGES
-================
-
-2.0 (2019-07-13)
-----------------
-
-* ``Error`` logging with ``acl-mismatch`` has been renamed to
-  ``whitelist mismatch`` and port information has been added.
-
-* Port information has been added to director/backend names and the
-  documentation section `NAMES`_ has been added.
-
 ACKNOWLEDGEMENTS
 ================
 
