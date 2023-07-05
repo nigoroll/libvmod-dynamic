@@ -644,6 +644,12 @@ dynamic_lookup_thread(void *priv)
 	while (obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
 
 		lookup = VTIM_real();
+		if (lookup > dom->expires) {
+			LOG(NULL, SLT_VCL_Log, dom, "%s", "timeout");
+			dom->status = DYNAMIC_ST_STALE;
+			break;
+		}
+
 		dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
 
 		ret = res->lookup(obj->resolver_inst, dom->addr,
@@ -678,63 +684,89 @@ dynamic_lookup_thread(void *priv)
 		/* Check status again after the blocking call */
 		if (obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
 			ret = Lck_CondWaitUntil(&dom->cond, &dom->mtx,
-			    dom->deadline);
+			    fmin(dom->deadline, dom->expires));
 			assert(ret == 0 || ret == ETIMEDOUT);
 		}
 
 		Lck_Unlock(&dom->mtx);
 	}
 
-	dom->status = DYNAMIC_ST_DONE;
+	if (dom->status == DYNAMIC_ST_STALE) {
+		Lck_Lock(&obj->mtx);
+		VTAILQ_REMOVE(&obj->active_domains, dom, list);
+		VTAILQ_INSERT_TAIL(&obj->purged_domains, dom, list);
+		Lck_Unlock(&obj->mtx);
+	}
+	else
+		dom->status = DYNAMIC_ST_DONE;
+
 	dynamic_timestamp(dom, "Done", VTIM_real(), 0., 0.);
 
 	return (NULL);
 }
 
 static void
-dynamic_free(VRT_CTX, struct dynamic_domain *dom)
+dynamic_free(struct dynamic_domain *dom)
 {
 
-	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 
-	if (ctx != NULL) {
-		Lck_AssertHeld(&dom->obj->mtx);
-		LOG(ctx, SLT_VCL_Log, dom, "%s", "deleted");
-	}
-
+	AZ(dom->thread);
+	LOG(NULL, SLT_VCL_Log, dom, "%s", "deleted");
 	VRT_DelDirector(&dom->dir);
 }
 
-static void
+static enum dynamic_status_e
 dynamic_join(struct dynamic_domain *dom)
 {
+	enum dynamic_status_e status;
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	AN(dom->thread);
 	AZ(pthread_join(dom->thread, NULL));
-	assert(dom->status == DYNAMIC_ST_DONE);
+	status = dom->status;
+	assert(status == DYNAMIC_ST_DONE || status == DYNAMIC_ST_STALE);
 	dom->thread = 0;
 	dom->status = DYNAMIC_ST_READY;
+	return (status);
+}
+
+static void
+dynamic_gc_purged(struct vmod_dynamic_director *obj)
+{
+	struct dynamic_domain *dom;
+
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
+	Lck_AssertHeld(&obj->mtx);
+
+	while ((dom = VTAILQ_FIRST(&obj->purged_domains)) != NULL) {
+		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+		assert(dom->status == DYNAMIC_ST_STALE);
+		VTAILQ_REMOVE(&obj->purged_domains, dom, list);
+		Lck_Unlock(&obj->mtx);
+		(void) dynamic_join(dom);
+		dynamic_free(dom);
+		Lck_Lock(&obj->mtx);
+	}
 }
 
 static void
 dynamic_stop(struct vmod_dynamic_director *obj)
 {
-	struct dynamic_domain *dom, *d2;
+	struct dynamic_domain *dom;
+	struct dynamic_domain_head active_done;
+	enum dynamic_status_e status;
 
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
 	service_stop(obj);
 
-	/* NB: At this point we got a COLD event so there are no ongoing
-	 * transactions. It means that remaining threads accessing obj are
-	 * lookup threads. They may modify the backends list for the last
-	 * time but no domain will be added or removed from the lists.
-	 * Long story short: we don't need to lock the object's mutex.
-	 */
+	VTAILQ_INIT(&active_done);
 
+	Lck_Lock(&obj->mtx);
+	AZ(obj->active);
+	// obj-active has been cleared, wake up all threads
 	VTAILQ_FOREACH(dom, &obj->active_domains, list) {
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		Lck_Lock(&dom->mtx);
@@ -743,22 +775,35 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 		Lck_Unlock(&dom->mtx);
 	}
 
-	/* NB: After a call to pthread_join we know for sure that the only
-	 * potential contender stopped. Therefore locking is no longer
-	 * required to access a (struct dynamic_domain *)->status.
-	 */
+	while (! (VTAILQ_EMPTY(&obj->purged_domains) &&
+		  VTAILQ_EMPTY(&obj->active_domains))) {
+		// finished threads can be picked up already
+		dynamic_gc_purged(obj);
 
-	VTAILQ_FOREACH(dom, &obj->active_domains, list)
-		dynamic_join(dom);
-
-	VTAILQ_FOREACH_SAFE(dom, &obj->purged_domains, list, d2) {
-		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-		assert(dom->status == DYNAMIC_ST_STALE ||
-		    dom->status == DYNAMIC_ST_DONE);
-		dynamic_join(dom);
-		VTAILQ_REMOVE(&obj->purged_domains, dom, list);
-		dynamic_free(NULL, dom);
+		while ((dom = VTAILQ_FIRST(&obj->active_domains)) != NULL) {
+			CHECK_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
+			Lck_Unlock(&obj->mtx);
+			status = dynamic_join(dom);
+			assert(dom->status == DYNAMIC_ST_READY);
+			Lck_Lock(&obj->mtx);
+			AZ(dom->thread);
+			switch (status) {
+			case DYNAMIC_ST_STALE:
+				VTAILQ_REMOVE(&obj->purged_domains, dom, list);
+				dynamic_free(dom);
+				break;
+			case DYNAMIC_ST_DONE:
+				VTAILQ_REMOVE(&obj->active_domains, dom, list);
+				VTAILQ_INSERT_TAIL(&active_done, dom, list);
+				break;
+			default:
+				WRONG("status in dynamic_stop");
+			}
+		}
 	}
+	assert(VTAILQ_EMPTY(&obj->active_domains));
+	VTAILQ_SWAP(&obj->active_domains, &active_done, dynamic_domain, list);
+	Lck_Unlock(&obj->mtx);
 
 	VRT_VCL_Allow_Discard(&obj->vclref);
 }
@@ -798,45 +843,26 @@ dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 }
 
 static struct dynamic_domain *
-dynamic_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
+dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
     const char *port)
 {
-	struct dynamic_domain *dom, *d, *d2;
+	struct dynamic_domain *dom;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->mtx);
 	AN(addr);
 
+	if (VTAILQ_FIRST(&obj->purged_domains))
+		dynamic_gc_purged(obj);
+
 	if (port != NULL)
 		AN(*port);
 
-	dom = NULL;
-	VTAILQ_FOREACH_SAFE(d, &obj->active_domains, list, d2) {
-		CHECK_OBJ_NOTNULL(d, DYNAMIC_DOMAIN_MAGIC);
-		if (!strcmp(d->addr, addr) &&
-		    (port == NULL || !strcmp(dom_port(d), port))) {
-			AZ(dom);
-			dom = d;
-		}
-		if (dom != d && d->status == DYNAMIC_ST_ACTIVE &&
-		    ctx->now > d->expires) {
-			LOG(ctx, SLT_VCL_Log, d, "%s", "timeout");
-			Lck_Lock(&d->mtx);
-			d->status = DYNAMIC_ST_STALE;
-			AZ(pthread_cond_signal(&d->cond));
-			Lck_Unlock(&d->mtx);
-			VTAILQ_REMOVE(&obj->active_domains, d, list);
-			VTAILQ_INSERT_TAIL(&obj->purged_domains, d, list);
-		}
-	}
-
-	VTAILQ_FOREACH_SAFE(d, &obj->purged_domains, list, d2) {
-		CHECK_OBJ_NOTNULL(d, DYNAMIC_DOMAIN_MAGIC);
-		if (d->status == DYNAMIC_ST_DONE) {
-			dynamic_join(d);
-			VTAILQ_REMOVE(&obj->purged_domains, d, list);
-			dynamic_free(ctx, d);
-		}
+	VTAILQ_FOREACH(dom, &obj->active_domains, list) {
+		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+		if (!strcmp(dom->addr, addr) &&
+		    (port == NULL || !strcmp(dom_port(dom), port)))
+			break;
 	}
 
 	return (dom);
@@ -910,7 +936,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 
 	t = ctx->now + obj->domain_usage_tmo;
 
-	dom = dynamic_search(ctx, obj, addr, port);
+	dom = dynamic_search(obj, addr, port);
 	if (dom != NULL) {
 		if (t > dom->expires)
 			dom->expires = t;
@@ -1182,17 +1208,16 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 
 	service_fini(obj);
 
-	/* Backends will be deleted by the VCL, pass a NULL struct ctx */
-	VTAILQ_FOREACH_SAFE(dom, &obj->purged_domains, list, d2) {
-		VTAILQ_REMOVE(&obj->purged_domains, dom, list);
-		dynamic_free(NULL, dom);
-	}
+	// removed by transition to cold / active == 0
+	assert(VTAILQ_EMPTY(&obj->purged_domains));
 
 	VTAILQ_FOREACH_SAFE(dom, &obj->active_domains, list, d2) {
 		VTAILQ_REMOVE(&obj->active_domains, dom, list);
-		dynamic_free(NULL, dom);
+		dynamic_free(dom);
 	}
 
+	assert(VTAILQ_EMPTY(&obj->purged_domains));
+	assert(VTAILQ_EMPTY(&obj->active_domains));
 	Lck_Delete(&obj->mtx);
 	free(obj->vcl_name);
 	FREE_OBJ(obj);

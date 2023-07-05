@@ -38,6 +38,7 @@
 #endif
 
 VTAILQ_HEAD(dynamic_ref_head, dynamic_ref);
+VTAILQ_HEAD(dynamic_domain_head, dynamic_domain);
 
 extern struct VSC_lck *lck_be;
 
@@ -173,8 +174,8 @@ struct vmod_dynamic_director {
 	unsigned				proxy_header;
 	VCL_BACKEND				via;
 	VTAILQ_ENTRY(vmod_dynamic_director)	list;
-	VTAILQ_HEAD(,dynamic_domain)		active_domains;
-	VTAILQ_HEAD(,dynamic_domain)		purged_domains;
+	struct dynamic_domain_head		active_domains;
+	struct dynamic_domain_head		purged_domains;
 	VTAILQ_HEAD(,dynamic_service)		active_services;
 	VTAILQ_HEAD(,dynamic_service)		purged_services;
 	const char				*vcl_conf;

@@ -2,9 +2,9 @@ varnishtest "Smoke test"
 
 feature cmd "getent hosts localhost"
 
-server s1 {
-       rxreq
-       txresp
+server s1 -keepalive -repeat 2 {
+	rxreq
+	txresp
 } -start
 
 varnish v1 -vcl+backend {
@@ -16,6 +16,7 @@ varnish v1 -vcl+backend {
 
 	sub vcl_recv {
 		set req.backend_hint = d1.backend("localhost");
+		return (pass);
 	}
 
 	sub vcl_backend_error {
@@ -37,3 +38,25 @@ varnish v1 -cliok "backend.list"
 varnish v1 -cliok "backend.list -p"
 varnish v1 -cliok "backend.list -j"
 varnish v1 -cliok "backend.list -jp"
+
+# cold/warm keeps backend in place
+
+varnish v1 -vcl {backend foo none;}
+varnish v1 -cliok "vcl.state vcl1 cold"
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 503
+} -run
+
+varnish v1 -cliok "vcl.state vcl1 warm"
+varnish v1 -cliok "vcl.use vcl1"
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+} -run
+
+varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
