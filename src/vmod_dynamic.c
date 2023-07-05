@@ -438,7 +438,7 @@ dom_whitelisted(VRT_CTX, const struct dynamic_domain *dom,
 
 /* all parameters owned by caller */
 static void
-ref_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
+ref_add(VRT_CTX, struct dynamic_domain *dom, const struct suckaddr *sa)
 {
 	char addr[VTCP_ADDRBUFSIZE];
 	char port[VTCP_PORTBUFSIZE];
@@ -449,11 +449,11 @@ ref_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	AN(info);
+	AN(sa);
 	Lck_AssertHeld(&dom->mtx);
 	Lck_AssertHeld(&dom->obj->mtx);
 
-	VTCP_name(info->sa, addr, sizeof addr, port, sizeof port);
+	VTCP_name(sa, addr, sizeof addr, port, sizeof port);
 
 	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
 
@@ -483,12 +483,12 @@ ref_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	assert(vrt.proxy_header <= 2);
 	INIT_OBJ(&ep, VRT_ENDPOINT_MAGIC);
 
-	switch (VSA_Get_Proto(info->sa)) {
+	switch (VSA_Get_Proto(sa)) {
 	case AF_INET:
-		ep.ipv4 = info->sa;
+		ep.ipv4 = sa;
 		break;
 	case AF_INET6:
-		ep.ipv6 = info->sa;
+		ep.ipv6 = sa;
 		break;
 	default:
 		WRONG("unexpected family");
@@ -499,7 +499,7 @@ ref_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 	r = ref_new(dom);
 	r->dir = VRT_new_backend(ctx, &vrt, dom->obj->via);
 	if (dom->obj->via != NULL)
-		r->sa = VSA_Clone(info->sa);
+		r->sa = VSA_Clone(sa);
 	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 
 	DBG(ctx, dom, "new-backend %s", vrt.vcl_name);
@@ -574,7 +574,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 			continue;
 
 	  ref_add:
-		ref_add(&ctx, dom, info);
+		ref_add(&ctx, dom, info->sa);
 	}
 
 	Lck_Unlock(&dom->obj->mtx);
