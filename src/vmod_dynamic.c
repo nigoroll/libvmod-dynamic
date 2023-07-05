@@ -1102,32 +1102,32 @@ vmod_director__init(VRT_CTX,
 
 	if (port == NULL || *port == '\0') {
 		VRT_fail(ctx, "dynamic.director(): port may not be empty");
-                return;
-        }
+		return;
+	}
 	if (ttl == 0) {
 		VRT_fail(ctx, "dynamic.director(): ttl may not be 0s");
-                return;
-        }
+		return;
+	}
 	if (domain_usage_timeout == 0) {
 		VRT_fail(ctx, "dynamic.director(): domain_usage_timeout may "
-                    "not be 0s");
-                return;
-        }
+		    "not be 0s");
+		return;
+	}
 	if (first_lookup_timeout == 0) {
 		VRT_fail(ctx, "dynamic.director(): first_lookup_timeout may "
-                    "not be 0s");
-                return;
-        }
+		    "not be 0s");
+		return;
+	}
 	if (keep < 0) {
 		VRT_fail(ctx, "dynamic.director(): keep may not be negative");
-                return;
-        }
+		return;
+	}
 	if (keep > UINT_MAX)
 		keep = UINT_MAX;
 
-        assert(ttl > 0);
-        assert(domain_usage_timeout > 0);
-        assert(first_lookup_timeout > 0);
+	assert(ttl > 0);
+	assert(domain_usage_timeout > 0);
+	assert(first_lookup_timeout > 0);
 	assert(connect_timeout >= 0);
 	assert(first_byte_timeout >= 0);
 	assert(between_bytes_timeout >= 0);
