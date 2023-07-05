@@ -537,6 +537,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 	uint8_t suckbuf[vsa_suckaddr_len];
 	struct res_info ibuf[1] = {{ .suckbuf = suckbuf }};
 	struct res_info *info;
+	enum dynamic_share_e share;
 	void *state = NULL;
 	vtim_dur ttl = NAN;
 	unsigned added = 0;
@@ -544,7 +545,10 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = dom->obj->vcl;
 
-	Lck_Lock(&dom->obj->mtx);
+	share = dom->obj->share;
+
+	if (share != HOST)
+		Lck_Lock(&dom->obj->mtx);
 	Lck_Lock(&dom->mtx);
 
 	// refs first in oldrefs
@@ -571,11 +575,12 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 			continue;
 		}
 
-		if (dom->obj->share == HOST)
+		if (share == HOST)
 			goto ref_add;
 
 		/* search the director's other domains */
 		AZ(r);
+		Lck_AssertHeld(&dom->obj->mtx);
 		VTAILQ_FOREACH(dom2, &dom->obj->active_domains, list) {
 			if (dom2 == dom)
 				continue;
@@ -606,8 +611,6 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 		VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 	}
 
-	Lck_Unlock(&dom->obj->mtx);
-
 	VTAILQ_FOREACH_SAFE(r, &dom->oldrefs, list, r2) {
 		CHECK_OBJ_NOTNULL(r, DYNAMIC_REF_MAGIC);
 		if (r == dom->current)
@@ -615,6 +618,8 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 	}
 
 	Lck_Unlock(&dom->mtx);
+	if (share != HOST)
+		Lck_Unlock(&dom->obj->mtx);
 
 	if (added) {
 		VTAILQ_FOREACH(r, &dom->refs, list) {
