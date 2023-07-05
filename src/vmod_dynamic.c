@@ -46,6 +46,7 @@
 #include <cache/cache.h>
 #include <cache/cache_backend.h>
 
+#include <vmb.h>
 #include <vsa.h>
 #include <vsb.h>
 #include <vtim.h>
@@ -135,8 +136,10 @@ dom_wait_active(struct dynamic_domain *dom)
 	if (dom->status >= DYNAMIC_ST_ACTIVE)
 		return;
 
-	ret = Lck_CondWaitTimeout(&dom->resolve, &dom->mtx,
-	    dom->obj->first_lookup_tmo);
+	ret = 0;
+	while (ret == 0 && dom->status < DYNAMIC_ST_ACTIVE)
+		ret = Lck_CondWaitTimeout(&dom->resolve, &dom->mtx,
+		    dom->obj->first_lookup_tmo);
 	assert(ret == 0 || ret == ETIMEDOUT);
 }
 
@@ -145,7 +148,6 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
 	struct dynamic_ref *next;
-	VCL_BACKEND dir;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
@@ -171,7 +173,8 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 		if (next == NULL)
 			next = VTAILQ_FIRST(&dom->refs);
 	} while (next != dom->current &&
-		 !VRT_Healthy(ctx, next->dir, NULL));
+		 (next->dir == NULL ||
+		  !VRT_Healthy(ctx, next->dir, NULL)));
 
 	dom->current = next;
 
@@ -181,10 +184,18 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 		return (NULL);
 
 	CHECK_OBJ(next, DYNAMIC_REF_MAGIC);
+	if (next->dir != NULL)
+		return (next->dir);
 
-	dir = next->dir;
+	// backend creation in progress
+	Lck_Lock(&dom->mtx);
+	while (next->dir == NULL)
+		AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
+	Lck_Unlock(&dom->mtx);
 
-	return (dir);
+	AN(next->dir);
+
+	return (next->dir);
 }
 
 static VCL_BOOL v_matchproto_(vdi_healthy_f)
@@ -211,7 +222,10 @@ dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 
 	/* One healthy backend is enough for the director to be healthy */
 	VTAILQ_FOREACH(r, &dom->refs, list) {
-		CHECK_OBJ_NOTNULL(r->dir, DIRECTOR_MAGIC);
+		if (r->dir == NULL)
+			continue;
+		VRMB();
+		CHECK_OBJ(r->dir, DIRECTOR_MAGIC);
 		retval = VRT_Healthy(ctx, r->dir, &c);
 		if (c > cc)
 			cc = c;
@@ -264,6 +278,9 @@ dom_list(VRT_CTX, VCL_BACKEND dir, struct vsb *vsb, int pflag, int jflag)
 	VTAILQ_FOREACH(r, &dom->refs, list) {
 		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
 		be = r->dir;
+		if (be == NULL)
+			continue;
+		VRMB();
 		h = VRT_Healthy(ctx, be, NULL);
 		if (h)
 			nh++;
@@ -438,22 +455,23 @@ dom_whitelisted(VRT_CTX, const struct dynamic_domain *dom,
 
 /* all parameters owned by caller */
 static void
-ref_add(VRT_CTX, struct dynamic_domain *dom, const struct suckaddr *sa)
+ref_add(VRT_CTX, struct dynamic_ref *r)
 {
+	const struct dynamic_domain *dom;
 	char addr[VTCP_ADDRBUFSIZE];
 	char port[VTCP_PORTBUFSIZE];
 	char vcl_name[1024];
 	struct vrt_backend vrt;
 	struct vrt_endpoint ep;
-	struct dynamic_ref *r;
+	VCL_BACKEND dir;
 
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_REF_MAGIC);
+	dom = r->dom;
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	AN(sa);
-	Lck_AssertHeld(&dom->mtx);
-	Lck_AssertHeld(&dom->obj->mtx);
+	AZ(r->dir);
+	AN(r->sa);
 
-	VTCP_name(sa, addr, sizeof addr, port, sizeof port);
+	VTCP_name(r->sa, addr, sizeof addr, port, sizeof port);
 
 	INIT_OBJ(&vrt, VRT_BACKEND_MAGIC);
 
@@ -483,12 +501,12 @@ ref_add(VRT_CTX, struct dynamic_domain *dom, const struct suckaddr *sa)
 	assert(vrt.proxy_header <= 2);
 	INIT_OBJ(&ep, VRT_ENDPOINT_MAGIC);
 
-	switch (VSA_Get_Proto(sa)) {
+	switch (VSA_Get_Proto(r->sa)) {
 	case AF_INET:
-		ep.ipv4 = sa;
+		ep.ipv4 = r->sa;
 		break;
 	case AF_INET6:
-		ep.ipv6 = sa;
+		ep.ipv6 = r->sa;
 		break;
 	default:
 		WRONG("unexpected family");
@@ -496,11 +514,13 @@ ref_add(VRT_CTX, struct dynamic_domain *dom, const struct suckaddr *sa)
 	vrt.endpoint = &ep;
 
 	/* VRT_new_backend comes with a reference */
-	r = ref_new(dom);
-	r->dir = VRT_new_backend(ctx, &vrt, dom->obj->via);
-	if (dom->obj->via != NULL)
-		r->sa = VSA_Clone(sa);
-	VTAILQ_INSERT_TAIL(&dom->refs, r, list);
+	dir = VRT_new_backend(ctx, &vrt, dom->obj->via);
+	// for non-via, the sa from the backend is used
+	if (dom->obj->via == NULL)
+		VSA_free(&r->sa);
+	VWMB();
+	AZ(r->dir);
+	r->dir = dir;
 
 	DBG(ctx, dom, "new-backend %s", vrt.vcl_name);
 
@@ -519,6 +539,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 	struct res_info *info;
 	void *state = NULL;
 	vtim_dur ttl = NAN;
+	unsigned added = 0;
 
 	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
 	ctx.vcl = dom->obj->vcl;
@@ -561,6 +582,10 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 			CHECK_OBJ_NOTNULL(dom2, DYNAMIC_DOMAIN_MAGIC);
 			Lck_Lock(&dom2->mtx);
 			VTAILQ_FOREACH(r, &dom2->refs, list) {
+				// tolerate dup backend for in progress
+				if (r->dir == NULL)
+					continue;
+				VRMB();
 				if (! ref_compare_ip(r, info->sa))
 					break;
 			}
@@ -574,7 +599,11 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 			continue;
 
 	  ref_add:
-		ref_add(&ctx, dom, info->sa);
+		added++;
+		r = ref_new(dom);
+		r->sa = VSA_Clone(info->sa);
+		AZ(r->dir);
+		VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 	}
 
 	Lck_Unlock(&dom->obj->mtx);
@@ -586,6 +615,17 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 	}
 
 	Lck_Unlock(&dom->mtx);
+
+	if (added) {
+		VTAILQ_FOREACH(r, &dom->refs, list) {
+			if (r->dir != NULL)
+				continue;
+			ref_add(&ctx, r);
+		}
+		Lck_Lock(&dom->mtx);
+		AZ(pthread_cond_broadcast(&dom->resolve));
+		Lck_Unlock(&dom->mtx);
+	}
 
 	VTAILQ_FOREACH_SAFE(r, &dom->oldrefs, list, r2) {
 		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
