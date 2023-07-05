@@ -86,7 +86,10 @@ struct dynamic_domain {
 	pthread_cond_t			resolve;
 	VCL_TIME			expires;
 	VCL_TIME			deadline;
-	VTAILQ_ENTRY(dynamic_domain)	list;
+	union {
+		VTAILQ_ENTRY(dynamic_domain)	list;
+//		VRBT_ENTRY(dynamic_domain)	tree;
+	} link;
 	struct dynamic_ref_head	refs, oldrefs;
 	struct dynamic_ref		*current;
 	char				*addr;
@@ -151,6 +154,7 @@ struct dynamic_service {
 	struct service_prios		*prios_cold;
 };
 
+//VRBT_HEAD(dynamic_domain_tree_head, dynamic_domian);
 
 struct vmod_dynamic_director {
 	unsigned				magic;
