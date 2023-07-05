@@ -438,7 +438,7 @@ dom_whitelisted(VRT_CTX, const struct dynamic_domain *dom,
 
 /* all parameters owned by caller */
 static void
-dom_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
+ref_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 {
 	char addr[VTCP_ADDRBUFSIZE];
 	char port[VTCP_PORTBUFSIZE];
@@ -551,7 +551,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 		}
 
 		if (dom->obj->share == HOST)
-			goto add_dom;
+			goto ref_add;
 
 		/* search the director's other domains */
 		AZ(r);
@@ -573,8 +573,8 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 		if (r != NULL)
 			continue;
 
-	  add_dom:
-		dom_add(&ctx, dom, info);
+	  ref_add:
+		ref_add(&ctx, dom, info);
 	}
 
 	Lck_Unlock(&dom->obj->mtx);
