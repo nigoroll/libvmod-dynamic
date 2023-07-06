@@ -214,9 +214,11 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 			next = VTAILQ_NEXT(next, list);
 		if (next == NULL)
 			next = VTAILQ_FIRST(&dom->refs);
-	} while (next != dom->current &&
-		 (next->dir == NULL ||
-		  !VRT_Healthy(ctx, next->dir, NULL)));
+		if (next == NULL)
+			break;
+		if (next->dir != NULL && VRT_Healthy(ctx, next->dir, NULL))
+			break;
+	} while (next != dom->current);
 
 	dom->current = next;
 
