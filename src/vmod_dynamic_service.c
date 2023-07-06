@@ -240,7 +240,7 @@ service_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
  * Background job
  */
 
-/* add all the dom objects an ensure they are active */
+/* add all the dom objects and ensure they are active */
 
 static void
 service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
