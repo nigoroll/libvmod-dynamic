@@ -129,6 +129,7 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 	const struct service_prios *prios;
 	const struct service_prio *p;
 	const struct service_target *t;
+	VCL_BACKEND dir;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
@@ -157,11 +158,13 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 	memset(h, 0, sizeof h);
 
 	n = w = 0;
+	dir = NULL;
 	VTAILQ_FOREACH(p, &prios->head, list) {
 		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
 		n = w = 0;
 		VTAILQ_FOREACH(t, &p->targets, list) {
 			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
+			dir = t->dir;
 			if (! VRT_Healthy(ctx, t->dir, NULL))
 				continue;
 			h[n].d = t->dir;
@@ -174,7 +177,7 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 			break;
 	}
 	if (n == 0)
-		return (NULL);
+		return (dir);
 	if (n == 1)
 		return (h[0].d);
 	// fixup zero weight
