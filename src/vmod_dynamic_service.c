@@ -721,8 +721,7 @@ service_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 		if (strcmp(s->service, service) == 0)
 			srv = s;
 		if (srv != s && s->status == DYNAMIC_ST_ACTIVE &&
-		    obj->domain_usage_tmo > 0 &&
-		    ctx->now - s->last_used > obj->domain_usage_tmo) {
+		    ctx->now - s->expires) {
 			LOG(ctx, SLT_VCL_Log, s, "%s", "timeout");
 			Lck_Lock(&s->mtx);
 			s->status = DYNAMIC_ST_STALE;
@@ -749,14 +748,20 @@ static struct dynamic_service *
 service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 {
 	struct dynamic_service *srv;
+	VCL_TIME t;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->services_mtx);
 	AN(service);
 
+	t = ctx->now + obj->domain_usage_tmo;
+
 	srv = service_search(ctx, obj, service);
-	if (srv != NULL)
+	if (srv != NULL) {
+		if (t > srv->expires)
+			srv->expires = t;
 		return (srv);
+	}
 
 	ALLOC_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
 	AN(srv);
@@ -764,6 +769,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	REPLACE(srv->service, service);
 
 	srv->obj = obj;
+	srv->expires = t;
 
 	srv->dir = VRT_AddDirector(ctx, vmod_dynamic_service_methods, srv,
 	    "%s(%s)", obj->vcl_name, service);
@@ -797,7 +803,6 @@ vmod_director_service(VRT_CTX, struct VPFX(dynamic_director) *obj,
 	Lck_Lock(&obj->services_mtx);
 	srv = service_get(ctx, obj, service);
 	AN(srv);
-	srv->last_used = ctx->now;
 	Lck_Unlock(&obj->services_mtx);
 
 	return (srv->dir);

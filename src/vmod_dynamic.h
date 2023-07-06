@@ -138,15 +138,15 @@ struct dynamic_service {
 	VTAILQ_ENTRY(dynamic_service)	list;
 	VCL_BACKEND			dir;
 
-	VCL_TIME			last_used;
+	VCL_TIME			expires;
+	VCL_TIME			deadline;
+
 	struct lock			mtx;
 	pthread_cond_t			cond;
 	volatile enum dynamic_status_e	status;
 
 	pthread_t			thread;
 	pthread_cond_t			resolve;
-
-	vtim_real			deadline;
 
 	// swapped, membar'ed
 	struct service_prios		*prios;
