@@ -39,6 +39,7 @@
 
 VTAILQ_HEAD(dynamic_ref_head, dynamic_ref);
 VTAILQ_HEAD(dynamic_domain_head, dynamic_domain);
+VTAILQ_HEAD(dynamic_service_head, dynamic_service);
 
 extern struct VSC_lck *lck_be;
 
@@ -181,8 +182,8 @@ struct vmod_dynamic_director {
 	struct dom_tree_head			active_domains;
 	struct dynamic_domain_head		expired_domains;
 	struct lock				services_mtx;
-	VTAILQ_HEAD(,dynamic_service)		active_services;
-	VTAILQ_HEAD(,dynamic_service)		purged_services;
+	struct dynamic_service_head		active_services;
+	struct dynamic_service_head		purged_services;
 	const char				*vcl_conf;
 	struct vcl				*vcl;
 	struct vclref				*vclref;

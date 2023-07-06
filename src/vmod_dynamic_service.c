@@ -513,6 +513,12 @@ service_lookup_thread(void *priv)
 	while (obj->active && srv->status <= DYNAMIC_ST_ACTIVE) {
 
 		lookup = VTIM_real();
+		if (lookup > srv->expires) {
+			LOG(NULL, SLT_VCL_Log, srv, "%s", "timeout");
+			srv->status = DYNAMIC_ST_STALE;
+			break;
+		}
+
 		service_timestamp(srv, "Lookup", lookup, 0., 0.);
 
 		ret = res->srv_lookup(obj->resolver_inst, srv->service,
@@ -557,14 +563,22 @@ service_lookup_thread(void *priv)
 		/* Check status again after the blocking call */
 		if (obj->active && srv->status <= DYNAMIC_ST_ACTIVE) {
 			ret = Lck_CondWaitUntil(&srv->cond, &srv->mtx,
-			    srv->deadline);
+			    fmin(srv->deadline, srv->expires));
 			assert(ret == 0 || ret == ETIMEDOUT);
 		}
 
 		Lck_Unlock(&srv->mtx);
 	}
 
-	srv->status = DYNAMIC_ST_DONE;
+	if (srv->status == DYNAMIC_ST_STALE) {
+		Lck_Lock(&obj->services_mtx);
+		VTAILQ_REMOVE(&obj->active_services, srv, list);
+		VTAILQ_INSERT_TAIL(&obj->purged_services, srv, list);
+		Lck_Unlock(&obj->services_mtx);
+	}
+	else
+		srv->status = DYNAMIC_ST_DONE;
+
 	service_timestamp(srv, "Done", VTIM_real(), 0., 0.);
 
 	return (NULL);
@@ -606,40 +620,65 @@ service_destroy(VCL_BACKEND dir)
 }
 
 static void
-service_free(VRT_CTX, struct dynamic_service *srv)
+service_free(struct dynamic_service *srv)
 {
-	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
-	AZ(srv->thread);
-	assert(srv->status == DYNAMIC_ST_READY);
 
-	if (ctx != NULL) {
-		Lck_AssertHeld(&srv->obj->services_mtx);
-		LOG(ctx, SLT_VCL_Log, srv, "%s", "deleted");
-	}
+	AZ(srv->thread);
+	LOG(NULL, SLT_VCL_Log, srv, "%s", "deleted");
 
 	VRT_DelDirector(&srv->dir);
 }
 
-static void
+static enum dynamic_status_e
 service_join(struct dynamic_service *srv)
 {
+	enum dynamic_status_e status;
+
 	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
 	AN(srv->thread);
 	AZ(pthread_join(srv->thread, NULL));
-	assert(srv->status == DYNAMIC_ST_DONE);
+	status = srv->status;
+	assert(status == DYNAMIC_ST_DONE || status == DYNAMIC_ST_STALE);
 	srv->thread = 0;
 	srv->status = DYNAMIC_ST_READY;
+	return (status);
+}
+
+static void
+service_gc_purged(struct vmod_dynamic_director *obj)
+{
+	struct dynamic_service *srv;
+
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
+	Lck_AssertHeld(&obj->services_mtx);
+
+	while ((srv = VTAILQ_FIRST(&obj->purged_services)) != NULL) {
+		CHECK_OBJ_NOTNULL(srv, DYNAMIC_DOMAIN_MAGIC);
+		assert(srv->status == DYNAMIC_ST_STALE);
+		VTAILQ_REMOVE(&obj->purged_services, srv, list);
+		Lck_Unlock(&obj->services_mtx);
+		(void) service_join(srv);
+		service_free(srv);
+		Lck_Lock(&obj->services_mtx);
+	}
 }
 
 // called from dynamic_stop
 void
 service_stop(struct vmod_dynamic_director *obj)
 {
-	struct dynamic_service *srv, *s2;
+	struct dynamic_service *srv;
+	struct dynamic_service_head active_done;
+	enum dynamic_status_e status;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
+	VTAILQ_INIT(&active_done);
+
+	Lck_Lock(&obj->services_mtx);
+	AZ(obj->active);
+	// wake up all threads
 	VTAILQ_FOREACH(srv, &obj->active_services, list) {
 		CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
 		Lck_Lock(&srv->mtx);
@@ -647,17 +686,36 @@ service_stop(struct vmod_dynamic_director *obj)
 		AZ(pthread_cond_signal(&srv->cond));
 		Lck_Unlock(&srv->mtx);
 	}
-	VTAILQ_FOREACH(srv, &obj->active_services, list)
-		service_join(srv);
 
-	VTAILQ_FOREACH_SAFE(srv, &obj->purged_services, list, s2) {
-		CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
-		assert(srv->status == DYNAMIC_ST_STALE ||
-		    srv->status == DYNAMIC_ST_DONE);
-		service_join(srv);
-		VTAILQ_REMOVE(&obj->purged_services, srv, list);
-		service_free(NULL, srv);
+	while (! (VTAILQ_EMPTY(&obj->purged_services) &&
+		  VTAILQ_EMPTY(&obj->active_services))) {
+		// finished threads can be picked up already
+		service_gc_purged(obj);
+
+		while ((srv = VTAILQ_FIRST(&obj->active_services)) != NULL) {
+			CHECK_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
+			Lck_Unlock(&obj->services_mtx);
+			status = service_join(srv);
+			assert(srv->status == DYNAMIC_ST_READY);
+			Lck_Lock(&obj->services_mtx);
+			AZ(srv->thread);
+			switch (status) {
+			case DYNAMIC_ST_STALE:
+				VTAILQ_REMOVE(&obj->purged_services, srv, list);
+				service_free(srv);
+				break;
+			case DYNAMIC_ST_DONE:
+				VTAILQ_REMOVE(&obj->active_services, srv, list);
+				VTAILQ_INSERT_TAIL(&active_done, srv, list);
+				break;
+			default:
+				WRONG("status in service_stop");
+			}
+		}
 	}
+	assert(VTAILQ_EMPTY(&obj->active_services));
+	VTAILQ_SWAP(&obj->active_services, &active_done, dynamic_service, list);
+	Lck_Unlock(&obj->services_mtx);
 }
 
 static void
@@ -694,51 +752,31 @@ service_fini(struct vmod_dynamic_director *obj)
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
-	VTAILQ_FOREACH_SAFE(srv, &obj->purged_services, list, s2) {
-		VTAILQ_REMOVE(&obj->purged_services, srv, list);
-		service_free(NULL, srv);
-	}
+	assert(VTAILQ_EMPTY(&obj->purged_services));
 
 	VTAILQ_FOREACH_SAFE(srv, &obj->active_services, list, s2) {
 		VTAILQ_REMOVE(&obj->active_services, srv, list);
-		service_free(NULL, srv);
+		service_free(srv);
 	}
 
 }
 
 static struct dynamic_service *
-service_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
+service_search(struct vmod_dynamic_director *obj, const char *service)
 {
-	struct dynamic_service *srv, *s, *s2;
+	struct dynamic_service *srv;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->services_mtx);
 	AN(service);
 
-	srv = NULL;
-	VTAILQ_FOREACH_SAFE(s, &obj->active_services, list, s2) {
-		CHECK_OBJ_NOTNULL(s, DYNAMIC_SERVICE_MAGIC);
-		if (strcmp(s->service, service) == 0)
-			srv = s;
-		if (srv != s && s->status == DYNAMIC_ST_ACTIVE &&
-		    ctx->now - s->expires) {
-			LOG(ctx, SLT_VCL_Log, s, "%s", "timeout");
-			Lck_Lock(&s->mtx);
-			s->status = DYNAMIC_ST_STALE;
-			AZ(pthread_cond_signal(&s->cond));
-			Lck_Unlock(&s->mtx);
-			VTAILQ_REMOVE(&obj->active_services, s, list);
-			VTAILQ_INSERT_TAIL(&obj->purged_services, s, list);
-		}
-	}
+	if (VTAILQ_FIRST(&obj->purged_services))
+		service_gc_purged(obj);
 
-	VTAILQ_FOREACH_SAFE(s, &obj->purged_services, list, s2) {
-		CHECK_OBJ_NOTNULL(s, DYNAMIC_SERVICE_MAGIC);
-		if (s->status == DYNAMIC_ST_DONE) {
-			service_join(s);
-			VTAILQ_REMOVE(&obj->purged_services, s, list);
-			service_free(ctx, s);
-		}
+	VTAILQ_FOREACH(srv, &obj->active_services, list) {
+		CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
+		if (! strcmp(srv->service, service))
+			break;
 	}
 
 	return (srv);
@@ -756,7 +794,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 
 	t = ctx->now + obj->domain_usage_tmo;
 
-	srv = service_search(ctx, obj, service);
+	srv = service_search(obj, service);
 	if (srv != NULL) {
 		if (t > srv->expires)
 			srv->expires = t;
