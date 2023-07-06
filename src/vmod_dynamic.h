@@ -133,10 +133,15 @@ struct service_prios {
 struct dynamic_service {
 	unsigned			magic;
 #define DYNAMIC_SERVICE_MAGIC		0xd15e71ce
+	volatile enum dynamic_status_e	status;
+	union {
+		VTAILQ_ENTRY(dynamic_service)   list;
+//		VRBT_ENTRY(dynamic_service)     tree;
+	} link;
+
 	struct vmod_dynamic_director	*obj;
 
 	char				*service;
-	VTAILQ_ENTRY(dynamic_service)	list;
 	VCL_BACKEND			dir;
 
 	VCL_TIME			expires;
@@ -144,7 +149,6 @@ struct dynamic_service {
 
 	struct lock			mtx;
 	pthread_cond_t			cond;
-	volatile enum dynamic_status_e	status;
 
 	pthread_t			thread;
 	pthread_cond_t			resolve;
