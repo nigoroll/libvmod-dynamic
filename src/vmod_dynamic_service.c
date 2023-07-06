@@ -655,12 +655,14 @@ service_destroy(VCL_BACKEND dir)
 }
 
 static void
-service_free(struct dynamic_service *srv)
+service_free(struct dynamic_service **srvp, const char *why)
 {
-	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
+	struct dynamic_service *srv;
+
+	TAKE_OBJ_NOTNULL(srv, srvp, DYNAMIC_SERVICE_MAGIC);
 
 	AZ(srv->thread);
-	LOG(NULL, SLT_VCL_Log, srv, "%s", "deleted");
+	LOG(NULL, SLT_VCL_Log, srv, "deleted (%s)", why);
 
 	VRT_DelDirector(&srv->dir);
 }
@@ -694,7 +696,7 @@ service_gc_purged(struct vmod_dynamic_director *obj)
 		VTAILQ_REMOVE(&obj->purged_services, srv, link.list);
 		Lck_Unlock(&obj->services_mtx);
 		(void) service_join(srv);
-		service_free(srv);
+		service_free(&srv, "expired");
 		Lck_Lock(&obj->services_mtx);
 	}
 }
@@ -737,7 +739,7 @@ service_stop(struct vmod_dynamic_director *obj)
 			switch (status) {
 			case DYNAMIC_ST_STALE:
 				VTAILQ_REMOVE(&obj->purged_services, srv, link.list);
-				service_free(srv);
+				service_free(&srv, "stop expired");
 				break;
 			case DYNAMIC_ST_DONE:
 				VRBT_REMOVE(srv_tree_head, &obj->active_services, srv);
@@ -791,7 +793,7 @@ service_fini(struct vmod_dynamic_director *obj)
 
 	while ((srv = VRBT_ROOT(&obj->active_services)) != NULL) {
 		VRBT_REMOVE(srv_tree_head, &obj->active_services, srv);
-		service_free(srv);
+		service_free(&srv, "fini");
 	}
 
 }
