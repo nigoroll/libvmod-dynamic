@@ -126,7 +126,7 @@ static const char * const ttl_s[TTL_E_MAX] = {
  */
 
 void
-dynamic_wait_active(struct dynamic_domain *dom)
+dom_wait_active(struct dynamic_domain *dom)
 {
 	int ret;
 
@@ -141,7 +141,7 @@ dynamic_wait_active(struct dynamic_domain *dom)
 }
 
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
-dynamic_resolve(VRT_CTX, VCL_BACKEND d)
+dom_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
 	struct dynamic_ref *next;
@@ -153,7 +153,7 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 
 	Lck_Lock(&dom->mtx);
 
-	dynamic_wait_active(dom);
+	dom_wait_active(dom);
 
 	if (dom->status > DYNAMIC_ST_ACTIVE) {
 		Lck_Unlock(&dom->mtx);
@@ -188,7 +188,7 @@ dynamic_resolve(VRT_CTX, VCL_BACKEND d)
 }
 
 static VCL_BOOL v_matchproto_(vdi_healthy_f)
-dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
+dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 {
 	struct dynamic_domain *dom;
 	struct dynamic_ref *r;
@@ -207,7 +207,7 @@ dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 		return (dom->healthy_cached);
 	}
 
-	dynamic_wait_active(dom);
+	dom_wait_active(dom);
 
 	/* One healthy backend is enough for the director to be healthy */
 	VTAILQ_FOREACH(r, &dom->refs, list) {
@@ -230,7 +230,7 @@ dynamic_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 }
 
 static void v_matchproto_(vdi_list_f)
-dynamic_list(VRT_CTX, VCL_BACKEND dir, struct vsb *vsb, int pflag, int jflag)
+dom_list(VRT_CTX, VCL_BACKEND dir, struct vsb *vsb, int pflag, int jflag)
 {
 	const struct vmod_dynamic_director *obj;
 	struct dynamic_domain *dom;
@@ -413,7 +413,7 @@ ref_compare_ip(struct dynamic_ref *r, const struct suckaddr *sa)
 }
 
 static int
-dynamic_whitelisted(VRT_CTX, const struct dynamic_domain *dom,
+dom_whitelisted(VRT_CTX, const struct dynamic_domain *dom,
     const struct suckaddr *sa)
 {
 	const struct vmod_dynamic_director *obj;
@@ -438,7 +438,7 @@ dynamic_whitelisted(VRT_CTX, const struct dynamic_domain *dom,
 
 /* all parameters owned by caller */
 static void
-dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
+dom_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 {
 	char addr[VTCP_ADDRBUFSIZE];
 	char port[VTCP_PORTBUFSIZE];
@@ -508,7 +508,7 @@ dynamic_add(VRT_CTX, struct dynamic_domain *dom, const struct res_info *info)
 }
 
 static void
-dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
+dom_update(struct dynamic_domain *dom, const struct res_cb *res,
     void *priv, vtim_real now)
 {
 	struct dynamic_domain *dom2;
@@ -532,7 +532,7 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 	assert(VTAILQ_EMPTY(&dom->refs));
 
 	while ((info = res->result(ibuf, priv, &state)) != NULL) {
-		if (! dynamic_whitelisted(&ctx, dom, info->sa))
+		if (! dom_whitelisted(&ctx, dom, info->sa))
 			continue;
 
 		if (info->ttl != 0 && (isnan(ttl) || info->ttl < ttl))
@@ -574,7 +574,7 @@ dynamic_update_domain(struct dynamic_domain *dom, const struct res_cb *res,
 			continue;
 
 	  add_dom:
-		dynamic_add(&ctx, dom, info);
+		dom_add(&ctx, dom, info);
 	}
 
 	Lck_Unlock(&dom->obj->mtx);
@@ -623,7 +623,7 @@ dynamic_timestamp(struct dynamic_domain *dom, const char *event, double start,
 }
 
 static void*
-dynamic_lookup_thread(void *priv)
+dom_lookup_thread(void *priv)
 {
 	struct vmod_dynamic_director *obj;
 	struct dynamic_domain *dom;
@@ -660,7 +660,7 @@ dynamic_lookup_thread(void *priv)
 		    results - lookup);
 
 		if (ret == 0) {
-			dynamic_update_domain(dom, res, res_priv, results);
+			dom_update(dom, res, res_priv, results);
 			update = VTIM_real();
 			dynamic_timestamp(dom, "Update", update,
 			    update - lookup, update - results);
@@ -694,7 +694,7 @@ dynamic_lookup_thread(void *priv)
 	if (dom->status == DYNAMIC_ST_STALE) {
 		Lck_Lock(&obj->mtx);
 		VTAILQ_REMOVE(&obj->active_domains, dom, list);
-		VTAILQ_INSERT_TAIL(&obj->purged_domains, dom, list);
+		VTAILQ_INSERT_TAIL(&obj->expired_domains, dom, list);
 		Lck_Unlock(&obj->mtx);
 	}
 	else
@@ -706,7 +706,7 @@ dynamic_lookup_thread(void *priv)
 }
 
 static void
-dynamic_free(struct dynamic_domain *dom)
+dom_free(struct dynamic_domain *dom)
 {
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
@@ -732,20 +732,20 @@ dynamic_join(struct dynamic_domain *dom)
 }
 
 static void
-dynamic_gc_purged(struct vmod_dynamic_director *obj)
+dynamic_gc_expired(struct vmod_dynamic_director *obj)
 {
 	struct dynamic_domain *dom;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->mtx);
 
-	while ((dom = VTAILQ_FIRST(&obj->purged_domains)) != NULL) {
+	while ((dom = VTAILQ_FIRST(&obj->expired_domains)) != NULL) {
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		assert(dom->status == DYNAMIC_ST_STALE);
-		VTAILQ_REMOVE(&obj->purged_domains, dom, list);
+		VTAILQ_REMOVE(&obj->expired_domains, dom, list);
 		Lck_Unlock(&obj->mtx);
 		(void) dynamic_join(dom);
-		dynamic_free(dom);
+		dom_free(dom);
 		Lck_Lock(&obj->mtx);
 	}
 }
@@ -775,10 +775,10 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 		Lck_Unlock(&dom->mtx);
 	}
 
-	while (! (VTAILQ_EMPTY(&obj->purged_domains) &&
+	while (! (VTAILQ_EMPTY(&obj->expired_domains) &&
 		  VTAILQ_EMPTY(&obj->active_domains))) {
 		// finished threads can be picked up already
-		dynamic_gc_purged(obj);
+		dynamic_gc_expired(obj);
 
 		while ((dom = VTAILQ_FIRST(&obj->active_domains)) != NULL) {
 			CHECK_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
@@ -789,8 +789,8 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 			AZ(dom->thread);
 			switch (status) {
 			case DYNAMIC_ST_STALE:
-				VTAILQ_REMOVE(&obj->purged_domains, dom, list);
-				dynamic_free(dom);
+				VTAILQ_REMOVE(&obj->expired_domains, dom, list);
+				dom_free(dom);
 				break;
 			case DYNAMIC_ST_DONE:
 				VTAILQ_REMOVE(&obj->active_domains, dom, list);
@@ -809,7 +809,7 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 }
 
 static void
-dynamic_start_domain(struct dynamic_domain *dom)
+dom_start(struct dynamic_domain *dom)
 {
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	if (dom->status >= DYNAMIC_ST_STARTING)
@@ -817,7 +817,7 @@ dynamic_start_domain(struct dynamic_domain *dom)
 	assert(dom->status == DYNAMIC_ST_READY);
 	dom->status = DYNAMIC_ST_STARTING;
 	AZ(dom->thread);
-	AZ(pthread_create(&dom->thread, NULL, dynamic_lookup_thread, dom));
+	AZ(pthread_create(&dom->thread, NULL, dom_lookup_thread, dom));
 }
 
 static void
@@ -836,7 +836,7 @@ dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 
 	Lck_Lock(&obj->mtx);
 	VTAILQ_FOREACH(dom, &obj->active_domains, list)
-	    dynamic_start_domain(dom);
+	    dom_start(dom);
 
 	service_start(ctx, obj);
 	Lck_Unlock(&obj->mtx);
@@ -852,8 +852,8 @@ dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
 	Lck_AssertHeld(&obj->mtx);
 	AN(addr);
 
-	if (VTAILQ_FIRST(&obj->purged_domains))
-		dynamic_gc_purged(obj);
+	if (VTAILQ_FIRST(&obj->expired_domains))
+		dynamic_gc_expired(obj);
 
 	if (port != NULL)
 		AN(*port);
@@ -869,7 +869,7 @@ dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
 }
 
 static void v_matchproto_(vdi_release_f)
-dynamic_release(VCL_BACKEND dir)
+dom_release(VCL_BACKEND dir)
 {
 	struct dynamic_ref *r, *r2;
 	struct dynamic_domain *dom;
@@ -893,7 +893,7 @@ dynamic_release(VCL_BACKEND dir)
 }
 
 static void v_matchproto_(vdi_destroy_f)
-dynamic_destroy(VCL_BACKEND dir)
+dom_destroy(VCL_BACKEND dir)
 {
 	struct dynamic_domain *dom;
 
@@ -916,11 +916,11 @@ dynamic_destroy(VCL_BACKEND dir)
 static const struct vdi_methods vmod_dynamic_methods[1] = {{
 	.magic =	VDI_METHODS_MAGIC,
 	.type =		"dynamic",
-	.healthy =	dynamic_healthy,
-	.resolve =	dynamic_resolve,
-	.release =	dynamic_release,
-	.destroy =	dynamic_destroy,
-	.list =	dynamic_list
+	.healthy =	dom_healthy,
+	.resolve =	dom_resolve,
+	.release =	dom_release,
+	.destroy =	dom_destroy,
+	.list =	dom_list
 }};
 
 struct dynamic_domain *
@@ -961,7 +961,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	AZ(pthread_cond_init(&dom->resolve, NULL));
 
 	obj->active = 1;
-	dynamic_start_domain(dom);
+	dom_start(dom);
 
 	VTAILQ_INSERT_TAIL(&obj->active_domains, dom, list);
 
@@ -1137,7 +1137,7 @@ vmod_director__init(VRT_CTX,
 	ALLOC_OBJ(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AN(obj);
 	VTAILQ_INIT(&obj->active_domains);
-	VTAILQ_INIT(&obj->purged_domains);
+	VTAILQ_INIT(&obj->expired_domains);
 	VTAILQ_INIT(&obj->active_services);
 	VTAILQ_INIT(&obj->purged_services);
 	REPLACE(obj->vcl_name, vcl_name);
@@ -1209,14 +1209,14 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 	service_fini(obj);
 
 	// removed by transition to cold / active == 0
-	assert(VTAILQ_EMPTY(&obj->purged_domains));
+	assert(VTAILQ_EMPTY(&obj->expired_domains));
 
 	VTAILQ_FOREACH_SAFE(dom, &obj->active_domains, list, d2) {
 		VTAILQ_REMOVE(&obj->active_domains, dom, list);
-		dynamic_free(dom);
+		dom_free(dom);
 	}
 
-	assert(VTAILQ_EMPTY(&obj->purged_domains));
+	assert(VTAILQ_EMPTY(&obj->expired_domains));
 	assert(VTAILQ_EMPTY(&obj->active_domains));
 	Lck_Delete(&obj->mtx);
 	free(obj->vcl_name);

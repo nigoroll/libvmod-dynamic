@@ -175,7 +175,7 @@ struct vmod_dynamic_director {
 	VCL_BACKEND				via;
 	VTAILQ_ENTRY(vmod_dynamic_director)	list;
 	struct dynamic_domain_head		active_domains;
-	struct dynamic_domain_head		purged_domains;
+	struct dynamic_domain_head		expired_domains;
 	VTAILQ_HEAD(,dynamic_service)		active_services;
 	VTAILQ_HEAD(,dynamic_service)		purged_services;
 	const char				*vcl_conf;
@@ -191,7 +191,7 @@ struct vmod_dynamic_director {
 VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director);
 
 void
-dynamic_wait_active(struct dynamic_domain *dom);
+dom_wait_active(struct dynamic_domain *dom);
 struct dynamic_domain *
 dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 const char *port);

@@ -280,7 +280,7 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 			if (dom->status >= DYNAMIC_ST_ACTIVE)
 				continue;
 			Lck_Lock(&dom->mtx);
-			dynamic_wait_active(dom);
+			dom_wait_active(dom);
 			Lck_Unlock(&dom->mtx);
 		}
 	}
