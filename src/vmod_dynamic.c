@@ -816,13 +816,13 @@ dom_lookup_thread(void *priv)
 }
 
 static void
-dom_free(struct dynamic_domain *dom)
+dom_free(struct dynamic_domain *dom, const char *why)
 {
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 
 	AZ(dom->thread);
-	LOG(NULL, SLT_VCL_Log, dom, "%s", "deleted");
+	LOG(NULL, SLT_VCL_Log, dom, "deleted (%s)", why);
 	VRT_DelDirector(&dom->dir);
 }
 
@@ -855,7 +855,7 @@ dynamic_gc_expired(struct vmod_dynamic_director *obj)
 		VTAILQ_REMOVE(&obj->expired_domains, dom, link.list);
 		Lck_Unlock(&obj->mtx);
 		(void) dynamic_join(dom);
-		dom_free(dom);
+		dom_free(dom, "expired");
 		Lck_Lock(&obj->mtx);
 	}
 }
@@ -900,7 +900,7 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 			switch (status) {
 			case DYNAMIC_ST_STALE:
 				VTAILQ_REMOVE(&obj->expired_domains, dom, link.list);
-				dom_free(dom);
+				dom_free(dom, "stop expired");
 				break;
 			case DYNAMIC_ST_DONE:
 				VRBT_REMOVE(dom_tree_head, &obj->active_domains, dom);
@@ -1318,7 +1318,7 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 
 	while ((dom = VRBT_ROOT(&obj->active_domains)) != NULL) {
 		VRBT_REMOVE(dom_tree_head, &obj->active_domains, dom);
-		dom_free(dom);
+		dom_free(dom, "fini");
 	}
 
 	assert(VTAILQ_EMPTY(&obj->expired_domains));
