@@ -822,15 +822,16 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	VCL_TIME t;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	Lck_AssertHeld(&obj->services_mtx);
 	AN(service);
 
 	t = ctx->now + obj->domain_usage_tmo;
 
+	Lck_Lock(&obj->services_mtx);
 	srv = service_search(obj, service);
 	if (srv != NULL) {
 		if (t > srv->expires)
 			srv->expires = t;
+		Lck_Unlock(&obj->services_mtx);
 		return (srv);
 	}
 
@@ -854,6 +855,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 
 	AZ(VRBT_INSERT(srv_tree_head, &obj->active_services, srv));
 
+	Lck_Unlock(&obj->services_mtx);
 	return (srv);
 }
 
@@ -871,10 +873,8 @@ vmod_director_service(VRT_CTX, struct VPFX(dynamic_director) *obj,
 		return (NULL);
 	}
 
-	Lck_Lock(&obj->services_mtx);
 	srv = service_get(ctx, obj, service);
 	AN(srv);
-	Lck_Unlock(&obj->services_mtx);
 
 	return (srv->dir);
 }
