@@ -79,6 +79,13 @@ enum dynamic_ttl_e {
 struct dynamic_domain {
 	unsigned			magic;
 #define DYNAMIC_DOMAIN_MAGIC		0x1bfe1345
+	volatile enum dynamic_status_e	status;
+	union {
+		VTAILQ_ENTRY(dynamic_domain)	list;
+		VRBT_ENTRY(dynamic_domain)	tree;
+	} link;
+	char				*addr;
+	char				*port;
 	struct vmod_dynamic_director	*obj;
 	pthread_t			thread;
 	struct lock			mtx;
@@ -86,17 +93,10 @@ struct dynamic_domain {
 	pthread_cond_t			resolve;
 	VCL_TIME			expires;
 	VCL_TIME			deadline;
-	union {
-		VTAILQ_ENTRY(dynamic_domain)	list;
-		VRBT_ENTRY(dynamic_domain)	tree;
-	} link;
 	struct dynamic_ref_head	refs, oldrefs;
 	struct dynamic_ref		*current;
-	char				*addr;
-	char				*port;
 	VCL_BACKEND			dir;
 	VCL_TIME			changed_cached;
-	volatile enum dynamic_status_e	status;
 	VCL_BOOL			healthy_cached;
 };
 
