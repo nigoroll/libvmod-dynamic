@@ -189,7 +189,7 @@ static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 dom_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
-	struct dynamic_ref *next;
+	struct dynamic_ref *next, *alt;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
@@ -207,7 +207,7 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 	if (dom->current == NULL)
 		dom->current = VTAILQ_FIRST(&dom->refs);
 	next = dom->current;
-
+	alt = NULL;
 	do {
 		CHECK_OBJ_ORNULL(next, DYNAMIC_REF_MAGIC);
 		if (next != NULL)
@@ -218,11 +218,19 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 			break;
 		if (next->dir != NULL && VRT_Healthy(ctx, next->dir, NULL))
 			break;
+		/* if we do not find a healthy backend, use one with a director
+		 * or, alternatively, whatever we can get
+		 */
+		if (alt == NULL || (alt->dir == NULL && next->dir != NULL))
+			alt = next;
 	} while (next != dom->current);
 
 	dom->current = next;
 
 	Lck_Unlock(&dom->mtx);
+
+	if (next == NULL)
+		next = alt;
 
 	if (next == NULL)
 		return (NULL);
