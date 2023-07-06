@@ -135,8 +135,8 @@ struct dynamic_service {
 #define DYNAMIC_SERVICE_MAGIC		0xd15e71ce
 	volatile enum dynamic_status_e	status;
 	union {
-		VTAILQ_ENTRY(dynamic_service)   list;
-//		VRBT_ENTRY(dynamic_service)     tree;
+		VTAILQ_ENTRY(dynamic_service)	list;
+		VRBT_ENTRY(dynamic_service)	tree;
 	} link;
 
 	struct vmod_dynamic_director	*obj;
@@ -160,6 +160,7 @@ struct dynamic_service {
 };
 
 VRBT_HEAD(dom_tree_head, dynamic_domain);
+VRBT_HEAD(srv_tree_head, dynamic_service);
 
 struct vmod_dynamic_director {
 	unsigned				magic;
@@ -186,7 +187,7 @@ struct vmod_dynamic_director {
 	struct dom_tree_head			active_domains;
 	struct dynamic_domain_head		expired_domains;
 	struct lock				services_mtx;
-	struct dynamic_service_head		active_services;
+	struct srv_tree_head			active_services;
 	struct dynamic_service_head		purged_services;
 	const char				*vcl_conf;
 	struct vcl				*vcl;

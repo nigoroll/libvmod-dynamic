@@ -1256,7 +1256,7 @@ vmod_director__init(VRT_CTX,
 	AN(obj);
 	VRBT_INIT(&obj->active_domains);
 	VTAILQ_INIT(&obj->expired_domains);
-	VTAILQ_INIT(&obj->active_services);
+	VRBT_INIT(&obj->active_services);
 	VTAILQ_INIT(&obj->purged_services);
 	REPLACE(obj->vcl_name, vcl_name);
 	REPLACE(obj->port, port);

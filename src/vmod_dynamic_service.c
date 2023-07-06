@@ -91,6 +91,43 @@ static const struct vdi_methods vmod_dynamic_service_methods[1] = {{
 }};
 
 /*--------------------------------------------------------------------
+ * active services tree
+ */
+
+static inline int
+dynamic_service_cmp(const struct dynamic_service *a,
+    const struct dynamic_service *b)
+{
+	CHECK_OBJ_NOTNULL(a, DYNAMIC_SERVICE_MAGIC);
+	CHECK_OBJ_NOTNULL(b, DYNAMIC_SERVICE_MAGIC);
+
+	return (strcmp(a->service, b->service));
+}
+
+#define VRBT_GENERATE_NEEDED(name, type, field, cmp, attr)	\
+	VRBT_GENERATE_RANK(name, type, field, attr)		\
+	VRBT_GENERATE_INSERT_COLOR(name, type, field, attr)	\
+	VRBT_GENERATE_REMOVE_COLOR(name, type, field, attr)	\
+	VRBT_GENERATE_INSERT_FINISH(name, type, field, attr)	\
+	VRBT_GENERATE_INSERT(name, type, field, cmp, attr)	\
+	VRBT_GENERATE_REMOVE(name, type, field, attr)		\
+	VRBT_GENERATE_FIND(name, type, field, cmp, attr)	\
+	VRBT_GENERATE_NEXT(name, type, field, attr)		\
+	VRBT_GENERATE_MINMAX(name, type, field, attr)
+
+/* unused
+
+   VRBT_GENERATE_NFIND(name, type, field, cmp, attr)
+   VRBT_GENERATE_REINSERT(name, type, field, cmp, attr)
+   VRBT_GENERATE_INSERT_PREV(name, type, field, cmp, attr)
+   VRBT_GENERATE_INSERT_NEXT(name, type, field, cmp, attr)
+   VRBT_GENERATE_PREV(name, type, field, attr)
+*/
+
+VRBT_GENERATE_NEEDED(srv_tree_head, dynamic_service,
+    link.tree, dynamic_service_cmp, static)
+
+/*--------------------------------------------------------------------
  * Service director implementation
  */
 
@@ -570,7 +607,7 @@ service_lookup_thread(void *priv)
 
 	if (srv->status == DYNAMIC_ST_STALE) {
 		Lck_Lock(&obj->services_mtx);
-		VTAILQ_REMOVE(&obj->active_services, srv, link.list);
+		VRBT_REMOVE(srv_tree_head, &obj->active_services, srv);
 		VTAILQ_INSERT_TAIL(&obj->purged_services, srv, link.list);
 		Lck_Unlock(&obj->services_mtx);
 	}
@@ -667,17 +704,17 @@ void
 service_stop(struct vmod_dynamic_director *obj)
 {
 	struct dynamic_service *srv;
-	struct dynamic_service_head active_done;
+	struct srv_tree_head active_done;
 	enum dynamic_status_e status;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
-	VTAILQ_INIT(&active_done);
+	VRBT_INIT(&active_done);
 
 	Lck_Lock(&obj->services_mtx);
 	AZ(obj->active);
 	// wake up all threads
-	VTAILQ_FOREACH(srv, &obj->active_services, link.list) {
+	VRBT_FOREACH(srv, srv_tree_head, &obj->active_services) {
 		CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
 		Lck_Lock(&srv->mtx);
 		AN(srv->thread);
@@ -686,11 +723,11 @@ service_stop(struct vmod_dynamic_director *obj)
 	}
 
 	while (! (VTAILQ_EMPTY(&obj->purged_services) &&
-		  VTAILQ_EMPTY(&obj->active_services))) {
+		  VRBT_EMPTY(&obj->active_services))) {
 		// finished threads can be picked up already
 		service_gc_purged(obj);
 
-		while ((srv = VTAILQ_FIRST(&obj->active_services)) != NULL) {
+		while ((srv = VRBT_ROOT(&obj->active_services)) != NULL) {
 			CHECK_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
 			Lck_Unlock(&obj->services_mtx);
 			status = service_join(srv);
@@ -703,16 +740,16 @@ service_stop(struct vmod_dynamic_director *obj)
 				service_free(srv);
 				break;
 			case DYNAMIC_ST_DONE:
-				VTAILQ_REMOVE(&obj->active_services, srv, link.list);
-				VTAILQ_INSERT_TAIL(&active_done, srv, link.list);
+				VRBT_REMOVE(srv_tree_head, &obj->active_services, srv);
+				AZ(VRBT_INSERT(srv_tree_head, &active_done, srv));
 				break;
 			default:
 				WRONG("status in service_stop");
 			}
 		}
 	}
-	assert(VTAILQ_EMPTY(&obj->active_services));
-	VTAILQ_SWAP(&obj->active_services, &active_done, dynamic_service, link.list);
+	assert(VRBT_EMPTY(&obj->active_services));
+	obj->active_services = active_done;
 	Lck_Unlock(&obj->services_mtx);
 }
 
@@ -737,7 +774,7 @@ service_start(VRT_CTX, struct vmod_dynamic_director *obj)
 
 	(void) ctx;
 	Lck_Lock(&obj->services_mtx);
-	VTAILQ_FOREACH(srv, &obj->active_services, link.list)
+	VRBT_FOREACH(srv, srv_tree_head, &obj->active_services)
 	    service_start_service(srv);
 	Lck_Unlock(&obj->services_mtx);
 }
@@ -746,14 +783,14 @@ service_start(VRT_CTX, struct vmod_dynamic_director *obj)
 void
 service_fini(struct vmod_dynamic_director *obj)
 {
-	struct dynamic_service *srv, *s2;
+	struct dynamic_service *srv;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
 	assert(VTAILQ_EMPTY(&obj->purged_services));
 
-	VTAILQ_FOREACH_SAFE(srv, &obj->active_services, link.list, s2) {
-		VTAILQ_REMOVE(&obj->active_services, srv, link.list);
+	while ((srv = VRBT_ROOT(&obj->active_services)) != NULL) {
+		VRBT_REMOVE(srv_tree_head, &obj->active_services, srv);
 		service_free(srv);
 	}
 
@@ -762,7 +799,7 @@ service_fini(struct vmod_dynamic_director *obj)
 static struct dynamic_service *
 service_search(struct vmod_dynamic_director *obj, const char *service)
 {
-	struct dynamic_service *srv;
+	struct dynamic_service srv[1];
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->services_mtx);
@@ -771,13 +808,9 @@ service_search(struct vmod_dynamic_director *obj, const char *service)
 	if (VTAILQ_FIRST(&obj->purged_services))
 		service_gc_purged(obj);
 
-	VTAILQ_FOREACH(srv, &obj->active_services, link.list) {
-		CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
-		if (! strcmp(srv->service, service))
-			break;
-	}
-
-	return (srv);
+	INIT_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
+	srv->service = TRUST_ME(service);	// XXX
+	return (VRBT_FIND(srv_tree_head, &obj->active_services, srv));
 }
 
 static struct dynamic_service *
@@ -817,7 +850,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	obj->active = 1;
 	service_start_service(srv);
 
-	VTAILQ_INSERT_TAIL(&obj->active_services, srv, link.list);
+	AZ(VRBT_INSERT(srv_tree_head, &obj->active_services, srv));
 
 	return (srv);
 }
