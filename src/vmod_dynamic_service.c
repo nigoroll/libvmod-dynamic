@@ -250,7 +250,6 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 
 	CHECK_OBJ_NOTNULL(prios, SERVICE_PRIOS_MAGIC);
 
-	Lck_Lock(&obj->services_mtx);
 	VTAILQ_FOREACH(p, &prios->head, list) {
 		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
 		n = 0;
@@ -267,7 +266,6 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 		if (n > prios->max_targets)
 			prios->max_targets = n;
 	}
-	Lck_Unlock(&obj->services_mtx);
 
 	VTAILQ_FOREACH(p, &prios->head, list) {
 		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
