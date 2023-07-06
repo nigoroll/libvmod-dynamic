@@ -250,7 +250,7 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 
 	CHECK_OBJ_NOTNULL(prios, SERVICE_PRIOS_MAGIC);
 
-	Lck_Lock(&obj->domains_mtx);
+	Lck_Lock(&obj->services_mtx);
 	VTAILQ_FOREACH(p, &prios->head, list) {
 		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
 		n = 0;
@@ -267,7 +267,7 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 		if (n > prios->max_targets)
 			prios->max_targets = n;
 	}
-	Lck_Unlock(&obj->domains_mtx);
+	Lck_Unlock(&obj->services_mtx);
 
 	VTAILQ_FOREACH(p, &prios->head, list) {
 		CHECK_OBJ_NOTNULL(p, SERVICE_PRIO_MAGIC);
@@ -614,7 +614,7 @@ service_free(VRT_CTX, struct dynamic_service *srv)
 	assert(srv->status == DYNAMIC_ST_READY);
 
 	if (ctx != NULL) {
-		Lck_AssertHeld(&srv->obj->domains_mtx);
+		Lck_AssertHeld(&srv->obj->services_mtx);
 		LOG(ctx, SLT_VCL_Log, srv, "%s", "deleted");
 	}
 
@@ -663,6 +663,7 @@ service_stop(struct vmod_dynamic_director *obj)
 static void
 service_start_service(struct dynamic_service *srv)
 {
+
 	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
 	if (srv->status >= DYNAMIC_ST_STARTING)
 		return;
@@ -679,10 +680,10 @@ service_start(VRT_CTX, struct vmod_dynamic_director *obj)
 	struct dynamic_service *srv;
 
 	(void) ctx;
-	Lck_AssertHeld(&obj->domains_mtx);
-
+	Lck_Lock(&obj->services_mtx);
 	VTAILQ_FOREACH(srv, &obj->active_services, list)
 	    service_start_service(srv);
+	Lck_Unlock(&obj->services_mtx);
 }
 
 // calledn from vmod_director__fini
@@ -711,7 +712,7 @@ service_search(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	struct dynamic_service *srv, *s, *s2;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	Lck_AssertHeld(&obj->domains_mtx);
+	Lck_AssertHeld(&obj->services_mtx);
 	AN(service);
 
 	srv = NULL;
@@ -750,7 +751,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	struct dynamic_service *srv;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	Lck_AssertHeld(&obj->domains_mtx);
+	Lck_AssertHeld(&obj->services_mtx);
 	AN(service);
 
 	srv = service_search(ctx, obj, service);
@@ -793,11 +794,11 @@ vmod_director_service(VRT_CTX, struct VPFX(dynamic_director) *obj,
 		return (NULL);
 	}
 
-	Lck_Lock(&obj->domains_mtx);
+	Lck_Lock(&obj->services_mtx);
 	srv = service_get(ctx, obj, service);
 	AN(srv);
 	srv->last_used = ctx->now;
-	Lck_Unlock(&obj->domains_mtx);
+	Lck_Unlock(&obj->services_mtx);
 
 	return (srv->dir);
 }

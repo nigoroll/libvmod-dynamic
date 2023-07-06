@@ -947,9 +947,8 @@ dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 	Lck_Lock(&obj->domains_mtx);
 	VRBT_FOREACH(dom, dom_tree_head, &obj->active_domains)
 		dom_start(dom);
-
-	service_start(ctx, obj);
 	Lck_Unlock(&obj->domains_mtx);
+	service_start(ctx, obj);
 }
 
 static struct dynamic_domain *
@@ -1039,7 +1038,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	VCL_TIME t;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	Lck_AssertHeld(&obj->domains_mtx);
+	Lck_Lock(&obj->domains_mtx);
 	AN(addr);
 
 	t = ctx->now + obj->domain_usage_tmo;
@@ -1048,6 +1047,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	if (dom != NULL) {
 		if (t > dom->expires)
 			dom->expires = t;
+		Lck_Unlock(&obj->domains_mtx);
 		return (dom);
 	}
 
@@ -1073,6 +1073,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 
 	AZ(VRBT_INSERT(dom_tree_head, &obj->active_domains, dom));
 
+	Lck_Unlock(&obj->domains_mtx);
 	return (dom);
 }
 
@@ -1350,10 +1351,8 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 
 	if (port != NULL && *port == '\0')
 		port = NULL;
-	Lck_Lock(&obj->domains_mtx);
 	dom = dynamic_get(ctx, obj, host, port);
 	AN(dom);
-	Lck_Unlock(&obj->domains_mtx);
 
 	return (dom->dir);
 }
