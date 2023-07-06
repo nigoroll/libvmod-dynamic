@@ -7,8 +7,36 @@ version 2.8.0.
 vmod_dynamic NEXT
 =================
 
+* The general log format has been adjusted to that of ``Timestamp``
+  log records in that the colon has been removed from the
+  ``vmod-dynamic:`` prefix. All log records now start with
+  ``vmod-dynamic``.
+
+* When there is no healthy backend for a domain, the ``.backend()``
+  method now returns a (possibly) unhealthy backend rather than none
+  at all.
+
+  This should help in situations where new backends have been added
+  and a probe has not yet returned.
+
+* Domains and services are now organized using a red/black tree which
+  improves lookup times in particular with many domains and services
+  per director (from *O(n)* to *O(log n)*).
+
+* Domain backends (those for IP addresses which a domain resolves to)
+  are now created while other requests continue to be served. This
+  should improve performance, lower latencies and fix a deadlock with
+  the new ``backend.list`` callback.
+
+* Expiry of domains and services after ``domain_usage_timeout`` has
+  been refactored to improve performance and scalability with many
+  domains / services per director.
+
 * A ``backend.list`` callback has been implemented to query details
   about dynamic domains and their active backends.
+
+7.3 branch
+----------
 
 * The new constructor parameter ``keep`` specifies for how many
   updates to keep no longer referenced backends configured.

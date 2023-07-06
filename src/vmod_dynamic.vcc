@@ -412,7 +412,13 @@ Example
 $Method BACKEND .backend(STRING host = "", STRING port = "")
 
 Description
-	Return a backend from the director for a given host name and port.
+	Return a backend from the director for a given host name. If
+	the host name resolves to multiple addresses, they are used in
+	a round-robin fashion.
+
+	If possible, a healhy backend is returned. If no healthy
+	backends are known, any backend is returned. Note that it may
+	or may not be actually responsive.
 
 	If the host is not specified, it is picked from either
 	``bereq`` or ``req``.
@@ -440,6 +446,9 @@ Description
 	healthy. If there are multiple healthy targets for the lowest
 	*priority*, one is chosen randomly based on the probabilities
 	defined by the *weight* attributes.
+
+	If there are no healthy targets at all, the last target from
+	the lowest *priority* is returned.
 
 	Note that it highly recommended to use a *probe* argument to
 	the `dynamic.director()`_ to avoid returning unresponsive
