@@ -1290,6 +1290,7 @@ vmod_director__init(VRT_CTX,
 
 
 	Lck_New(&obj->domains_mtx, lck_dir);
+	Lck_New(&obj->services_mtx, lck_dir);
 
 	VTAILQ_INSERT_TAIL(&objects, obj, list);
 	*objp = obj;
@@ -1324,6 +1325,7 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 	assert(VTAILQ_EMPTY(&obj->expired_domains));
 	assert(VRBT_EMPTY(&obj->active_domains));
 	Lck_Delete(&obj->domains_mtx);
+	Lck_Delete(&obj->services_mtx);
 	free(obj->vcl_name);
 	FREE_OBJ(obj);
 }

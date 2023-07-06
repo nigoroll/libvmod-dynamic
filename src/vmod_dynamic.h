@@ -180,6 +180,7 @@ struct vmod_dynamic_director {
 	struct lock				domains_mtx;
 	struct dom_tree_head			active_domains;
 	struct dynamic_domain_head		expired_domains;
+	struct lock				services_mtx;
 	VTAILQ_HEAD(,dynamic_service)		active_services;
 	VTAILQ_HEAD(,dynamic_service)		purged_services;
 	const char				*vcl_conf;
