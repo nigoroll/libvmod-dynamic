@@ -57,20 +57,13 @@
 #include "vmod_dynamic.h"
 #include "vmb.h"
 
-#define LOG(ctx, slt, srv, fmt, ...)				\
-	do {							\
-		if ((ctx)->vsl != NULL)				\
-			VSLb((ctx)->vsl, slt,			\
-			    "vmod-dynamic: %s %s %s " fmt,	\
-			    (srv)->obj->vcl_conf,		\
-			    (srv)->obj->vcl_name,		\
-			    (srv)->service, __VA_ARGS__);	\
-		else						\
-			VSL(slt, NO_VXID,			\
-			    "vmod-dynamic: %s %s %s " fmt,	\
-			    (srv)->obj->vcl_conf,		\
-			    (srv)->obj->vcl_name,		\
-			    (srv)->service, __VA_ARGS__);	\
+#define LOG(ctx, slt, srv, fmt, ...)					\
+	do {								\
+		dylog(ctx, slt,					\
+		    "vmod-dynamic %s %s %s " fmt,			\
+		    (srv)->obj->vcl_conf,				\
+		    (srv)->obj->vcl_name,				\
+		    (srv)->service, __VA_ARGS__);			\
 	} while (0)
 
 #define DBG(ctx, srv, fmt, ...)						\
@@ -117,9 +110,12 @@ service_wait_active(struct dynamic_service *srv)
 	if (srv->status >= DYNAMIC_ST_ACTIVE)
 		return;
 
+	DBG(NULL, srv, "%s", "wait-active");
+
 	ret = Lck_CondWaitTimeout(&srv->resolve, &srv->mtx,
 	    srv->obj->first_lookup_tmo);
 	assert(ret == 0 || ret == ETIMEDOUT);
+	DBG(NULL, srv, "wait-active ret %d", ret);
 }
 
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)

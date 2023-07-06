@@ -56,9 +56,7 @@
 #include "dyn_resolver.h"
 #include "vmod_dynamic.h"
 
-static void
-dylog(VRT_CTX, enum VSL_tag_e slt, const char *fmt, ...) v_printflike_(3, 4);
-static void
+void
 dylog(VRT_CTX, enum VSL_tag_e slt, const char *fmt, ...)
 {
 	va_list ap;
@@ -178,11 +176,14 @@ dom_wait_active(struct dynamic_domain *dom)
 	if (dom->status >= DYNAMIC_ST_ACTIVE)
 		return;
 
+	DBG(NULL, dom, "%s", "wait-active");
+
 	ret = 0;
 	while (ret == 0 && dom->status < DYNAMIC_ST_ACTIVE)
 		ret = Lck_CondWaitTimeout(&dom->resolve, &dom->mtx,
 		    dom->obj->first_lookup_tmo);
 	assert(ret == 0 || ret == ETIMEDOUT);
+	DBG(NULL, dom, "wait-active ret %d", ret);
 }
 
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
