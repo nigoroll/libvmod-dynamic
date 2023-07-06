@@ -818,7 +818,7 @@ service_search(struct vmod_dynamic_director *obj, const char *service)
 static struct dynamic_service *
 service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 {
-	struct dynamic_service *srv;
+	struct dynamic_service *srv, *raced;
 	VCL_TIME t;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
@@ -835,6 +835,8 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 		return (srv);
 	}
 
+	Lck_Unlock(&obj->services_mtx);
+
 	ALLOC_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
 	AN(srv);
 
@@ -850,12 +852,18 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	AZ(pthread_cond_init(&srv->cond, NULL));
 	AZ(pthread_cond_init(&srv->resolve, NULL));
 
+	Lck_Lock(&obj->services_mtx);
+	raced = VRBT_INSERT(srv_tree_head, &obj->active_services, srv);
+	Lck_Unlock(&obj->services_mtx);
+
+	if (raced) {
+		service_free(&srv, "raced");
+		return (raced);
+	}
+
 	obj->active = 1;
 	service_start_service(srv);
 
-	AZ(VRBT_INSERT(srv_tree_head, &obj->active_services, srv));
-
-	Lck_Unlock(&obj->services_mtx);
 	return (srv);
 }
 
