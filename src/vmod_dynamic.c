@@ -121,6 +121,48 @@ static const char * const ttl_s[TTL_E_MAX] = {
 	[max]	= "max",
 };
 
+/*--------------------------------------------------------------------
+ * active domains tree
+ */
+
+static inline int
+dynamic_domain_cmp(const struct dynamic_domain *a,
+    const struct dynamic_domain *b)
+{
+	int r;
+
+	CHECK_OBJ_NOTNULL(a, DYNAMIC_DOMAIN_MAGIC);
+	CHECK_OBJ_NOTNULL(b, DYNAMIC_DOMAIN_MAGIC);
+
+	r = strcmp(a->addr, b->addr);
+	if (r)
+		return (r);
+
+	return (strcmp(dom_port(a), dom_port(b)));
+}
+
+#define VRBT_GENERATE_NEEDED(name, type, field, cmp, attr)	\
+	VRBT_GENERATE_RANK(name, type, field, attr)		\
+	VRBT_GENERATE_INSERT_COLOR(name, type, field, attr)	\
+	VRBT_GENERATE_REMOVE_COLOR(name, type, field, attr)	\
+	VRBT_GENERATE_INSERT_FINISH(name, type, field, attr)	\
+	VRBT_GENERATE_INSERT(name, type, field, cmp, attr)	\
+	VRBT_GENERATE_REMOVE(name, type, field, attr)		\
+	VRBT_GENERATE_FIND(name, type, field, cmp, attr)	\
+	VRBT_GENERATE_NEXT(name, type, field, attr)		\
+	VRBT_GENERATE_MINMAX(name, type, field, attr)
+
+/* unused
+
+   VRBT_GENERATE_NFIND(name, type, field, cmp, attr)
+   VRBT_GENERATE_REINSERT(name, type, field, cmp, attr)
+   VRBT_GENERATE_INSERT_PREV(name, type, field, cmp, attr)
+   VRBT_GENERATE_INSERT_NEXT(name, type, field, cmp, attr)
+   VRBT_GENERATE_PREV(name, type, field, attr)
+*/
+
+VRBT_GENERATE_NEEDED(dom_tree_head, dynamic_domain,
+    link.tree, dynamic_domain_cmp, static)
 
 /*--------------------------------------------------------------------
  * Director implementation
@@ -581,7 +623,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 		/* search the director's other domains */
 		AZ(r);
 		Lck_AssertHeld(&dom->obj->mtx);
-		VTAILQ_FOREACH(dom2, &dom->obj->active_domains, link.list) {
+		VRBT_FOREACH(dom2, dom_tree_head, &dom->obj->active_domains) {
 			if (dom2 == dom)
 				continue;
 			CHECK_OBJ_NOTNULL(dom2, DYNAMIC_DOMAIN_MAGIC);
@@ -738,7 +780,7 @@ dom_lookup_thread(void *priv)
 
 	if (dom->status == DYNAMIC_ST_STALE) {
 		Lck_Lock(&obj->mtx);
-		VTAILQ_REMOVE(&obj->active_domains, dom, link.list);
+		VRBT_REMOVE(dom_tree_head, &obj->active_domains, dom);
 		VTAILQ_INSERT_TAIL(&obj->expired_domains, dom, link.list);
 		Lck_Unlock(&obj->mtx);
 	}
@@ -799,7 +841,7 @@ static void
 dynamic_stop(struct vmod_dynamic_director *obj)
 {
 	struct dynamic_domain *dom;
-	struct dynamic_domain_head active_done;
+	struct dom_tree_head active_done;
 	enum dynamic_status_e status;
 
 	ASSERT_CLI();
@@ -807,12 +849,12 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 
 	service_stop(obj);
 
-	VTAILQ_INIT(&active_done);
+	VRBT_INIT(&active_done);
 
 	Lck_Lock(&obj->mtx);
 	AZ(obj->active);
 	// obj-active has been cleared, wake up all threads
-	VTAILQ_FOREACH(dom, &obj->active_domains, link.list) {
+	VRBT_FOREACH(dom, dom_tree_head, &obj->active_domains) {
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		Lck_Lock(&dom->mtx);
 		AN(dom->thread);
@@ -821,11 +863,11 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 	}
 
 	while (! (VTAILQ_EMPTY(&obj->expired_domains) &&
-		  VTAILQ_EMPTY(&obj->active_domains))) {
+		  VRBT_EMPTY(&obj->active_domains))) {
 		// finished threads can be picked up already
 		dynamic_gc_expired(obj);
 
-		while ((dom = VTAILQ_FIRST(&obj->active_domains)) != NULL) {
+		while ((dom = VRBT_ROOT(&obj->active_domains)) != NULL) {
 			CHECK_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
 			Lck_Unlock(&obj->mtx);
 			status = dynamic_join(dom);
@@ -838,16 +880,16 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 				dom_free(dom);
 				break;
 			case DYNAMIC_ST_DONE:
-				VTAILQ_REMOVE(&obj->active_domains, dom, link.list);
-				VTAILQ_INSERT_TAIL(&active_done, dom, link.list);
+				VRBT_REMOVE(dom_tree_head, &obj->active_domains, dom);
+				AZ(VRBT_INSERT(dom_tree_head, &active_done, dom));
 				break;
 			default:
 				WRONG("status in dynamic_stop");
 			}
 		}
 	}
-	assert(VTAILQ_EMPTY(&obj->active_domains));
-	VTAILQ_SWAP(&obj->active_domains, &active_done, dynamic_domain, link.list);
+	assert(VRBT_EMPTY(&obj->active_domains));
+	obj->active_domains = active_done;
 	Lck_Unlock(&obj->mtx);
 
 	VRT_VCL_Allow_Discard(&obj->vclref);
@@ -880,8 +922,8 @@ dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 	obj->vclref = VRT_VCL_Prevent_Discard(ctx, buf);
 
 	Lck_Lock(&obj->mtx);
-	VTAILQ_FOREACH(dom, &obj->active_domains, link.list)
-	    dom_start(dom);
+	VRBT_FOREACH(dom, dom_tree_head, &obj->active_domains)
+		dom_start(dom);
 
 	service_start(ctx, obj);
 	Lck_Unlock(&obj->mtx);
@@ -891,7 +933,7 @@ static struct dynamic_domain *
 dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
     const char *port)
 {
-	struct dynamic_domain *dom;
+	struct dynamic_domain dom[1];
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->mtx);
@@ -903,14 +945,12 @@ dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
 	if (port != NULL)
 		AN(*port);
 
-	VTAILQ_FOREACH(dom, &obj->active_domains, link.list) {
-		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-		if (!strcmp(dom->addr, addr) &&
-		    (port == NULL || !strcmp(dom_port(dom), port)))
-			break;
-	}
+	INIT_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
+	dom->obj = obj;
+	dom->addr = TRUST_ME(addr);
+	dom->port = TRUST_ME(port);
 
-	return (dom);
+	return (VRBT_FIND(dom_tree_head, &obj->active_domains, dom));
 }
 
 static void v_matchproto_(vdi_release_f)
@@ -1008,7 +1048,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	obj->active = 1;
 	dom_start(dom);
 
-	VTAILQ_INSERT_TAIL(&obj->active_domains, dom, link.list);
+	AZ(VRBT_INSERT(dom_tree_head, &obj->active_domains, dom));
 
 	return (dom);
 }
@@ -1181,7 +1221,7 @@ vmod_director__init(VRT_CTX,
 
 	ALLOC_OBJ(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AN(obj);
-	VTAILQ_INIT(&obj->active_domains);
+	VRBT_INIT(&obj->active_domains);
 	VTAILQ_INIT(&obj->expired_domains);
 	VTAILQ_INIT(&obj->active_services);
 	VTAILQ_INIT(&obj->purged_services);
@@ -1239,7 +1279,7 @@ VCL_VOID v_matchproto_()
 vmod_director__fini(struct vmod_dynamic_director **objp)
 {
 	struct vmod_dynamic_director *obj;
-	struct dynamic_domain *dom, *d2;
+	struct dynamic_domain *dom;
 
 	ASSERT_CLI();
 	AN(objp);
@@ -1256,13 +1296,13 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 	// removed by transition to cold / active == 0
 	assert(VTAILQ_EMPTY(&obj->expired_domains));
 
-	VTAILQ_FOREACH_SAFE(dom, &obj->active_domains, link.list, d2) {
-		VTAILQ_REMOVE(&obj->active_domains, dom, link.list);
+	while ((dom = VRBT_ROOT(&obj->active_domains)) != NULL) {
+		VRBT_REMOVE(dom_tree_head, &obj->active_domains, dom);
 		dom_free(dom);
 	}
 
 	assert(VTAILQ_EMPTY(&obj->expired_domains));
-	assert(VTAILQ_EMPTY(&obj->active_domains));
+	assert(VRBT_EMPTY(&obj->active_domains));
 	Lck_Delete(&obj->mtx);
 	free(obj->vcl_name);
 	FREE_OBJ(obj);

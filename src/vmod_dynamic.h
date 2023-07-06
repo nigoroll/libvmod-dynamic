@@ -88,7 +88,7 @@ struct dynamic_domain {
 	VCL_TIME			deadline;
 	union {
 		VTAILQ_ENTRY(dynamic_domain)	list;
-//		VRBT_ENTRY(dynamic_domain)	tree;
+		VRBT_ENTRY(dynamic_domain)	tree;
 	} link;
 	struct dynamic_ref_head	refs, oldrefs;
 	struct dynamic_ref		*current;
@@ -154,7 +154,7 @@ struct dynamic_service {
 	struct service_prios		*prios_cold;
 };
 
-//VRBT_HEAD(dynamic_domain_tree_head, dynamic_domian);
+VRBT_HEAD(dom_tree_head, dynamic_domain);
 
 struct vmod_dynamic_director {
 	unsigned				magic;
@@ -178,7 +178,7 @@ struct vmod_dynamic_director {
 	unsigned				proxy_header;
 	VCL_BACKEND				via;
 	VTAILQ_ENTRY(vmod_dynamic_director)	list;
-	struct dynamic_domain_head		active_domains;
+	struct dom_tree_head			active_domains;
 	struct dynamic_domain_head		expired_domains;
 	VTAILQ_HEAD(,dynamic_service)		active_services;
 	VTAILQ_HEAD(,dynamic_service)		purged_services;
