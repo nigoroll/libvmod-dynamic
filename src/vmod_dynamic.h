@@ -160,7 +160,6 @@ struct vmod_dynamic_director {
 	unsigned				magic;
 #define VMOD_DYNAMIC_DIRECTOR_MAGIC		0x8a3e7fd1
 	unsigned				keep;
-	struct lock				mtx;
 	char					*vcl_name;
 	char					*port;
 	const char				*hosthdr;
@@ -178,6 +177,7 @@ struct vmod_dynamic_director {
 	unsigned				proxy_header;
 	VCL_BACKEND				via;
 	VTAILQ_ENTRY(vmod_dynamic_director)	list;
+	struct lock				domains_mtx;
 	struct dom_tree_head			active_domains;
 	struct dynamic_domain_head		expired_domains;
 	VTAILQ_HEAD(,dynamic_service)		active_services;
