@@ -254,7 +254,7 @@ static VCL_BOOL v_matchproto_(vdi_healthy_f)
 dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 {
 	struct dynamic_domain *dom;
-	struct dynamic_ref *r;
+	struct dynamic_ref *r, *alt;
 	unsigned retval = 0;
 	double c, cc = 0;
 
@@ -272,18 +272,30 @@ dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 
 	dom_wait_active(dom);
 
-	/* One healthy backend is enough for the director to be healthy */
-	VTAILQ_FOREACH(r, &dom->refs, list) {
-		if (r->dir == NULL)
-			continue;
-		VRMB();
-		CHECK_OBJ(r->dir, DIRECTOR_MAGIC);
-		retval = VRT_Healthy(ctx, r->dir, &c);
-		if (c > cc)
-			cc = c;
+	do {
+		/* One healthy backend is enough for the director to be
+		 * healthy
+		 */
+		alt = NULL;
+		VTAILQ_FOREACH(r, &dom->refs, list) {
+			if (r->dir == NULL) {
+				if (alt == NULL)
+					alt = r;
+				continue;
+			}
+			VRMB();
+			CHECK_OBJ(r->dir, DIRECTOR_MAGIC);
+			retval = VRT_Healthy(ctx, r->dir, &c);
+			if (c > cc)
+				cc = c;
+			if (retval)
+				break;
+		}
 		if (retval)
 			break;
-	}
+		if (alt != NULL && alt->dir == NULL)
+			AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
+	} while (alt != NULL);
 
 	Lck_Unlock(&dom->mtx);
 
