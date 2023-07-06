@@ -21,6 +21,7 @@ libvmod_dynamic_la_SOURCES += \
 	tbl/enum/res_resolution_type.h \
 	tbl/enum/res_namespace.h \
 	tbl/enum/res_redirects.h \
+	tbl/list_prop.h \
 	tbl/getdns_return.h
 else
 libvmod_dynamic_la_SOURCES += vmod_resolver.stub.c
