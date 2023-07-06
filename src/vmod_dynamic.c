@@ -1240,10 +1240,7 @@ vmod_director__init(VRT_CTX,
 	obj->connect_tmo = connect_timeout;
 	obj->first_byte_tmo = first_byte_timeout;
 	obj->between_bytes_tmo = between_bytes_timeout;
-	if (domain_usage_timeout == 0)
-		obj->domain_usage_tmo = HUGE_VAL;
-	else
-		obj->domain_usage_tmo = domain_usage_timeout;
+	obj->domain_usage_tmo = domain_usage_timeout;
 	obj->first_lookup_tmo = first_lookup_timeout;
 	obj->max_connections = (unsigned)max_connections;
 	obj->proxy_header = (unsigned)proxy_header;
