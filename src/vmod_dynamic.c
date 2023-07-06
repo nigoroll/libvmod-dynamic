@@ -74,7 +74,7 @@ dylog(VRT_CTX, enum VSL_tag_e slt, const char *fmt, ...)
 #define LOG(ctx, slt, dom, fmt, ...)					\
 	do {								\
 		dylog(ctx, slt,					\
-		    "vmod-dynamic: %s %s %s:%s " fmt,			\
+		    "vmod-dynamic %s %s %s:%s " fmt,			\
 		    (dom)->obj->vcl_conf,				\
 		    (dom)->obj->vcl_name, (dom)->addr,			\
 		    dom_port(dom), __VA_ARGS__);			\

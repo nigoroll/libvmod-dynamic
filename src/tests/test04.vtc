@@ -38,8 +38,8 @@ varnish v1 -vcl+backend {
 } -start
 
 logexpect l1 -v v1 -g raw {
-	expect * * VCL_Log "vmod-dynamic: vcl1 d1 localhost:[0-9]+ timeout"
-	expect * * VCL_Log "vmod-dynamic: vcl1 d1 localhost:[0-9]+ deleted"
+	expect * * VCL_Log "vmod-dynamic vcl1 d1 localhost:[0-9]+ timeout"
+	expect * * VCL_Log "vmod-dynamic vcl1 d1 localhost:[0-9]+ deleted"
 } -start
 
 client c1 {

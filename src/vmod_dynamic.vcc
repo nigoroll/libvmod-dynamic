@@ -189,13 +189,13 @@ LOGGING
 This module may log ``VCL_Log``, ``Error``, and ``Debug``  records following a
 common pattern::
 
-   vmod-dynamic: %s %s %s %s [ %s ]
-                 |  |  |  |    |
-                 |  |  |  |    +- Additional information
-                 |  |  |  +------ Event
-                 |  |  +--------- <name> without the <director> part
-                 |  +------------ Director name
-                 +--------------- VCL name
+   vmod-dynamic %s %s %s %s [ %s ]
+                |  |  |  |    |
+                |  |  |  |    +- Additional information
+                |  |  |  +------ Event
+                |  |  +--------- <name> without the <director> part
+                |  +------------ Director name
+                +--------------- VCL name
 
 Lookup timestamps are also logged to help troubleshooting, using regular
 ``Timestamp`` records with the following pattern for event labels::
