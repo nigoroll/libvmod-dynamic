@@ -136,14 +136,18 @@ dynamic_domain_cmp(const struct dynamic_domain *a,
 	if (r)
 		return (r);
 
-	if (a->authority != NULL || b->authority != NULL) {
-		r = strcmp(
-		    a->authority ? a->authority : "",
-		    b->authority ? b->authority : "");
-		if (r)
-			return (r);
-	}
+	if (a->authority == NULL && b->authority == NULL)
+		goto port_cmp;
+	if (a->authority == NULL)
+		return (1);
+	if (b->authority == NULL)
+		return (-1);
 
+	r = strcmp(a->authority, b->authority);
+	if (r)
+		return (r);
+
+  port_cmp:
 	return (strcmp(dom_port(a), dom_port(b)));
 }
 
