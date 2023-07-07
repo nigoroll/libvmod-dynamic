@@ -1333,9 +1333,12 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 	assert(VTAILQ_EMPTY(&obj->expired_domains));
 	assert(VRBT_EMPTY(&obj->active_services));
 	assert(VTAILQ_EMPTY(&obj->purged_services));
+	REPLACE(obj->vcl_name, NULL);
+	REPLACE(obj->port, NULL);
+
 	Lck_Delete(&obj->domains_mtx);
 	Lck_Delete(&obj->services_mtx);
-	free(obj->vcl_name);
+
 	FREE_OBJ(obj);
 }
 
