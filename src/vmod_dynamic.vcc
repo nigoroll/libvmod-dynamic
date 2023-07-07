@@ -412,18 +412,18 @@ Example
 $Method BACKEND .backend(STRING host = "", STRING port = "")
 
 Description
-	Return a backend from the director for a given host name. If
-	the host name resolves to multiple addresses, they are used in
-	a round-robin fashion.
+	Return a backend from the director for a given *host* name and,
+	optionally, *authority*. If the *host* name resolves to multiple
+	addresses, they are used in a round-robin fashion.
 
 	If possible, a healhy backend is returned. If no healthy
 	backends are known, any backend is returned. Note that it may
 	or may not be actually responsive.
 
-	If the host is not specified, it is picked from either
+	If the *host* is not specified, it is picked from either
 	``bereq`` or ``req``.
 
-	If the port is not speficied, it is taken from the director.
+	If the *port* is not speficied, it is taken from the director.
 
 $Method BACKEND .service(STRING service)
 
