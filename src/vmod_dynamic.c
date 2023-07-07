@@ -1324,16 +1324,15 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 
 	service_fini(obj);
 
-	// removed by transition to cold / active == 0
-	assert(VTAILQ_EMPTY(&obj->expired_domains));
-
 	while ((dom = VRBT_ROOT(&obj->active_domains)) != NULL) {
 		VRBT_REMOVE(dom_tree_head, &obj->active_domains, dom);
 		dom_free(&dom, "fini");
 	}
 
-	assert(VTAILQ_EMPTY(&obj->expired_domains));
 	assert(VRBT_EMPTY(&obj->active_domains));
+	assert(VTAILQ_EMPTY(&obj->expired_domains));
+	assert(VRBT_EMPTY(&obj->active_services));
+	assert(VTAILQ_EMPTY(&obj->purged_services));
 	Lck_Delete(&obj->domains_mtx);
 	Lck_Delete(&obj->services_mtx);
 	free(obj->vcl_name);
