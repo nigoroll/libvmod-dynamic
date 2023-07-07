@@ -168,7 +168,7 @@ struct vmod_dynamic_director {
 	unsigned				keep;
 	char					*vcl_name;
 	char					*port;
-	const char				*hosthdr;
+	char					*hosthdr;
 	enum dynamic_share_e			share;
 	VCL_PROBE				probe;
 	VCL_ACL					whitelist;

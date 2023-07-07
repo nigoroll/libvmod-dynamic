@@ -1260,11 +1260,11 @@ vmod_director__init(VRT_CTX,
 	VTAILQ_INIT(&obj->purged_services);
 	REPLACE(obj->vcl_name, vcl_name);
 	REPLACE(obj->port, port);
+	REPLACE(obj->hosthdr, hosthdr);
 
 	obj->vcl_conf = VCL_Name(ctx->vcl);
 	obj->vcl = ctx->vcl;
 	obj->active = 0;
-	obj->hosthdr = hosthdr;
 	obj->share = dynamic_share_parse(share_arg);
 	obj->probe = probe;
 	obj->whitelist = whitelist;
@@ -1335,6 +1335,7 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 	assert(VTAILQ_EMPTY(&obj->purged_services));
 	REPLACE(obj->vcl_name, NULL);
 	REPLACE(obj->port, NULL);
+	REPLACE(obj->hosthdr, NULL);
 
 	Lck_Delete(&obj->domains_mtx);
 	Lck_Delete(&obj->services_mtx);
