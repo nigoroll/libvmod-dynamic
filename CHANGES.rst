@@ -7,6 +7,15 @@ version 2.8.0.
 vmod_dynamic NEXT
 =================
 
+
+.. _76: https://github.com/nigoroll/libvmod-dynamic/pull/76
+
+* An ``authority`` argument has been added to the ``.backend()``
+  method and the ``dynamic.director()`` constructor as a director-wide
+  default to allow control over the Authority TLV sent with PROXY
+  requests to a via backend, which usually ends up as SNI in a backend
+  TLS connection (based upon `76`_).
+
 * The general log format has been adjusted to that of ``Timestamp``
   log records in that the colon has been removed from the
   ``vmod-dynamic:`` prefix. All log records now start with

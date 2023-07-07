@@ -86,6 +86,7 @@ struct dynamic_domain {
 		VRBT_ENTRY(dynamic_domain)	tree;
 	} link;
 	char				*addr;
+	char				*authority;
 	char				*port;
 	struct vmod_dynamic_director	*obj;
 	pthread_t			thread;
@@ -169,6 +170,7 @@ struct vmod_dynamic_director {
 	char					*vcl_name;
 	char					*port;
 	char					*hosthdr;
+	char					*authority;
 	enum dynamic_share_e			share;
 	VCL_PROBE				probe;
 	VCL_ACL					whitelist;
@@ -207,7 +209,7 @@ void
 dom_wait_active(struct dynamic_domain *dom);
 struct dynamic_domain *
 dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
-const char *port);
+    const char *authority, const char *port);
 
 // vmod_dynamic_service.c
 struct dynamic_service;

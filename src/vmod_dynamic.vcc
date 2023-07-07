@@ -174,6 +174,9 @@ which will be referred to as *<name>* in the following documentation
 
 *port* may be represented symbolically (``http`` by default)
 
+If an ``authority`` is set, it is appended to \ *address*\ :\ *port*\
+separated by ``/``.
+
 STATISTICS
 ==========
 
@@ -246,7 +249,8 @@ $Object director(
 	ENUM { cfg, dns, min, max } ttl_from	= "cfg",
 	DURATION retry_after			= 30,
 	BACKEND via				= NULL,
-	INT keep				= 3)
+	INT keep				= 3,
+	STRING authority			= NULL)
 
 Description
 	Create a DNS director.
@@ -374,6 +378,10 @@ Parameters to set attributes of backends
 	  additional PROXY protocol header containing the actual
 	  address to connect to. Primary use case is SSL/TLS onloading
 	  via haproxy.
+	- *authority* default for the `xdirector.backend()`_
+	  argument. The main use case for this argument to
+	  `dynamic.director()`_ is to disable SNI by default by
+	  setting it to the empty string as ``authority = ""``.
 
 .. raw:: pdf
 
@@ -409,7 +417,8 @@ Example
 
    PageBreak
 
-$Method BACKEND .backend(STRING host = "", STRING port = "")
+$Method BACKEND .backend(STRING host = "", STRING port = "",
+    STRING authority = NULL)
 
 Description
 	Return a backend from the director for a given *host* name and,
@@ -424,6 +433,21 @@ Description
 	``bereq`` or ``req``.
 
 	If the *port* is not speficied, it is taken from the director.
+
+	If *authority* is set, it's value is used as the authority TLV
+	in the PROXY header sent to the *via* host, which, in turn,
+	will probably use it as the SNI for an outgoing TLS
+	connection.
+
+	If *authority* is not set, it will fall back to these options
+	in order:
+
+	- *authority* from the director
+	- *host_header* from the director
+	- *host* argument
+
+	If *authority* is set to the empty string, or if *via* is not
+	set, then the TLV is not sent.
 
 $Method BACKEND .service(STRING service)
 

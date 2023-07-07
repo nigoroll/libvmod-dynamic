@@ -293,7 +293,7 @@ service_doms(VRT_CTX, struct vmod_dynamic_director *obj,
 		VTAILQ_FOREACH(t, &p->targets, list) {
 			CHECK_OBJ_NOTNULL(t, SERVICE_TARGET_MAGIC);
 			bprintf(portbuf, "%u", t->port);
-			dom = dynamic_get(ctx, obj, t->target, portbuf);
+			dom = dynamic_get(ctx, obj, t->target, NULL, portbuf);
 			AN(dom);
 			VRT_Assign_Backend(&t->dir, dom->dir);
 			CHECK_OBJ_NOTNULL(t->dir, DIRECTOR_MAGIC);

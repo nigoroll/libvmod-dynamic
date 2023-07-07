@@ -136,6 +136,14 @@ dynamic_domain_cmp(const struct dynamic_domain *a,
 	if (r)
 		return (r);
 
+	if (a->authority != NULL || b->authority != NULL) {
+		r = strcmp(
+		    a->authority ? a->authority : "",
+		    b->authority ? b->authority : "");
+		if (r)
+			return (r);
+	}
+
 	return (strcmp(dom_port(a), dom_port(b)));
 }
 
@@ -542,18 +550,29 @@ ref_add(VRT_CTX, struct dynamic_ref *r)
 
 	switch (dom->obj->share) {
 	case DIRECTOR:
-		vrt.authority = vrt.hosthdr = dom->obj->hosthdr;
+		vrt.hosthdr = dom->obj->hosthdr;
 		bprintf(vcl_name, "%s(%s:%s)", dom->obj->vcl_name, addr,
 		    dom_port(dom));
 		break;
 	case HOST:
-		vrt.authority = vrt.hosthdr =
+		vrt.hosthdr =
 		    (dom->obj->hosthdr ? dom->obj->hosthdr : dom->addr);
-		bprintf(vcl_name, "%s.%s(%s:%s)", dom->obj->vcl_name, dom->addr,
-		    addr, dom_port(dom));
+		bprintf(vcl_name, "%s.%s(%s:%s%s%s)", dom->obj->vcl_name,
+		    dom->addr, addr, dom_port(dom),
+		    dom->authority ? "/" : "",
+		    dom->authority ? dom->authority : "");
 		break;
 	default:
 		INCOMPL();
+	}
+
+	if (dom->obj->via != NULL) {
+		if (dom->authority != NULL)
+			vrt.authority = dom->authority;
+		else if (vrt.hosthdr != NULL)
+			vrt.authority = vrt.hosthdr;
+		else
+			vrt.authority = dom->addr;
 	}
 
 	vrt.vcl_name = vcl_name;
@@ -954,7 +973,7 @@ dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 
 static struct dynamic_domain *
 dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
-    const char *port)
+    const char *authority, const char *port)
 {
 	struct dynamic_domain dom[1];
 
@@ -971,6 +990,7 @@ dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
 	INIT_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
 	dom->obj = obj;
 	dom->addr = TRUST_ME(addr);
+	dom->authority = TRUST_ME(authority);
 	dom->port = TRUST_ME(port);
 
 	return (VRBT_FIND(dom_tree_head, &obj->active_domains, dom));
@@ -1017,6 +1037,7 @@ dom_destroy(VCL_BACKEND dir)
 	AZ(pthread_cond_destroy(&dom->cond));
 	Lck_Delete(&dom->mtx);
 	REPLACE(dom->addr, NULL);
+	REPLACE(dom->authority, NULL);
 	REPLACE(dom->port, NULL);
 	FREE_OBJ(dom);
 }
@@ -1033,7 +1054,7 @@ static const struct vdi_methods vmod_dynamic_methods[1] = {{
 
 struct dynamic_domain *
 dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
-    const char *port)
+    const char *authority, const char *port)
 {
 	struct dynamic_domain *dom, *raced;
 	VCL_TIME t;
@@ -1044,7 +1065,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 
 	t = ctx->now + obj->domain_usage_tmo;
 
-	dom = dynamic_search(obj, addr, port);
+	dom = dynamic_search(obj, addr, authority, port);
 	if (dom != NULL) {
 		if (t > dom->expires)
 			dom->expires = t;
@@ -1059,13 +1080,15 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	VTAILQ_INIT(&dom->refs);
 	VTAILQ_INIT(&dom->oldrefs);
 	REPLACE(dom->addr, addr);
+	REPLACE(dom->authority, authority);
 	REPLACE(dom->port, port);
 
 	dom->obj = obj;
 	dom->expires = t;
 
 	dom->dir = VRT_AddDirector(ctx, vmod_dynamic_methods, dom,
-	    "%s(%s:%s)", obj->vcl_name, addr, port);
+	    "%s(%s:%s%s%s)", obj->vcl_name, addr, port,
+	    authority ? "/" : "", authority ? authority : "");
 
 	Lck_New(&dom->mtx, lck_be);
 	AZ(pthread_cond_init(&dom->cond, NULL));
@@ -1207,7 +1230,8 @@ vmod_director__init(VRT_CTX,
     VCL_ENUM ttl_from_arg,
     VCL_DURATION retry_after,
     VCL_BACKEND via,
-    VCL_INT keep)
+    VCL_INT keep,
+    VCL_STRING authority)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -1261,6 +1285,8 @@ vmod_director__init(VRT_CTX,
 	REPLACE(obj->vcl_name, vcl_name);
 	REPLACE(obj->port, port);
 	REPLACE(obj->hosthdr, hosthdr);
+	if (via)
+		REPLACE(obj->authority, authority);
 
 	obj->vcl_conf = VCL_Name(ctx->vcl);
 	obj->vcl = ctx->vcl;
@@ -1336,6 +1362,7 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 	REPLACE(obj->vcl_name, NULL);
 	REPLACE(obj->port, NULL);
 	REPLACE(obj->hosthdr, NULL);
+	REPLACE(obj->authority, NULL);
 
 	Lck_Delete(&obj->domains_mtx);
 	Lck_Delete(&obj->services_mtx);
@@ -1345,7 +1372,7 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 
 VCL_BACKEND v_matchproto_(td_dynamic_director_backend)
 vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
-    VCL_STRING host, VCL_STRING port)
+    VCL_STRING host, VCL_STRING port, VCL_STRING authority)
 {
 	struct dynamic_domain *dom;
 
@@ -1363,7 +1390,11 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 
 	if (port != NULL && *port == '\0')
 		port = NULL;
-	dom = dynamic_get(ctx, obj, host, port);
+
+	if (authority == NULL)
+		authority = obj->authority;
+
+	dom = dynamic_get(ctx, obj, host, authority, port);
 	AN(dom);
 
 	return (dom->dir);

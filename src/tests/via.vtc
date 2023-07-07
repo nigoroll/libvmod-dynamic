@@ -1,8 +1,8 @@
-varnishtest "via"
+varnishtest "via and authority"
 
 feature cmd "getent hosts localhost www.localhost img.localhost"
 
-server s1 {
+server s1 -repeat 6 {
 	rxreq
 	txresp
 } -start
@@ -58,6 +58,176 @@ client c1 {
 	expect resp.status == 200
 	expect resp.http.Authority == "localhost"
 } -run
+
+varnish v1 -cliok "backend.list -p"
+
+varnish v1 -vcl {
+	import ${vmod_dynamic};
+
+	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
+
+	sub vcl_init {
+		new d1 = dynamic.director(
+		    port = "${s1_port}",
+		    via = v2,
+		    authority = "authority.com");
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend("localhost");
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+}
+
+client c1 {
+	txreq -url /foo
+	rxresp
+	expect resp.status == 200
+	expect resp.http.Authority == "authority.com"
+} -run
+
+varnish v1 -cliok "backend.list -p"
+
+varnish v1 -vcl {
+	import ${vmod_dynamic};
+
+	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
+
+	sub vcl_init {
+		new d1 = dynamic.director(
+		    port = "${s1_port}",
+		    via = v2,
+		    host_header = "host.com");
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend("localhost");
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+}
+
+client c1 {
+	txreq -url /bar
+	rxresp
+	expect resp.status == 200
+	expect resp.http.Authority == "host.com"
+} -run
+
+varnish v1 -cliok "backend.list -p"
+
+varnish v1 -vcl {
+	import ${vmod_dynamic};
+
+	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
+
+	sub vcl_init {
+		new d1 = dynamic.director(
+		    port = "${s1_port}",
+		    via = v2,
+		    authority = "");
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend("localhost");
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+}
+
+client c1 {
+	txreq -url /baz
+	rxresp
+	expect resp.status == 200
+	expect resp.http.Authority == ""
+} -run
+
+varnish v1 -cliok "backend.list -p"
+
+varnish v1 -vcl {
+	import ${vmod_dynamic};
+
+	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
+
+	sub vcl_init {
+		new d1 = dynamic.director(
+		    port = "${s1_port}",
+		    via = v2);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend("localhost",
+		    authority="auth.com");
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+}
+
+client c1 {
+	txreq -url /bazz
+	rxresp
+	expect resp.status == 200
+	expect resp.http.Authority == "auth.com"
+} -run
+
+varnish v1 -cliok "backend.list -p"
+
+varnish v3 -proto PROXY -vcl+backend {
+	import std;
+	import proxy;
+
+	sub vcl_recv {
+		set req.http.Authority = proxy.authority();
+	}
+
+	sub vcl_deliver {
+		set resp.http.Authority = req.http.Authority;
+	}
+} -start
+
+varnish v1 -vcl {
+	import ${vmod_dynamic};
+
+	backend b None;
+
+	sub vcl_init {
+		new d1 = dynamic.director(
+		    port = "${v3_port}",
+		    proxy_header = 2,
+		    authority = "authority.com");
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend("${v3_addr}");
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+}
+
+client c1 -connect ${v1_sock} {
+	txreq -url /quux
+	rxresp
+	expect resp.status == 200
+	expect resp.http.Authority == ""
+} -run
+
+varnish v1 -cliok "backend.list -p"
 
 # vtc diag only
 shell "varnishstat -1 -n ${v1_name} -f VBE.*"
