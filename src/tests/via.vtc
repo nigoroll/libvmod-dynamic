@@ -36,8 +36,13 @@ varnish v1 -vcl {
 
 	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
 
+	acl ipv4_loopback +log {
+		"127/24";
+	}
+
 	sub vcl_init {
 		new d1 = dynamic.director(
+		    whitelist = ipv4_loopback,
 		    port = "${s1_port}",
 		    via = v2);
 	}
@@ -66,8 +71,13 @@ varnish v1 -vcl {
 
 	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
 
+	acl ipv4_loopback +log {
+		"127/24";
+	}
+
 	sub vcl_init {
 		new d1 = dynamic.director(
+		    whitelist = ipv4_loopback,
 		    port = "${s1_port}",
 		    via = v2,
 		    authority = "authority.com");
@@ -97,8 +107,13 @@ varnish v1 -vcl {
 
 	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
 
+	acl ipv4_loopback +log {
+		"127/24";
+	}
+
 	sub vcl_init {
 		new d1 = dynamic.director(
+		    whitelist = ipv4_loopback,
 		    port = "${s1_port}",
 		    via = v2,
 		    host_header = "host.com");
@@ -128,8 +143,13 @@ varnish v1 -vcl {
 
 	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
 
+	acl ipv4_loopback +log {
+		"127/24";
+	}
+
 	sub vcl_init {
 		new d1 = dynamic.director(
+		    whitelist = ipv4_loopback,
 		    port = "${s1_port}",
 		    via = v2,
 		    authority = "");
@@ -159,8 +179,13 @@ varnish v1 -vcl {
 
 	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
 
+	acl ipv4_loopback +log {
+		"127/24";
+	}
+
 	sub vcl_init {
 		new d1 = dynamic.director(
+		    whitelist = ipv4_loopback,
 		    port = "${s1_port}",
 		    via = v2);
 	}
