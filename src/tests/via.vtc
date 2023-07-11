@@ -12,7 +12,7 @@ varnish v2 -proto PROXY -vcl {
 	import std;
 	import proxy;
 
-	backend dummy { .host = "${bad_backend}"; }
+	backend none none;
 
 	sub vcl_init {
 		new d1 = dynamic.director();
