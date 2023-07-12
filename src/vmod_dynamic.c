@@ -1000,6 +1000,17 @@ dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
 	return (VRBT_FIND(dom_tree_head, &obj->ref_domains, dom));
 }
 
+/*
+ * NOTE:
+ *
+ * dom_release is _not_ registered as a director release callback, because we do
+ * not add arbitraty references to other directors, but rather we create all
+ * backends which we use solely through this director and are thus free to
+ * release them later.
+ *
+ * We need to keep our backends around until the last reference to a domain is
+ * lost, otherwise it would stop working
+ */
 static void v_matchproto_(vdi_release_f)
 dom_release(VCL_BACKEND dir)
 {
@@ -1032,6 +1043,8 @@ dom_destroy(VCL_BACKEND dir)
 	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
 
+	dom_release(dir);
+
 	AZ(dom->thread);
 	assert(dom->status == DYNAMIC_ST_READY);
 	assert(VTAILQ_EMPTY(&dom->refs));
@@ -1051,7 +1064,6 @@ static const struct vdi_methods vmod_dynamic_methods[1] = {{
 	.type =		"dynamic",
 	.healthy =	dom_healthy,
 	.resolve =	dom_resolve,
-	.release =	dom_release,
 	.destroy =	dom_destroy,
 	.list =	dom_list
 }};
