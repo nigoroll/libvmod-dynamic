@@ -304,7 +304,7 @@ dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 			if (retval)
 				break;
 		}
-		if (retval)
+		if (retval || IS_CLI())
 			break;
 		if (alt != NULL && alt->dir == NULL)
 			AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
