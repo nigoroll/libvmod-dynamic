@@ -669,7 +669,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 		/* search the director's other domains */
 		AZ(r);
 		Lck_AssertHeld(&dom->obj->domains_mtx);
-		VRBT_FOREACH(dom2, dom_tree_head, &dom->obj->active_domains) {
+		VRBT_FOREACH(dom2, dom_tree_head, &dom->obj->ref_domains) {
 			if (dom2 == dom)
 				continue;
 			CHECK_OBJ_NOTNULL(dom2, DYNAMIC_DOMAIN_MAGIC);
@@ -826,8 +826,8 @@ dom_lookup_thread(void *priv)
 
 	if (dom->status == DYNAMIC_ST_STALE) {
 		Lck_Lock(&obj->domains_mtx);
-		VRBT_REMOVE(dom_tree_head, &obj->active_domains, dom);
-		VTAILQ_INSERT_TAIL(&obj->expired_domains, dom, link.list);
+		VRBT_REMOVE(dom_tree_head, &obj->ref_domains, dom);
+		VTAILQ_INSERT_TAIL(&obj->unref_domains, dom, link.list);
 		Lck_Unlock(&obj->domains_mtx);
 	}
 	else
@@ -873,10 +873,10 @@ dynamic_gc_expired(struct vmod_dynamic_director *obj)
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->domains_mtx);
 
-	while ((dom = VTAILQ_FIRST(&obj->expired_domains)) != NULL) {
+	while ((dom = VTAILQ_FIRST(&obj->unref_domains)) != NULL) {
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		assert(dom->status == DYNAMIC_ST_STALE);
-		VTAILQ_REMOVE(&obj->expired_domains, dom, link.list);
+		VTAILQ_REMOVE(&obj->unref_domains, dom, link.list);
 		Lck_Unlock(&obj->domains_mtx);
 		(void) dynamic_join(dom);
 		dom_free(&dom, "expired");
@@ -901,7 +901,7 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 	Lck_Lock(&obj->domains_mtx);
 	AZ(obj->active);
 	// obj-active has been cleared, wake up all threads
-	VRBT_FOREACH(dom, dom_tree_head, &obj->active_domains) {
+	VRBT_FOREACH(dom, dom_tree_head, &obj->ref_domains) {
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		Lck_Lock(&dom->mtx);
 		AN(dom->thread);
@@ -909,12 +909,12 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 		Lck_Unlock(&dom->mtx);
 	}
 
-	while (! (VTAILQ_EMPTY(&obj->expired_domains) &&
-		  VRBT_EMPTY(&obj->active_domains))) {
+	while (! (VTAILQ_EMPTY(&obj->unref_domains) &&
+		  VRBT_EMPTY(&obj->ref_domains))) {
 		// finished threads can be picked up already
 		dynamic_gc_expired(obj);
 
-		while ((dom = VRBT_ROOT(&obj->active_domains)) != NULL) {
+		while ((dom = VRBT_ROOT(&obj->ref_domains)) != NULL) {
 			CHECK_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
 			Lck_Unlock(&obj->domains_mtx);
 			status = dynamic_join(dom);
@@ -923,11 +923,11 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 			AZ(dom->thread);
 			switch (status) {
 			case DYNAMIC_ST_STALE:
-				VTAILQ_REMOVE(&obj->expired_domains, dom, link.list);
+				VTAILQ_REMOVE(&obj->unref_domains, dom, link.list);
 				dom_free(&dom, "stop expired");
 				break;
 			case DYNAMIC_ST_DONE:
-				VRBT_REMOVE(dom_tree_head, &obj->active_domains, dom);
+				VRBT_REMOVE(dom_tree_head, &obj->ref_domains, dom);
 				AZ(VRBT_INSERT(dom_tree_head, &active_done, dom));
 				break;
 			default:
@@ -935,8 +935,8 @@ dynamic_stop(struct vmod_dynamic_director *obj)
 			}
 		}
 	}
-	assert(VRBT_EMPTY(&obj->active_domains));
-	obj->active_domains = active_done;
+	assert(VRBT_EMPTY(&obj->ref_domains));
+	obj->ref_domains = active_done;
 	Lck_Unlock(&obj->domains_mtx);
 
 	VRT_VCL_Allow_Discard(&obj->vclref);
@@ -969,7 +969,7 @@ dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 	obj->vclref = VRT_VCL_Prevent_Discard(ctx, buf);
 
 	Lck_Lock(&obj->domains_mtx);
-	VRBT_FOREACH(dom, dom_tree_head, &obj->active_domains)
+	VRBT_FOREACH(dom, dom_tree_head, &obj->ref_domains)
 		dom_start(dom);
 	Lck_Unlock(&obj->domains_mtx);
 	service_start(ctx, obj);
@@ -985,7 +985,7 @@ dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
 	Lck_AssertHeld(&obj->domains_mtx);
 	AN(addr);
 
-	if (VTAILQ_FIRST(&obj->expired_domains))
+	if (VTAILQ_FIRST(&obj->unref_domains))
 		dynamic_gc_expired(obj);
 
 	if (port != NULL)
@@ -997,7 +997,7 @@ dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
 	dom->authority = TRUST_ME(authority);
 	dom->port = TRUST_ME(port);
 
-	return (VRBT_FIND(dom_tree_head, &obj->active_domains, dom));
+	return (VRBT_FIND(dom_tree_head, &obj->ref_domains, dom));
 }
 
 static void v_matchproto_(vdi_release_f)
@@ -1099,7 +1099,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	AZ(pthread_cond_init(&dom->resolve, NULL));
 
 	Lck_Lock(&obj->domains_mtx);
-	raced = VRBT_INSERT(dom_tree_head, &obj->active_domains, dom);
+	raced = VRBT_INSERT(dom_tree_head, &obj->ref_domains, dom);
 	Lck_Unlock(&obj->domains_mtx);
 
 	if (raced) {
@@ -1282,8 +1282,8 @@ vmod_director__init(VRT_CTX,
 
 	ALLOC_OBJ(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AN(obj);
-	VRBT_INIT(&obj->active_domains);
-	VTAILQ_INIT(&obj->expired_domains);
+	VRBT_INIT(&obj->ref_domains);
+	VTAILQ_INIT(&obj->unref_domains);
 	VRBT_INIT(&obj->active_services);
 	VTAILQ_INIT(&obj->purged_services);
 	REPLACE(obj->vcl_name, vcl_name);
@@ -1354,13 +1354,13 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 
 	service_fini(obj);
 
-	while ((dom = VRBT_ROOT(&obj->active_domains)) != NULL) {
-		VRBT_REMOVE(dom_tree_head, &obj->active_domains, dom);
+	while ((dom = VRBT_ROOT(&obj->ref_domains)) != NULL) {
+		VRBT_REMOVE(dom_tree_head, &obj->ref_domains, dom);
 		dom_free(&dom, "fini");
 	}
 
-	assert(VRBT_EMPTY(&obj->active_domains));
-	assert(VTAILQ_EMPTY(&obj->expired_domains));
+	assert(VRBT_EMPTY(&obj->ref_domains));
+	assert(VTAILQ_EMPTY(&obj->unref_domains));
 	assert(VRBT_EMPTY(&obj->active_services));
 	assert(VTAILQ_EMPTY(&obj->purged_services));
 	REPLACE(obj->vcl_name, NULL);

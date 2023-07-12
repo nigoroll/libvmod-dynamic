@@ -58,8 +58,8 @@ enum dynamic_status_e {
 	DYNAMIC_ST_READY	= 0,
 	DYNAMIC_ST_STARTING,
 	DYNAMIC_ST_ACTIVE,
-	DYNAMIC_ST_STALE,
-	DYNAMIC_ST_DONE
+	DYNAMIC_ST_STALE,	// timed out, lose reference
+	DYNAMIC_ST_DONE		// stop thread
 };
 
 enum dynamic_share_e {
@@ -186,8 +186,11 @@ struct vmod_dynamic_director {
 	VCL_BACKEND				via;
 	VTAILQ_ENTRY(vmod_dynamic_director)	list;
 	struct lock				domains_mtx;
-	struct dom_tree_head			active_domains;
-	struct dynamic_domain_head		expired_domains;
+	/* ref: we hold a reference, lookup via tree
+	 * unref: timed out, lose reference
+	 */
+	struct dom_tree_head			ref_domains;
+	struct dynamic_domain_head		unref_domains;
 	struct lock				services_mtx;
 	struct srv_tree_head			active_services;
 	struct dynamic_service_head		purged_services;
