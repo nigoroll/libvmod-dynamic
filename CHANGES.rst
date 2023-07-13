@@ -11,7 +11,7 @@ vmod_dynamic NEXT
 .. _76: https://github.com/nigoroll/libvmod-dynamic/pull/76
 
 * An ``authority`` argument has been added to the ``.backend()``
-  method and the ``dynamic.director()`` constructor as a director-wide
+  method and the ``dynamic.director()`` constructor as an object-wide
   default to allow control over the Authority TLV sent with PROXY
   requests to a via backend, which usually ends up as SNI in a backend
   TLS connection (based upon `76`_).
@@ -22,8 +22,8 @@ vmod_dynamic NEXT
   ``vmod-dynamic``.
 
 * When there is no healthy backend for a domain, the ``.backend()``
-  method now returns a (possibly) unhealthy backend rather than none
-  at all.
+  method now returns a (possibly) unhealthy domain director rather
+  than none at all.
 
   This should help in situations where new backends have been added
   and a probe has not yet returned.
