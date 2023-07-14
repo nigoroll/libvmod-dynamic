@@ -78,6 +78,8 @@ static VCL_BOOL v_matchproto_(vdi_healthy_f)
 service_healthy(VRT_CTX, VCL_BACKEND, VCL_TIME *);
 static void v_matchproto_(vdi_release_f)
 service_release(VCL_BACKEND dir);
+static void v_matchproto_(vdi_event_f)
+service_event(VCL_BACKEND dir, enum vcl_event_e ev);
 static void v_matchproto_(vdi_destroy_f)
 service_destroy(VCL_BACKEND dir);
 
@@ -86,8 +88,11 @@ static const struct vdi_methods vmod_dynamic_service_methods[1] = {{
 	.type =		"dynamic service",
 	.healthy =	service_healthy,
 	.resolve =	service_resolve,
+	.event =	service_event,
 	.destroy =	service_destroy
 }};
+
+static void service_gc_expired(struct vmod_dynamic_director *obj);
 
 /*--------------------------------------------------------------------
  * active services tree
@@ -110,9 +115,7 @@ dynamic_service_cmp(const struct dynamic_service *a,
 	VRBT_GENERATE_INSERT_FINISH(name, type, field, attr)	\
 	VRBT_GENERATE_INSERT(name, type, field, cmp, attr)	\
 	VRBT_GENERATE_REMOVE(name, type, field, attr)		\
-	VRBT_GENERATE_FIND(name, type, field, cmp, attr)	\
-	VRBT_GENERATE_NEXT(name, type, field, attr)		\
-	VRBT_GENERATE_MINMAX(name, type, field, attr)
+	VRBT_GENERATE_FIND(name, type, field, cmp, attr)
 
 /* unused
 
@@ -121,6 +124,8 @@ dynamic_service_cmp(const struct dynamic_service *a,
    VRBT_GENERATE_INSERT_PREV(name, type, field, cmp, attr)
    VRBT_GENERATE_INSERT_NEXT(name, type, field, cmp, attr)
    VRBT_GENERATE_PREV(name, type, field, attr)
+   VRBT_GENERATE_NEXT(name, type, field, attr)
+   VRBT_GENERATE_MINMAX(name, type, field, attr)
 */
 
 VRBT_GENERATE_NEEDED(srv_tree_head, dynamic_service,
@@ -166,6 +171,9 @@ service_resolve(VRT_CTX, VCL_BACKEND d)
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(srv, d->priv, DYNAMIC_SERVICE_MAGIC);
+
+	if (VTAILQ_FIRST(&srv->obj->unref_services))
+		service_gc_expired(srv->obj);
 
 	Lck_Lock(&srv->mtx);
 
@@ -542,15 +550,24 @@ service_lookup_thread(void *priv)
 	AN(res->srv_result);
 	AN(res->srv_fini);
 
+	Lck_Lock(&srv->mtx);
 	assert(srv->status == DYNAMIC_ST_STARTING);
 
-	while (obj->active && srv->status <= DYNAMIC_ST_ACTIVE) {
+	while (srv->status <= DYNAMIC_ST_ACTIVE) {
+		Lck_Unlock(&srv->mtx);
 
 		lookup = VTIM_real();
 		if (lookup > srv->expires) {
-			LOG(NULL, SLT_VCL_Log, srv, "%s", "timeout");
-			srv->status = DYNAMIC_ST_STALE;
-			break;
+			Lck_Lock(&obj->services_mtx);
+			if (lookup > srv->expires) {
+				LOG(NULL, SLT_VCL_Log, srv, "%s", "timeout");
+				srv->expires = HUGE_VAL;
+				VRBT_REMOVE(srv_tree_head, &obj->ref_services,
+				    srv);
+				VTAILQ_INSERT_TAIL(&obj->unref_services, srv,
+				    link.list);
+			}
+			Lck_Unlock(&obj->services_mtx);
 		}
 
 		service_timestamp(srv, "Lookup", lookup, 0., 0.);
@@ -595,23 +612,15 @@ service_lookup_thread(void *priv)
 		}
 
 		/* Check status again after the blocking call */
-		if (obj->active && srv->status <= DYNAMIC_ST_ACTIVE) {
+		if (srv->status <= DYNAMIC_ST_ACTIVE) {
 			ret = Lck_CondWaitUntil(&srv->cond, &srv->mtx,
 			    fmin(srv->deadline, srv->expires));
 			assert(ret == 0 || ret == ETIMEDOUT);
 		}
-
-		Lck_Unlock(&srv->mtx);
 	}
+	Lck_Unlock(&srv->mtx);
 
-	if (srv->status == DYNAMIC_ST_STALE) {
-		Lck_Lock(&obj->services_mtx);
-		VRBT_REMOVE(srv_tree_head, &obj->ref_services, srv);
-		VTAILQ_INSERT_TAIL(&obj->unref_services, srv, link.list);
-		Lck_Unlock(&obj->services_mtx);
-	}
-	else
-		srv->status = DYNAMIC_ST_DONE;
+	assert(srv->status == DYNAMIC_ST_DONE);
 
 	service_timestamp(srv, "Done", VTIM_real(), 0., 0.);
 
@@ -643,6 +652,7 @@ service_destroy(VCL_BACKEND dir)
 	service_release(dir);
 
 	CAST_OBJ_NOTNULL(srv, dir->priv, DYNAMIC_SERVICE_MAGIC);
+	DBG(NULL, srv, "%s", "destroy");
 	AZ(srv->thread);
 	assert(srv->status == DYNAMIC_ST_READY);
 	AZ(srv->prios_cold);
@@ -655,6 +665,51 @@ service_destroy(VCL_BACKEND dir)
 	FREE_OBJ(srv);
 }
 
+static void v_matchproto_(vdi_event_f)
+service_event(VCL_BACKEND dir, enum vcl_event_e ev)
+{
+	struct dynamic_service *srv;
+
+	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(srv, dir->priv, DYNAMIC_SERVICE_MAGIC);
+
+	DBG(NULL, srv, "event %d", ev);
+
+	switch (ev) {
+	case VCL_EVENT_WARM:
+		// early start in _get
+		if (srv->status == DYNAMIC_ST_STARTING ||
+		    srv->status == DYNAMIC_ST_ACTIVE)
+			break;
+		assert(srv->status == DYNAMIC_ST_READY);
+		srv->status = DYNAMIC_ST_STARTING;
+		AZ(srv->thread);
+		AZ(pthread_create(&srv->thread, NULL,
+		    service_lookup_thread, srv));
+		break;
+	case VCL_EVENT_DISCARD:
+		// discard after load with early start - XXX VTC
+		if (srv->status == DYNAMIC_ST_READY)
+			break;
+		/* FALLTHROUGH */
+	case VCL_EVENT_COLD:
+		Lck_Lock(&srv->mtx);
+		if (srv->status <= DYNAMIC_ST_ACTIVE)
+			srv->status = DYNAMIC_ST_DONE;
+		AZ(pthread_cond_signal(&srv->cond));
+		AN(srv->thread);
+		Lck_Unlock(&srv->mtx);
+
+		AZ(pthread_join(srv->thread, NULL));
+		srv->thread = 0;
+		assert(srv->status == DYNAMIC_ST_DONE);
+		srv->status = DYNAMIC_ST_READY;
+		break;
+	default:
+		break;
+	}
+}
+
 static void
 service_free(struct dynamic_service **srvp, const char *why)
 {
@@ -662,25 +717,9 @@ service_free(struct dynamic_service **srvp, const char *why)
 
 	TAKE_OBJ_NOTNULL(srv, srvp, DYNAMIC_SERVICE_MAGIC);
 
-	AZ(srv->thread);
 	LOG(NULL, SLT_VCL_Log, srv, "deleted (%s)", why);
 
 	VRT_DelDirector(&srv->dir);
-}
-
-static enum dynamic_status_e
-service_join(struct dynamic_service *srv)
-{
-	enum dynamic_status_e status;
-
-	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
-	AN(srv->thread);
-	AZ(pthread_join(srv->thread, NULL));
-	status = srv->status;
-	assert(status == DYNAMIC_ST_DONE || status == DYNAMIC_ST_STALE);
-	srv->thread = 0;
-	srv->status = DYNAMIC_ST_READY;
-	return (status);
 }
 
 static void
@@ -689,97 +728,27 @@ service_gc_expired(struct vmod_dynamic_director *obj)
 	struct dynamic_service *srv;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	Lck_AssertHeld(&obj->services_mtx);
 
+	Lck_Lock(&obj->services_mtx);
 	while ((srv = VTAILQ_FIRST(&obj->unref_services)) != NULL) {
-		CHECK_OBJ_NOTNULL(srv, DYNAMIC_DOMAIN_MAGIC);
-		assert(srv->status == DYNAMIC_ST_STALE);
+		CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
 		VTAILQ_REMOVE(&obj->unref_services, srv, link.list);
 		Lck_Unlock(&obj->services_mtx);
-		(void) service_join(srv);
 		service_free(&srv, "expired");
 		Lck_Lock(&obj->services_mtx);
 	}
+	Lck_Unlock(&obj->services_mtx);
 }
 
 // called from dynamic_stop
 void
 service_stop(struct vmod_dynamic_director *obj)
 {
-	struct dynamic_service *srv;
-	struct srv_tree_head active_done;
-	enum dynamic_status_e status;
 
+	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
-	VRBT_INIT(&active_done);
-
-	Lck_Lock(&obj->services_mtx);
-	AZ(obj->active);
-	// wake up all threads
-	VRBT_FOREACH(srv, srv_tree_head, &obj->ref_services) {
-		CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
-		Lck_Lock(&srv->mtx);
-		AN(srv->thread);
-		AZ(pthread_cond_signal(&srv->cond));
-		Lck_Unlock(&srv->mtx);
-	}
-
-	while (! (VTAILQ_EMPTY(&obj->unref_services) &&
-		  VRBT_EMPTY(&obj->ref_services))) {
-		// finished threads can be picked up already
-		service_gc_expired(obj);
-
-		while ((srv = VRBT_ROOT(&obj->ref_services)) != NULL) {
-			CHECK_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
-			Lck_Unlock(&obj->services_mtx);
-			status = service_join(srv);
-			assert(srv->status == DYNAMIC_ST_READY);
-			Lck_Lock(&obj->services_mtx);
-			AZ(srv->thread);
-			switch (status) {
-			case DYNAMIC_ST_STALE:
-				VTAILQ_REMOVE(&obj->unref_services, srv, link.list);
-				service_free(&srv, "stop expired");
-				break;
-			case DYNAMIC_ST_DONE:
-				VRBT_REMOVE(srv_tree_head, &obj->ref_services, srv);
-				AZ(VRBT_INSERT(srv_tree_head, &active_done, srv));
-				break;
-			default:
-				WRONG("status in service_stop");
-			}
-		}
-	}
-	assert(VRBT_EMPTY(&obj->ref_services));
-	obj->ref_services = active_done;
-	Lck_Unlock(&obj->services_mtx);
-}
-
-static void
-service_start_service(struct dynamic_service *srv)
-{
-
-	CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
-	if (srv->status >= DYNAMIC_ST_STARTING)
-		return;
-	assert(srv->status == DYNAMIC_ST_READY);
-	srv->status = DYNAMIC_ST_STARTING;
-	AZ(srv->thread);
-	AZ(pthread_create(&srv->thread, NULL, service_lookup_thread, srv));
-}
-
-// called from dynamic_start
-void
-service_start(VRT_CTX, struct vmod_dynamic_director *obj)
-{
-	struct dynamic_service *srv;
-
-	(void) ctx;
-	Lck_Lock(&obj->services_mtx);
-	VRBT_FOREACH(srv, srv_tree_head, &obj->ref_services)
-	    service_start_service(srv);
-	Lck_Unlock(&obj->services_mtx);
+	service_gc_expired(obj);
 }
 
 // calledn from vmod_director__fini
@@ -807,9 +776,6 @@ service_search(struct vmod_dynamic_director *obj, const char *service)
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->services_mtx);
 	AN(service);
-
-	if (VTAILQ_FIRST(&obj->unref_services))
-		service_gc_expired(obj);
 
 	INIT_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
 	srv->service = TRUST_ME(service);	// XXX
@@ -862,9 +828,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 		return (raced);
 	}
 
-	obj->active = 1;
-	service_start_service(srv);
-
+	service_event(srv->dir, VCL_EVENT_WARM);
 	return (srv);
 }
 

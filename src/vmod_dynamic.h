@@ -58,7 +58,6 @@ enum dynamic_status_e {
 	DYNAMIC_ST_READY	= 0,
 	DYNAMIC_ST_STARTING,
 	DYNAMIC_ST_ACTIVE,
-	DYNAMIC_ST_STALE,	// XXX still used in service
 	DYNAMIC_ST_DONE
 };
 
@@ -219,7 +218,6 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 // vmod_dynamic_service.c
 struct dynamic_service;
 void service_stop(struct vmod_dynamic_director *obj);
-void service_start(VRT_CTX, struct vmod_dynamic_director *obj);
 void service_fini(struct vmod_dynamic_director *obj);
 
 // generic

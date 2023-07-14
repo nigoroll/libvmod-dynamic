@@ -905,7 +905,6 @@ dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 	bprintf(buf, "dynamic director %s", obj->vcl_name);
 	/* name argument is being strdup()ed via REPLACE() */
 	obj->vclref = VRT_VCL_Prevent_Discard(ctx, buf);
-	service_start(ctx, obj);
 }
 
 static struct dynamic_domain *
