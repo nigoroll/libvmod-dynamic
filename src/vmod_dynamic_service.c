@@ -846,12 +846,12 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	srv->obj = obj;
 	srv->expires = t;
 
-	srv->dir = VRT_AddDirector(ctx, vmod_dynamic_service_methods, srv,
-	    "%s(%s)", obj->vcl_name, service);
-
 	Lck_New(&srv->mtx, lck_be);
 	AZ(pthread_cond_init(&srv->cond, NULL));
 	AZ(pthread_cond_init(&srv->resolve, NULL));
+
+	srv->dir = VRT_AddDirector(ctx, vmod_dynamic_service_methods, srv,
+	    "%s(%s)", obj->vcl_name, service);
 
 	Lck_Lock(&obj->services_mtx);
 	raced = VRBT_INSERT(srv_tree_head, &obj->ref_services, srv);
