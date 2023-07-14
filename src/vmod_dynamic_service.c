@@ -86,7 +86,6 @@ static const struct vdi_methods vmod_dynamic_service_methods[1] = {{
 	.type =		"dynamic service",
 	.healthy =	service_healthy,
 	.resolve =	service_resolve,
-	.release =	service_release,
 	.destroy =	service_destroy
 }};
 
@@ -640,6 +639,8 @@ static void v_matchproto_(vdi_destroy_f)
 service_destroy(VCL_BACKEND dir)
 {
 	struct dynamic_service *srv;
+
+	service_release(dir);
 
 	CAST_OBJ_NOTNULL(srv, dir->priv, DYNAMIC_SERVICE_MAGIC);
 	AZ(srv->thread);
