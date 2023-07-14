@@ -119,6 +119,8 @@ static const char * const ttl_s[TTL_E_MAX] = {
 	[max]	= "max",
 };
 
+static void dynamic_gc_expired(struct vmod_dynamic_director *obj);
+
 /*--------------------------------------------------------------------
  * active domains tree
  */
@@ -207,6 +209,16 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, d->priv, DYNAMIC_DOMAIN_MAGIC);
+
+	/*
+	 * We need to gc somewhere where our code
+	 * runs outside the update thread in order to be able to
+	 * call pthread_join().
+	 *
+	 * other options: extra thread, pool_task (needs cache_varnishd.h)
+	 */
+	if (VTAILQ_FIRST(&dom->obj->unref_domains))
+		dynamic_gc_expired(dom->obj);
 
 	Lck_Lock(&dom->mtx);
 
@@ -772,15 +784,23 @@ dom_lookup_thread(void *priv)
 	obj = dom->obj;
 	res = obj->resolver;
 
+	Lck_Lock(&dom->mtx);
 	assert(dom->status == DYNAMIC_ST_STARTING);
-
-	while (obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
+	while (dom->status <= DYNAMIC_ST_ACTIVE) {
+		Lck_Unlock(&dom->mtx);
 
 		lookup = VTIM_real();
 		if (lookup > dom->expires) {
-			LOG(NULL, SLT_VCL_Log, dom, "%s", "timeout");
-			dom->status = DYNAMIC_ST_STALE;
-			break;
+			Lck_Lock(&obj->domains_mtx);
+			if (lookup > dom->expires) {
+				LOG(NULL, SLT_VCL_Log, dom, "%s", "timeout");
+				dom->expires = HUGE_VAL;
+				VRBT_REMOVE(dom_tree_head, &obj->ref_domains,
+				    dom);
+				VTAILQ_INSERT_TAIL(&obj->unref_domains, dom,
+				    link.list);
+			}
+			Lck_Unlock(&obj->domains_mtx);
 		}
 
 		dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
@@ -820,18 +840,10 @@ dom_lookup_thread(void *priv)
 			    fmin(dom->deadline, dom->expires));
 			assert(ret == 0 || ret == ETIMEDOUT);
 		}
-
-		Lck_Unlock(&dom->mtx);
 	}
+	Lck_Unlock(&dom->mtx);
 
-	if (dom->status == DYNAMIC_ST_STALE) {
-		Lck_Lock(&obj->domains_mtx);
-		VRBT_REMOVE(dom_tree_head, &obj->ref_domains, dom);
-		VTAILQ_INSERT_TAIL(&obj->unref_domains, dom, link.list);
-		Lck_Unlock(&obj->domains_mtx);
-	}
-	else
-		dom->status = DYNAMIC_ST_DONE;
+	assert(dom->status == DYNAMIC_ST_DONE);
 
 	dynamic_timestamp(dom, "Done", VTIM_real(), 0., 0.);
 
@@ -845,24 +857,8 @@ dom_free(struct dynamic_domain **domp, const char *why)
 
 	TAKE_OBJ_NOTNULL(dom, domp, DYNAMIC_DOMAIN_MAGIC);
 
-	AZ(dom->thread);
 	LOG(NULL, SLT_VCL_Log, dom, "deleted (%s)", why);
 	VRT_DelDirector(&dom->dir);
-}
-
-static enum dynamic_status_e
-dynamic_join(struct dynamic_domain *dom)
-{
-	enum dynamic_status_e status;
-
-	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-	AN(dom->thread);
-	AZ(pthread_join(dom->thread, NULL));
-	status = dom->status;
-	assert(status == DYNAMIC_ST_DONE || status == DYNAMIC_ST_STALE);
-	dom->thread = 0;
-	dom->status = DYNAMIC_ST_READY;
-	return (status);
 }
 
 static void
@@ -871,93 +867,35 @@ dynamic_gc_expired(struct vmod_dynamic_director *obj)
 	struct dynamic_domain *dom;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	Lck_AssertHeld(&obj->domains_mtx);
 
+	Lck_Lock(&obj->domains_mtx);
 	while ((dom = VTAILQ_FIRST(&obj->unref_domains)) != NULL) {
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-		assert(dom->status == DYNAMIC_ST_STALE);
 		VTAILQ_REMOVE(&obj->unref_domains, dom, link.list);
 		Lck_Unlock(&obj->domains_mtx);
-		(void) dynamic_join(dom);
 		dom_free(&dom, "expired");
 		Lck_Lock(&obj->domains_mtx);
 	}
+	Lck_Unlock(&obj->domains_mtx);
 }
 
 static void
 dynamic_stop(struct vmod_dynamic_director *obj)
 {
-	struct dynamic_domain *dom;
-	struct dom_tree_head active_done;
-	enum dynamic_status_e status;
 
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
 	service_stop(obj);
 
-	VRBT_INIT(&active_done);
-
-	Lck_Lock(&obj->domains_mtx);
-	AZ(obj->active);
-	// obj-active has been cleared, wake up all threads
-	VRBT_FOREACH(dom, dom_tree_head, &obj->ref_domains) {
-		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-		Lck_Lock(&dom->mtx);
-		AN(dom->thread);
-		AZ(pthread_cond_signal(&dom->cond));
-		Lck_Unlock(&dom->mtx);
-	}
-
-	while (! (VTAILQ_EMPTY(&obj->unref_domains) &&
-		  VRBT_EMPTY(&obj->ref_domains))) {
-		// finished threads can be picked up already
-		dynamic_gc_expired(obj);
-
-		while ((dom = VRBT_ROOT(&obj->ref_domains)) != NULL) {
-			CHECK_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
-			Lck_Unlock(&obj->domains_mtx);
-			status = dynamic_join(dom);
-			assert(dom->status == DYNAMIC_ST_READY);
-			Lck_Lock(&obj->domains_mtx);
-			AZ(dom->thread);
-			switch (status) {
-			case DYNAMIC_ST_STALE:
-				VTAILQ_REMOVE(&obj->unref_domains, dom, link.list);
-				dom_free(&dom, "stop expired");
-				break;
-			case DYNAMIC_ST_DONE:
-				VRBT_REMOVE(dom_tree_head, &obj->ref_domains, dom);
-				AZ(VRBT_INSERT(dom_tree_head, &active_done, dom));
-				break;
-			default:
-				WRONG("status in dynamic_stop");
-			}
-		}
-	}
-	assert(VRBT_EMPTY(&obj->ref_domains));
-	obj->ref_domains = active_done;
-	Lck_Unlock(&obj->domains_mtx);
+	dynamic_gc_expired(obj);
 
 	VRT_VCL_Allow_Discard(&obj->vclref);
 }
 
 static void
-dom_start(struct dynamic_domain *dom)
-{
-	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-	if (dom->status >= DYNAMIC_ST_STARTING)
-		return;
-	assert(dom->status == DYNAMIC_ST_READY);
-	dom->status = DYNAMIC_ST_STARTING;
-	AZ(dom->thread);
-	AZ(pthread_create(&dom->thread, NULL, dom_lookup_thread, dom));
-}
-
-static void
 dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 {
-	struct dynamic_domain *dom;
 	char buf[128];
 
 	ASSERT_CLI();
@@ -967,11 +905,6 @@ dynamic_start(VRT_CTX, struct vmod_dynamic_director *obj)
 	bprintf(buf, "dynamic director %s", obj->vcl_name);
 	/* name argument is being strdup()ed via REPLACE() */
 	obj->vclref = VRT_VCL_Prevent_Discard(ctx, buf);
-
-	Lck_Lock(&obj->domains_mtx);
-	VRBT_FOREACH(dom, dom_tree_head, &obj->ref_domains)
-		dom_start(dom);
-	Lck_Unlock(&obj->domains_mtx);
 	service_start(ctx, obj);
 }
 
@@ -984,9 +917,6 @@ dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->domains_mtx);
 	AN(addr);
-
-	if (VTAILQ_FIRST(&obj->unref_domains))
-		dynamic_gc_expired(obj);
 
 	if (port != NULL)
 		AN(*port);
@@ -1043,6 +973,8 @@ dom_destroy(VCL_BACKEND dir)
 	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
 
+	DBG(NULL, dom, "%s", "destroy");
+
 	dom_release(dir);
 
 	AZ(dom->thread);
@@ -1059,11 +991,56 @@ dom_destroy(VCL_BACKEND dir)
 	FREE_OBJ(dom);
 }
 
+static void v_matchproto_(vdi_event_f)
+dom_event(VCL_BACKEND dir, enum vcl_event_e ev)
+{
+	struct dynamic_domain *dom;
+
+	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
+
+	DBG(NULL, dom, "event %d", ev);
+
+	switch (ev) {
+	case VCL_EVENT_WARM:
+		// early start in _get
+		if (dom->status == DYNAMIC_ST_STARTING ||
+		    dom->status == DYNAMIC_ST_ACTIVE)
+			break;
+		assert(dom->status == DYNAMIC_ST_READY);
+		dom->status = DYNAMIC_ST_STARTING;
+		AZ(dom->thread);
+		AZ(pthread_create(&dom->thread, NULL, dom_lookup_thread, dom));
+		break;
+	case VCL_EVENT_DISCARD:
+		// discard after load with early start - XXX VTC
+		if (dom->status == DYNAMIC_ST_READY)
+			break;
+		/* FALLTHROUGH */
+	case VCL_EVENT_COLD:
+		Lck_Lock(&dom->mtx);
+		if (dom->status <= DYNAMIC_ST_ACTIVE)
+			dom->status = DYNAMIC_ST_DONE;
+		AZ(pthread_cond_signal(&dom->cond));
+		AN(dom->thread);
+		Lck_Unlock(&dom->mtx);
+
+		AZ(pthread_join(dom->thread, NULL));
+		dom->thread = 0;
+		assert(dom->status == DYNAMIC_ST_DONE);
+		dom->status = DYNAMIC_ST_READY;
+		break;
+	default:
+		break;
+	}
+}
+
 static const struct vdi_methods vmod_dynamic_methods[1] = {{
 	.magic =	VDI_METHODS_MAGIC,
 	.type =		"dynamic",
 	.healthy =	dom_healthy,
 	.resolve =	dom_resolve,
+	.event =	dom_event,
 	.destroy =	dom_destroy,
 	.list =	dom_list
 }};
@@ -1118,10 +1095,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 		dom_free(&dom, "raced");
 		return (raced);
 	}
-
-	obj->active = 1;
-	dom_start(dom);
-
+	dom_event(dom->dir, VCL_EVENT_WARM);
 	return (dom);
 }
 

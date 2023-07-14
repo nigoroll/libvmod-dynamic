@@ -5,6 +5,10 @@ feature cmd "getent hosts localhost"
 server s1 {
        rxreq
        txresp
+       rxreq
+       txresp
+       rxreq
+       txresp
 } -start
 
 varnish v1 -vcl+backend {
@@ -13,7 +17,10 @@ varnish v1 -vcl+backend {
 	import std;
 
 	sub vcl_init {
-		new d1 = dynamic.director(port = "${s1_port}");
+		new d1 = dynamic.director(
+		    domain_usage_timeout = 0.1s,
+		    port = "${s1_port}");
+		d1.debug(true);
 		new rr = directors.round_robin();
 		rr.add_backend(d1.backend("localhost"));
 		std.log("Resolve: " + rr.backend().resolve());
@@ -22,6 +29,7 @@ varnish v1 -vcl+backend {
 	sub vcl_recv {
 		std.log("Resolve: " + rr.backend().resolve());
 		set req.backend_hint = rr.backend();
+		return (pass);
 	}
 
 	sub vcl_backend_error {
@@ -34,6 +42,8 @@ varnish v1 -cliok "backend.list"
 
 logexpect l1 -v v1 -d 1 -g raw {
 	expect *    0 VCL_Log "Resolve: d1"
+	# director remains usable after dynamic deleted its reference
+	expect *    0 VCL_Log "vmod-dynamic vcl1 d1.*deleted .expired"
 	expect * 1001 VCL_Log "Resolve: d1"
 } -start
 
@@ -41,9 +51,21 @@ client c1 {
 	txreq
 	rxresp
 	expect resp.status == 200
+	delay 0.2
+	txreq
+	rxresp
+	expect resp.status == 200
+	delay 0.2
+	txreq
+	rxresp
+	expect resp.status == 200
 } -run
 
 logexpect l1 -wait
-varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 1
+varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 3
 varnish v1 -expect LCK.dynamic.director.creat > 0
 varnish v1 -expect LCK.dynamic.backend.creat > 0
+
+varnish v1 -vcl { backend none none; }
+varnish v1 -cliok "vcl.discard vcl1"
+varnish v1 -vsl_catchup

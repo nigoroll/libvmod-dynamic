@@ -58,8 +58,8 @@ enum dynamic_status_e {
 	DYNAMIC_ST_READY	= 0,
 	DYNAMIC_ST_STARTING,
 	DYNAMIC_ST_ACTIVE,
-	DYNAMIC_ST_STALE,	// timed out, lose reference
-	DYNAMIC_ST_DONE		// stop thread
+	DYNAMIC_ST_STALE,	// XXX still used in service
+	DYNAMIC_ST_DONE
 };
 
 enum dynamic_share_e {
