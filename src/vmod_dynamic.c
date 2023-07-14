@@ -1102,13 +1102,13 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	dom->obj = obj;
 	dom->expires = t;
 
-	dom->dir = VRT_AddDirector(ctx, vmod_dynamic_methods, dom,
-	    "%s(%s:%s%s%s)", obj->vcl_name, addr, port,
-	    authority ? "/" : "", authority ? authority : "");
-
 	Lck_New(&dom->mtx, lck_be);
 	AZ(pthread_cond_init(&dom->cond, NULL));
 	AZ(pthread_cond_init(&dom->resolve, NULL));
+
+	dom->dir = VRT_AddDirector(ctx, vmod_dynamic_methods, dom,
+	    "%s(%s:%s%s%s)", obj->vcl_name, addr, port,
+	    authority ? "/" : "", authority ? authority : "");
 
 	Lck_Lock(&obj->domains_mtx);
 	raced = VRBT_INSERT(dom_tree_head, &obj->ref_domains, dom);
