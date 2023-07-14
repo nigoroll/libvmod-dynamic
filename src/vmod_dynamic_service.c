@@ -684,7 +684,7 @@ service_join(struct dynamic_service *srv)
 }
 
 static void
-service_gc_purged(struct vmod_dynamic_director *obj)
+service_gc_expired(struct vmod_dynamic_director *obj)
 {
 	struct dynamic_service *srv;
 
@@ -728,7 +728,7 @@ service_stop(struct vmod_dynamic_director *obj)
 	while (! (VTAILQ_EMPTY(&obj->unref_services) &&
 		  VRBT_EMPTY(&obj->ref_services))) {
 		// finished threads can be picked up already
-		service_gc_purged(obj);
+		service_gc_expired(obj);
 
 		while ((srv = VRBT_ROOT(&obj->ref_services)) != NULL) {
 			CHECK_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
@@ -809,7 +809,7 @@ service_search(struct vmod_dynamic_director *obj, const char *service)
 	AN(service);
 
 	if (VTAILQ_FIRST(&obj->unref_services))
-		service_gc_purged(obj);
+		service_gc_expired(obj);
 
 	INIT_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
 	srv->service = TRUST_ME(service);	// XXX
