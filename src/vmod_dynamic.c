@@ -1270,8 +1270,8 @@ vmod_director__init(VRT_CTX,
 	AN(obj);
 	VRBT_INIT(&obj->ref_domains);
 	VTAILQ_INIT(&obj->unref_domains);
-	VRBT_INIT(&obj->active_services);
-	VTAILQ_INIT(&obj->purged_services);
+	VRBT_INIT(&obj->ref_services);
+	VTAILQ_INIT(&obj->unref_services);
 	REPLACE(obj->vcl_name, vcl_name);
 	REPLACE(obj->port, port);
 	REPLACE(obj->hosthdr, hosthdr);
@@ -1347,8 +1347,8 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 
 	assert(VRBT_EMPTY(&obj->ref_domains));
 	assert(VTAILQ_EMPTY(&obj->unref_domains));
-	assert(VRBT_EMPTY(&obj->active_services));
-	assert(VTAILQ_EMPTY(&obj->purged_services));
+	assert(VRBT_EMPTY(&obj->ref_services));
+	assert(VTAILQ_EMPTY(&obj->unref_services));
 	REPLACE(obj->vcl_name, NULL);
 	REPLACE(obj->port, NULL);
 	REPLACE(obj->hosthdr, NULL);

@@ -607,8 +607,8 @@ service_lookup_thread(void *priv)
 
 	if (srv->status == DYNAMIC_ST_STALE) {
 		Lck_Lock(&obj->services_mtx);
-		VRBT_REMOVE(srv_tree_head, &obj->active_services, srv);
-		VTAILQ_INSERT_TAIL(&obj->purged_services, srv, link.list);
+		VRBT_REMOVE(srv_tree_head, &obj->ref_services, srv);
+		VTAILQ_INSERT_TAIL(&obj->unref_services, srv, link.list);
 		Lck_Unlock(&obj->services_mtx);
 	}
 	else
@@ -690,10 +690,10 @@ service_gc_purged(struct vmod_dynamic_director *obj)
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	Lck_AssertHeld(&obj->services_mtx);
 
-	while ((srv = VTAILQ_FIRST(&obj->purged_services)) != NULL) {
+	while ((srv = VTAILQ_FIRST(&obj->unref_services)) != NULL) {
 		CHECK_OBJ_NOTNULL(srv, DYNAMIC_DOMAIN_MAGIC);
 		assert(srv->status == DYNAMIC_ST_STALE);
-		VTAILQ_REMOVE(&obj->purged_services, srv, link.list);
+		VTAILQ_REMOVE(&obj->unref_services, srv, link.list);
 		Lck_Unlock(&obj->services_mtx);
 		(void) service_join(srv);
 		service_free(&srv, "expired");
@@ -716,7 +716,7 @@ service_stop(struct vmod_dynamic_director *obj)
 	Lck_Lock(&obj->services_mtx);
 	AZ(obj->active);
 	// wake up all threads
-	VRBT_FOREACH(srv, srv_tree_head, &obj->active_services) {
+	VRBT_FOREACH(srv, srv_tree_head, &obj->ref_services) {
 		CHECK_OBJ_NOTNULL(srv, DYNAMIC_SERVICE_MAGIC);
 		Lck_Lock(&srv->mtx);
 		AN(srv->thread);
@@ -724,12 +724,12 @@ service_stop(struct vmod_dynamic_director *obj)
 		Lck_Unlock(&srv->mtx);
 	}
 
-	while (! (VTAILQ_EMPTY(&obj->purged_services) &&
-		  VRBT_EMPTY(&obj->active_services))) {
+	while (! (VTAILQ_EMPTY(&obj->unref_services) &&
+		  VRBT_EMPTY(&obj->ref_services))) {
 		// finished threads can be picked up already
 		service_gc_purged(obj);
 
-		while ((srv = VRBT_ROOT(&obj->active_services)) != NULL) {
+		while ((srv = VRBT_ROOT(&obj->ref_services)) != NULL) {
 			CHECK_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
 			Lck_Unlock(&obj->services_mtx);
 			status = service_join(srv);
@@ -738,11 +738,11 @@ service_stop(struct vmod_dynamic_director *obj)
 			AZ(srv->thread);
 			switch (status) {
 			case DYNAMIC_ST_STALE:
-				VTAILQ_REMOVE(&obj->purged_services, srv, link.list);
+				VTAILQ_REMOVE(&obj->unref_services, srv, link.list);
 				service_free(&srv, "stop expired");
 				break;
 			case DYNAMIC_ST_DONE:
-				VRBT_REMOVE(srv_tree_head, &obj->active_services, srv);
+				VRBT_REMOVE(srv_tree_head, &obj->ref_services, srv);
 				AZ(VRBT_INSERT(srv_tree_head, &active_done, srv));
 				break;
 			default:
@@ -750,8 +750,8 @@ service_stop(struct vmod_dynamic_director *obj)
 			}
 		}
 	}
-	assert(VRBT_EMPTY(&obj->active_services));
-	obj->active_services = active_done;
+	assert(VRBT_EMPTY(&obj->ref_services));
+	obj->ref_services = active_done;
 	Lck_Unlock(&obj->services_mtx);
 }
 
@@ -776,7 +776,7 @@ service_start(VRT_CTX, struct vmod_dynamic_director *obj)
 
 	(void) ctx;
 	Lck_Lock(&obj->services_mtx);
-	VRBT_FOREACH(srv, srv_tree_head, &obj->active_services)
+	VRBT_FOREACH(srv, srv_tree_head, &obj->ref_services)
 	    service_start_service(srv);
 	Lck_Unlock(&obj->services_mtx);
 }
@@ -789,10 +789,10 @@ service_fini(struct vmod_dynamic_director *obj)
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
-	assert(VTAILQ_EMPTY(&obj->purged_services));
+	assert(VTAILQ_EMPTY(&obj->unref_services));
 
-	while ((srv = VRBT_ROOT(&obj->active_services)) != NULL) {
-		VRBT_REMOVE(srv_tree_head, &obj->active_services, srv);
+	while ((srv = VRBT_ROOT(&obj->ref_services)) != NULL) {
+		VRBT_REMOVE(srv_tree_head, &obj->ref_services, srv);
 		service_free(&srv, "fini");
 	}
 
@@ -807,12 +807,12 @@ service_search(struct vmod_dynamic_director *obj, const char *service)
 	Lck_AssertHeld(&obj->services_mtx);
 	AN(service);
 
-	if (VTAILQ_FIRST(&obj->purged_services))
+	if (VTAILQ_FIRST(&obj->unref_services))
 		service_gc_purged(obj);
 
 	INIT_OBJ(srv, DYNAMIC_SERVICE_MAGIC);
 	srv->service = TRUST_ME(service);	// XXX
-	return (VRBT_FIND(srv_tree_head, &obj->active_services, srv));
+	return (VRBT_FIND(srv_tree_head, &obj->ref_services, srv));
 }
 
 static struct dynamic_service *
@@ -853,7 +853,7 @@ service_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *service)
 	AZ(pthread_cond_init(&srv->resolve, NULL));
 
 	Lck_Lock(&obj->services_mtx);
-	raced = VRBT_INSERT(srv_tree_head, &obj->active_services, srv);
+	raced = VRBT_INSERT(srv_tree_head, &obj->ref_services, srv);
 	Lck_Unlock(&obj->services_mtx);
 
 	if (raced) {

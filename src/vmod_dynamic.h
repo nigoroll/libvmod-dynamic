@@ -192,8 +192,8 @@ struct vmod_dynamic_director {
 	struct dom_tree_head			ref_domains;
 	struct dynamic_domain_head		unref_domains;
 	struct lock				services_mtx;
-	struct srv_tree_head			active_services;
-	struct dynamic_service_head		purged_services;
+	struct srv_tree_head			ref_services;
+	struct dynamic_service_head		unref_services;
 	const char				*vcl_conf;
 	struct vcl				*vcl;
 	struct vclref				*vclref;
