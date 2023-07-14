@@ -185,15 +185,17 @@ struct vmod_dynamic_director {
 	unsigned				proxy_header;
 	VCL_BACKEND				via;
 	VTAILQ_ENTRY(vmod_dynamic_director)	list;
-	struct lock				domains_mtx;
+
 	/* ref: we hold a reference, lookup via tree
-	 * unref: timed out, lose reference
-	 */
+	 * unref: timed out, lose reference */
+	struct lock				domains_mtx;
 	struct dom_tree_head			ref_domains;
 	struct dynamic_domain_head		unref_domains;
+
 	struct lock				services_mtx;
 	struct srv_tree_head			ref_services;
 	struct dynamic_service_head		unref_services;
+
 	const char				*vcl_conf;
 	struct vcl				*vcl;
 	struct vclref				*vclref;
