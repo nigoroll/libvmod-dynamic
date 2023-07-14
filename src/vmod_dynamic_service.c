@@ -588,12 +588,6 @@ service_lookup_thread(void *priv)
 			update += 0.01;
 			if (srv->deadline < update)
 				srv->deadline = update;
-			// maximum update delay
-			if (obj->domain_usage_tmo > 0) {
-				update += obj->domain_usage_tmo / 2;
-				if (srv->deadline > update)
-					srv->deadline = update;
-			}
 		} else {
 			LOG(&ctx, SLT_Error, srv, "%s %d (%s)",
 			    res->name, ret, res->strerror(ret));
