@@ -79,7 +79,7 @@ enum dynamic_ttl_e {
 struct dynamic_domain {
 	unsigned			magic;
 #define DYNAMIC_DOMAIN_MAGIC		0x1bfe1345
-	volatile enum dynamic_status_e	status;
+	enum dynamic_status_e		status;
 	union {
 		VTAILQ_ENTRY(dynamic_domain)	list;
 		VRBT_ENTRY(dynamic_domain)	tree;
@@ -133,7 +133,7 @@ struct service_prios {
 struct dynamic_service {
 	unsigned			magic;
 #define DYNAMIC_SERVICE_MAGIC		0xd15e71ce
-	volatile enum dynamic_status_e	status;
+	enum dynamic_status_e		status;
 	union {
 		VTAILQ_ENTRY(dynamic_service)	list;
 		VRBT_ENTRY(dynamic_service)	tree;
@@ -198,10 +198,10 @@ struct vmod_dynamic_director {
 	const char				*vcl_conf;
 	struct vcl				*vcl;
 	struct vclref				*vclref;
-	volatile unsigned			debug;
 	const struct res_cb			*resolver;
 	struct VPFX(dynamic_resolver)		*resolver_inst;
 	enum dynamic_ttl_e			ttl_from;
+	unsigned				debug;
 };
 
 VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director);
