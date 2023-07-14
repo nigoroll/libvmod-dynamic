@@ -198,7 +198,6 @@ struct vmod_dynamic_director {
 	const char				*vcl_conf;
 	struct vcl				*vcl;
 	struct vclref				*vclref;
-	volatile unsigned			active;
 	volatile unsigned			debug;
 	const struct res_cb			*resolver;
 	struct VPFX(dynamic_resolver)		*resolver_inst;

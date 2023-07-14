@@ -835,7 +835,7 @@ dom_lookup_thread(void *priv)
 		}
 
 		/* Check status again after the blocking call */
-		if (obj->active && dom->status <= DYNAMIC_ST_ACTIVE) {
+		if (dom->status <= DYNAMIC_ST_ACTIVE) {
 			ret = Lck_CondWaitUntil(&dom->cond, &dom->mtx,
 			    fmin(dom->deadline, dom->expires));
 			assert(ret == 0 || ret == ETIMEDOUT);
@@ -1151,7 +1151,6 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 		if (obj->vcl != ctx->vcl)
 			continue;
 
-		obj->active = active;
 		if (active)
 			dynamic_start(ctx, obj);
 		else
@@ -1279,7 +1278,6 @@ vmod_director__init(VRT_CTX,
 
 	obj->vcl_conf = VCL_Name(ctx->vcl);
 	obj->vcl = ctx->vcl;
-	obj->active = 0;
 	obj->share = dynamic_share_parse(share_arg);
 	obj->probe = probe;
 	obj->whitelist = whitelist;
@@ -1333,7 +1331,6 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 	*objp = NULL;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	AZ(obj->active);
 
 	VTAILQ_REMOVE(&objects, obj, list);
 
