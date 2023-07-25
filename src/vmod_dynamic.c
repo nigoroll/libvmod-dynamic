@@ -775,6 +775,7 @@ dom_lookup_thread(void *priv)
 	struct vrt_ctx ctx;
 	vtim_real lookup, results, update;
 	const struct res_cb *res;
+	struct vmod_dynamic_resolver *res_instance;
 	void *res_priv = NULL;
 	int ret;
 
@@ -783,49 +784,63 @@ dom_lookup_thread(void *priv)
 
 	obj = dom->obj;
 	res = obj->resolver;
+	res_instance = obj->resolver_inst;
 
 	Lck_Lock(&dom->mtx);
 	assert(dom->status == DYNAMIC_ST_STARTING);
 	while (dom->status <= DYNAMIC_ST_ACTIVE) {
 		Lck_Unlock(&dom->mtx);
 
-		lookup = VTIM_real();
-		if (lookup > dom->expires) {
-			Lck_Lock(&obj->domains_mtx);
+		while (1) { // Loop run at most twice: one for the resolve, and one for the fallaback gai resolver
+			lookup = VTIM_real();
 			if (lookup > dom->expires) {
-				LOG(NULL, SLT_VCL_Log, dom, "%s", "timeout");
-				dom->expires = HUGE_VAL;
-				VRBT_REMOVE(dom_tree_head, &obj->ref_domains,
-				    dom);
-				VTAILQ_INSERT_TAIL(&obj->unref_domains, dom,
-				    link.list);
+				Lck_Lock(&obj->domains_mtx);
+				if (lookup > dom->expires) {
+					LOG(NULL, SLT_VCL_Log, dom, "%s", "timeout");
+					dom->expires = HUGE_VAL;
+					VRBT_REMOVE(dom_tree_head, &obj->ref_domains,
+					    dom);
+					VTAILQ_INSERT_TAIL(&obj->unref_domains, dom,
+					    link.list);
+				}
+				Lck_Unlock(&obj->domains_mtx);
 			}
-			Lck_Unlock(&obj->domains_mtx);
+
+			dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
+
+			ret = res->lookup(res_instance, dom->addr,
+			    dom_port(dom), &res_priv);
+
+			results = VTIM_real();
+			dynamic_timestamp(dom, "Results", results, results - lookup,
+			    results - lookup);
+
+			if (ret == 0) {
+				dom_update(dom, res, res_priv, results);
+				update = VTIM_real();
+				dynamic_timestamp(dom, "Update", update,
+				    update - lookup, update - results);
+			} else {
+				LOG(&ctx, SLT_Error, dom, "%s %d (%s)",
+				    res->name, ret, res->strerror(ret));
+				dbg_res_details(NULL, dom->obj, res, res_priv);
+			}
+
+			res->fini(&res_priv);
+			AZ(res_priv);
+
+			if (ret == 0) {
+				break;
+			}
+			if (res == &res_gai) {
+				/* Failed with fallback getaddrinfo resolver: update deadline with default TTL and break */
+				dom->deadline = results + obj->retry_after;
+				break;
+			}
+			/* Failed with custom resolver: try again with fallback getaddrinfo resolver */
+			res = &res_gai;
+			res_instance = NULL;
 		}
-
-		dynamic_timestamp(dom, "Lookup", lookup, 0., 0.);
-
-		ret = res->lookup(obj->resolver_inst, dom->addr,
-		    dom_port(dom), &res_priv);
-
-		results = VTIM_real();
-		dynamic_timestamp(dom, "Results", results, results - lookup,
-		    results - lookup);
-
-		if (ret == 0) {
-			dom_update(dom, res, res_priv, results);
-			update = VTIM_real();
-			dynamic_timestamp(dom, "Update", update,
-			    update - lookup, update - results);
-		} else {
-			LOG(&ctx, SLT_Error, dom, "%s %d (%s)",
-			    res->name, ret, res->strerror(ret));
-			dom->deadline = results + obj->retry_after;
-			dbg_res_details(NULL, dom->obj, res, res_priv);
-		}
-
-		res->fini(&res_priv);
-		AZ(res_priv);
 
 		Lck_Lock(&dom->mtx);
 
