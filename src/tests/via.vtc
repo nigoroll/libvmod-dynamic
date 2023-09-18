@@ -28,6 +28,7 @@ varnish v2 -proto PROXY -vcl {
 
 	sub vcl_deliver {
 		set resp.http.Authority = req.http.Authority;
+		set resp.http.Connection = "close";
 	}
 } -start
 
