@@ -23,7 +23,7 @@ varnish v1 -vcl+backend {
 		new d1 = dynamic.director(
 			port = "${s1_port}",
 			ttl = 100ms,
-			domain_usage_timeout = 200ms);
+			domain_usage_timeout = 900ms);
 	}
 
 	sub vcl_recv {
