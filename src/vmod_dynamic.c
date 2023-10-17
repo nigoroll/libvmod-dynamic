@@ -785,7 +785,9 @@ dom_lookup_thread(void *priv)
 	res = obj->resolver;
 
 	Lck_Lock(&dom->mtx);
-	assert(dom->status == DYNAMIC_ST_STARTING);
+	// either from a VCL_EVENT_WARM or raced VCL_EVENT_COLD
+	assert(dom->status == DYNAMIC_ST_STARTING ||
+	    dom->status == DYNAMIC_ST_DONE);
 	while (dom->status <= DYNAMIC_ST_ACTIVE) {
 		Lck_Unlock(&dom->mtx);
 
