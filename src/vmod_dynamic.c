@@ -942,6 +942,11 @@ dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
  * We need to keep our backends around until the last reference to a domain is
  * lost, otherwise it would stop working
  */
+
+// XXX workaround #107 / VC#4037
+static void v_matchproto_(vdi_event_f)
+dom_event(VCL_BACKEND dir, enum vcl_event_e ev);
+
 static void v_matchproto_(vdi_release_f)
 dom_release(VCL_BACKEND dir)
 {
@@ -950,6 +955,10 @@ dom_release(VCL_BACKEND dir)
 
 	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
+
+	// XXX workaround #107 / VC#4037
+	if (dom->thread)
+		dom_event(dir, VCL_EVENT_COLD);
 
 	AZ(dom->thread);
 	assert(dom->status == DYNAMIC_ST_READY);
