@@ -200,11 +200,49 @@ dom_wait_active(struct dynamic_domain *dom)
 	DBG(NULL, dom, "wait-active ret %d", ret);
 }
 
+/* find a healthy dynamic_ref */
+static struct dynamic_ref *
+dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start)
+{
+	struct dynamic_ref *next, *alt;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+	CHECK_OBJ_ORNULL(start, DYNAMIC_REF_MAGIC);
+
+	dom_wait_active(dom);
+
+	if (dom->status > DYNAMIC_ST_ACTIVE)
+		return (NULL);
+
+	next = start;
+	alt = NULL;
+
+	do {
+		CHECK_OBJ_ORNULL(next, DYNAMIC_REF_MAGIC);
+		if (next != NULL)
+			next = VTAILQ_NEXT(next, list);
+		if (next == NULL)
+			next = VTAILQ_FIRST(&dom->refs);
+		if (next == NULL)
+			break;
+		if (next->dir != NULL && VRT_Healthy(ctx, next->dir, NULL))
+			break;
+		/* if we do not find a healthy backend, use one with a director
+		 * or, alternatively, whatever we can get
+		 */
+		if (alt == NULL || (alt->dir == NULL && next->dir != NULL))
+			alt = next;
+	} while (next != start);
+
+	return (next != NULL ? next : alt);
+}
+
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 dom_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
-	struct dynamic_ref *next, *alt;
+	struct dynamic_ref *next;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
@@ -221,55 +259,17 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 		dynamic_gc_expired(dom->obj);
 
 	Lck_Lock(&dom->mtx);
-
-	dom_wait_active(dom);
-
-	if (dom->status > DYNAMIC_ST_ACTIVE) {
-		Lck_Unlock(&dom->mtx);
-		return (NULL);
-	}
-
-	if (dom->current == NULL)
-		dom->current = VTAILQ_FIRST(&dom->refs);
-	next = dom->current;
-	alt = NULL;
-	do {
-		CHECK_OBJ_ORNULL(next, DYNAMIC_REF_MAGIC);
-		if (next != NULL)
-			next = VTAILQ_NEXT(next, list);
-		if (next == NULL)
-			next = VTAILQ_FIRST(&dom->refs);
-		if (next == NULL)
-			break;
-		if (next->dir != NULL && VRT_Healthy(ctx, next->dir, NULL))
-			break;
-		/* if we do not find a healthy backend, use one with a director
-		 * or, alternatively, whatever we can get
-		 */
-		if (alt == NULL || (alt->dir == NULL && next->dir != NULL))
-			alt = next;
-	} while (next != dom->current);
-
+	next = dom->current != NULL ? dom->current : VTAILQ_FIRST(&dom->refs);
+	next = dom_find(ctx, dom, next);
+	while (next != NULL && next->dir == NULL)
+		AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
 	dom->current = next;
-
 	Lck_Unlock(&dom->mtx);
-
-	if (next == NULL)
-		next = alt;
 
 	if (next == NULL)
 		return (NULL);
 
 	CHECK_OBJ(next, DYNAMIC_REF_MAGIC);
-	if (next->dir != NULL)
-		return (next->dir);
-
-	// backend creation in progress
-	Lck_Lock(&dom->mtx);
-	while (next->dir == NULL)
-		AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
-	Lck_Unlock(&dom->mtx);
-
 	AN(next->dir);
 
 	return (next->dir);
