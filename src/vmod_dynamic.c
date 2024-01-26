@@ -180,6 +180,9 @@ VRBT_GENERATE_NEEDED(dom_tree_head, dynamic_domain,
  * Director implementation
  */
 
+/* placeholder for backends to be created */
+static const VCL_BACKEND creating = (void*)(uintptr_t)0xc3;
+
 void
 dom_wait_active(struct dynamic_domain *dom)
 {
@@ -234,7 +237,7 @@ dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start,
 			next = VTAILQ_FIRST(&dom->refs);
 		if (next == NULL)
 			break;
-		if (next->dir != NULL) {
+		if (next->dir != creating && next->dir != NULL) {
 			h = VRT_Healthy(ctx, next->dir, &c);
 			if (c > cc)
 				cc = c;
@@ -244,7 +247,8 @@ dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start,
 		/* if we do not find a healthy backend, use one with a director
 		 * or, alternatively, whatever we can get
 		 */
-		if (alt == NULL || (alt->dir == NULL && next->dir != NULL))
+		if (alt == NULL ||
+		    (alt->dir == creating && next->dir != creating))
 			alt = next;
 	} while (next != start);
 
@@ -281,7 +285,7 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 
 	Lck_Lock(&dom->mtx);
 	r = dom_find(ctx, dom, dom->current, NULL, NULL);
-	while (r != NULL && r->dir == NULL)
+	while (r != NULL && r->dir == creating)
 		AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
 	dom->current = r;
 	Lck_Unlock(&dom->mtx);
@@ -290,8 +294,7 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 		return (NULL);
 
 	CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
-	AN(r->dir);
-
+	assert(r->dir != creating);
 	return (r->dir);
 }
 
@@ -315,11 +318,11 @@ dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 	}
 
 	r = dom_find(ctx, dom, NULL, &retval, changed);
-	if (! IS_CLI() && ! retval && r != NULL && r->dir == NULL) {
-		while (r->dir == NULL)
+	if (! IS_CLI() && ! retval && r != NULL && r->dir == creating) {
+		while (r->dir == creating)
 			AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
-		AN(r->dir);
-		retval = VRT_Healthy(ctx, r->dir, NULL);
+		if (r->dir != NULL)
+			retval = VRT_Healthy(ctx, r->dir, NULL);
 	}
 	Lck_Unlock(&dom->mtx);
 
@@ -361,7 +364,7 @@ dom_list(VRT_CTX, VCL_BACKEND dir, struct vsb *vsb, int pflag, int jflag)
 	VTAILQ_FOREACH(r, &dom->refs, list) {
 		CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
 		be = r->dir;
-		if (be == NULL)
+		if (be == NULL || be == creating)
 			continue;
 		VRMB();
 		h = VRT_Healthy(ctx, be, NULL);
@@ -418,11 +421,14 @@ ref_del(VRT_CTX, struct dynamic_ref *r)
 	CHECK_OBJ_ORNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r->dom, DYNAMIC_DOMAIN_MAGIC);
 
-	CHECK_OBJ_NOTNULL(r->dir, DIRECTOR_MAGIC);
-	CAST_OBJ_NOTNULL(be, r->dir->priv, BACKEND_MAGIC);
+	if (r->dir != NULL) {
+		assert(r->dir != creating);
+		CHECK_OBJ(r->dir, DIRECTOR_MAGIC);
+		CAST_OBJ_NOTNULL(be, r->dir->priv, BACKEND_MAGIC);
 
-	DBG(ctx, r->dom, "unref-backend %s", be->vcl_name);
-	VRT_Assign_Backend(&r->dir, NULL);
+		DBG(ctx, r->dom, "unref-backend %s", be->vcl_name);
+		VRT_Assign_Backend(&r->dir, NULL);
+	}
 	if (r->sa != NULL)
 		VSA_free(&r->sa);
 	FREE_OBJ(r);
@@ -551,7 +557,7 @@ ref_add(VRT_CTX, struct dynamic_ref *r)
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_REF_MAGIC);
 	dom = r->dom;
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
-	AZ(r->dir);
+	assert(r->dir == creating);
 	AN(r->sa);
 
 	VTCP_name(r->sa, addr, sizeof addr, port, sizeof port);
@@ -613,7 +619,6 @@ ref_add(VRT_CTX, struct dynamic_ref *r)
 	if (dom->obj->via == NULL)
 		VSA_free(&r->sa);
 	VWMB();
-	AZ(r->dir);
 	r->dir = dir;
 
 	DBG(ctx, dom, "new-backend %s", vrt.vcl_name);
@@ -681,8 +686,8 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 			CHECK_OBJ_NOTNULL(dom2, DYNAMIC_DOMAIN_MAGIC);
 			Lck_Lock(&dom2->mtx);
 			VTAILQ_FOREACH(r, &dom2->refs, list) {
-				// tolerate dup backend for in progress
-				if (r->dir == NULL)
+				// tolerate dup backend if in progress
+				if (r->dir == creating || r->dir == NULL)
 					continue;
 				VRMB();
 				if (! ref_compare_ip(r, info->sa))
@@ -702,6 +707,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 		r = ref_new(dom);
 		r->sa = VSA_Clone(info->sa);
 		AZ(r->dir);
+		r->dir = creating;
 		VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 	}
 
@@ -717,9 +723,10 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 
 	if (added) {
 		VTAILQ_FOREACH(r, &dom->refs, list) {
-			if (r->dir != NULL)
+			if (r->dir != creating)
 				continue;
 			ref_add(&ctx, r);
+			assert(r->dir != creating);
 		}
 		Lck_Lock(&dom->mtx);
 		AZ(pthread_cond_broadcast(&dom->resolve));
@@ -852,6 +859,8 @@ dom_free(struct dynamic_domain **domp, const char *why)
 	struct dynamic_domain *dom;
 
 	TAKE_OBJ_NOTNULL(dom, domp, DYNAMIC_DOMAIN_MAGIC);
+	if (dom->dir == NULL)
+		return;
 
 	LOG(NULL, SLT_VCL_Log, dom, "deleted (%s)", why);
 	VRT_DelDirector(&dom->dir);
@@ -1387,6 +1396,7 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 
 	dom = dynamic_get(ctx, obj, host, authority, port);
 	AN(dom);
+	assert(dom->dir != creating);
 
 	return (dom->dir);
 }
