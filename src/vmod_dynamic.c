@@ -202,9 +202,12 @@ dom_wait_active(struct dynamic_domain *dom)
 
 /* find a healthy dynamic_ref */
 static struct dynamic_ref *
-dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start)
+dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start,
+    VCL_BOOL *healthy, VCL_TIME *changed)
 {
 	struct dynamic_ref *next, *alt;
+	VCL_TIME c, cc;
+	VCL_BOOL h;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
@@ -215,6 +218,11 @@ dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start)
 	if (dom->status > DYNAMIC_ST_ACTIVE)
 		return (NULL);
 
+	if (start == NULL)
+		start = VTAILQ_FIRST(&dom->refs);
+
+	h = 0;
+	cc = dom->changed_cached;
 	next = start;
 	alt = NULL;
 
@@ -226,14 +234,27 @@ dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start)
 			next = VTAILQ_FIRST(&dom->refs);
 		if (next == NULL)
 			break;
-		if (next->dir != NULL && VRT_Healthy(ctx, next->dir, NULL))
-			break;
+		if (next->dir != NULL) {
+			h = VRT_Healthy(ctx, next->dir, &c);
+			if (c > cc)
+				cc = c;
+			if (h)
+				break;
+		}
 		/* if we do not find a healthy backend, use one with a director
 		 * or, alternatively, whatever we can get
 		 */
 		if (alt == NULL || (alt->dir == NULL && next->dir != NULL))
 			alt = next;
 	} while (next != start);
+
+	dom->healthy_cached = h;
+	dom->changed_cached = cc;
+
+	if (healthy)
+		*healthy = h;
+	if (changed)
+		*changed = cc;
 
 	return (next != NULL ? next : alt);
 }
@@ -259,8 +280,7 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 		dynamic_gc_expired(dom->obj);
 
 	Lck_Lock(&dom->mtx);
-	next = dom->current != NULL ? dom->current : VTAILQ_FIRST(&dom->refs);
-	next = dom_find(ctx, dom, next);
+	next = dom_find(ctx, dom, dom->current, NULL, NULL);
 	while (next != NULL && next->dir == NULL)
 		AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
 	dom->current = next;
@@ -279,9 +299,8 @@ static VCL_BOOL v_matchproto_(vdi_healthy_f)
 dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 {
 	struct dynamic_domain *dom;
-	struct dynamic_ref *r, *alt;
-	unsigned retval = 0;
-	double c, cc = 0;
+	struct dynamic_ref *r;
+	VCL_BOOL retval = 0;
 
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, d->priv, DYNAMIC_DOMAIN_MAGIC);
@@ -295,40 +314,15 @@ dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 		return (dom->healthy_cached);
 	}
 
-	dom_wait_active(dom);
-
-	do {
-		/* One healthy backend is enough for the director to be
-		 * healthy
-		 */
-		alt = NULL;
-		VTAILQ_FOREACH(r, &dom->refs, list) {
-			if (r->dir == NULL) {
-				if (alt == NULL)
-					alt = r;
-				continue;
-			}
-			VRMB();
-			CHECK_OBJ(r->dir, DIRECTOR_MAGIC);
-			retval = VRT_Healthy(ctx, r->dir, &c);
-			if (c > cc)
-				cc = c;
-			if (retval)
-				break;
-		}
-		if (retval || IS_CLI())
-			break;
-		if (alt != NULL && alt->dir == NULL)
+	r = dom_find(ctx, dom, NULL, &retval, changed);
+	if (! IS_CLI() && ! retval && r != NULL && r->dir == NULL) {
+		while (r->dir == NULL)
 			AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
-	} while (alt != NULL);
-
+		AN(r->dir);
+		retval = VRT_Healthy(ctx, r->dir, NULL);
+	}
 	Lck_Unlock(&dom->mtx);
 
-	if (changed != NULL)
-		*changed = cc;
-
-	dom->changed_cached = cc;
-	dom->healthy_cached = retval;
 	return (retval);
 }
 
