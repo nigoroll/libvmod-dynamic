@@ -263,7 +263,7 @@ static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 dom_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
-	struct dynamic_ref *next;
+	struct dynamic_ref *r;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
@@ -280,19 +280,19 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 		dynamic_gc_expired(dom->obj);
 
 	Lck_Lock(&dom->mtx);
-	next = dom_find(ctx, dom, dom->current, NULL, NULL);
-	while (next != NULL && next->dir == NULL)
+	r = dom_find(ctx, dom, dom->current, NULL, NULL);
+	while (r != NULL && r->dir == NULL)
 		AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
-	dom->current = next;
+	dom->current = r;
 	Lck_Unlock(&dom->mtx);
 
-	if (next == NULL)
+	if (r == NULL)
 		return (NULL);
 
-	CHECK_OBJ(next, DYNAMIC_REF_MAGIC);
-	AN(next->dir);
+	CHECK_OBJ(r, DYNAMIC_REF_MAGIC);
+	AN(r->dir);
 
-	return (next->dir);
+	return (r->dir);
 }
 
 static VCL_BOOL v_matchproto_(vdi_healthy_f)
