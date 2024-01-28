@@ -1,6 +1,6 @@
 AC_PREREQ([2.68])
 AC_INIT([libvmod-dynamic], [trunk], [varnish-support@uplex.de], [vmod-dynamic])
-AC_COPYRIGHT([Copyright 2023 UPLEX - Nils Goroll Systemoptimierung])
+AC_COPYRIGHT([Copyright 2024 UPLEX - Nils Goroll Systemoptimierung])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([src/vmod_dynamic.vcc])
