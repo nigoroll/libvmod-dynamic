@@ -1026,7 +1026,6 @@ dom_event(VCL_BACKEND dir, enum vcl_event_e ev)
 		AZ(pthread_create(&dom->thread, NULL, dom_lookup_thread, dom));
 		break;
 	case VCL_EVENT_DISCARD:
-		// discard after load with early start - XXX VTC
 		if (dom->status == DYNAMIC_ST_READY)
 			break;
 		/* FALLTHROUGH */

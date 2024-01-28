@@ -85,6 +85,10 @@ varnish v1 -expect LCK.dynamic.backend.creat > 0
 logexpect l1 -wait
 logexpect l2 -wait
 
+# load as cold and discard
+varnish v1 -cliok "vcl.load vclX2 ${tmpdir}/layer.vcl cold"
+varnish v1 -cliok "vcl.discard vclX2"
+
 varnish v1 -vcl { backend none none; }
 varnish v1 -cliok "vcl.discard vclX1"
 varnish v1 -vsl_catchup
