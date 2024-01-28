@@ -4,7 +4,15 @@ vmod-dynamic
 
 .. role:: ref(emphasis)
 
-This branch is for varnish post 7.3
+This branch is for Varnish-Cache **post 7.4** (after / later than version 7.4).
+
+.. _VC#4037: https://github.com/varnishcache/varnish-cache/pull/4037
+
+(More specifically, for Varnish-Cache with `VC#4037`_ merged.)
+
+.. _7.4: https://github.com/nigoroll/libvmod-dynamic/tree/7.4
+
+Use branch `7.4`_ with Varnish-Cache 7.4.x.
 
 .. _`CHANGES.rst`: CHANGES.rst
 
