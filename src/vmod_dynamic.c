@@ -884,14 +884,23 @@ dynamic_gc_expired(struct vmod_dynamic_director *obj)
 	Lck_Unlock(&obj->domains_mtx);
 }
 
+// VC#4037 workaround
+static void v_matchproto_(vdi_event_f)
+dom_event(VCL_BACKEND dir, enum vcl_event_e ev);
+
 static void
 dynamic_stop(struct vmod_dynamic_director *obj)
 {
+	struct dynamic_domain *dom;
 
 	ASSERT_CLI();
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 
 	service_stop(obj);
+
+	// VC#4037 workaround
+	VRBT_FOREACH(dom, dom_tree_head, &obj->ref_domains)
+	    dom_event(dom->dir, VCL_EVENT_COLD);
 
 	dynamic_gc_expired(obj);
 
@@ -945,10 +954,6 @@ dynamic_search(struct vmod_dynamic_director *obj, const char *addr,
  * We need to keep our backends around until the last reference to a domain is
  * lost, otherwise it would stop working
  */
-
-// XXX workaround #107 / VC#4037
-static void v_matchproto_(vdi_event_f)
-dom_event(VCL_BACKEND dir, enum vcl_event_e ev);
 
 static void v_matchproto_(vdi_release_f)
 dom_release(VCL_BACKEND dir)
@@ -1026,10 +1031,14 @@ dom_event(VCL_BACKEND dir, enum vcl_event_e ev)
 		AZ(pthread_create(&dom->thread, NULL, dom_lookup_thread, dom));
 		break;
 	case VCL_EVENT_DISCARD:
+	case VCL_EVENT_COLD:
+		/* because of VC#4037 and #107 / #108, we need to send duplicate
+		 * COLD events, and, consequently, the director temperature can
+		 * be wrong
+		 */
 		if (dom->status == DYNAMIC_ST_READY)
 			break;
-		/* FALLTHROUGH */
-	case VCL_EVENT_COLD:
+
 		Lck_Lock(&dom->mtx);
 		if (dom->status <= DYNAMIC_ST_ACTIVE)
 			dom->status = DYNAMIC_ST_DONE;
