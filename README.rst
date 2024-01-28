@@ -4,7 +4,7 @@ vmod-dynamic
 
 .. role:: ref(emphasis)
 
-This branch is for varnish post 7.3
+This branch is for Varnish-Cache 7.4
 
 .. _`CHANGES.rst`: CHANGES.rst
 
