@@ -7,6 +7,36 @@ version 2.8.0.
 vmod_dynamic NEXT
 =================
 
+.. UP TO: eefe4a5f10d984f3f98df90b70edeffbb1209644
+
+7.4 branch
+----------
+
+.. _109: https://github.com/nigoroll/libvmod-dynamic/issues/109
+
+* Fix handling of backends which are in the process of being created
+  (`109`_)
+
+.. _107: https://github.com/nigoroll/libvmod-dynamic/issues/107
+.. _VC#4037: https://github.com/varnishcache/varnish-cache/pull/4037
+
+* Work around wrong event order in Varnish-Cache (`VC#4037`_, `107`_).
+
+.. _105: https://github.com/nigoroll/libvmod-dynamic/issues/105
+
+* Fixed race between lookup thread creation and cold events (`105`_)
+
+* Thanks to the move to reference counting, the service update
+  interval is now independent of the dynamic backend lifetime.
+
+.. _102: https://github.com/nigoroll/libvmod-dynamic/issues/102
+
+* Improved support for layered director configurations and fixed
+  special cases (`102`_ and bugs without an issue number)
+
+.. _101: https://github.com/nigoroll/libvmod-dynamic/issues/101
+
+* Fixed Hang & child CLI timeout (`101`_)
 
 .. _76: https://github.com/nigoroll/libvmod-dynamic/pull/76
 
