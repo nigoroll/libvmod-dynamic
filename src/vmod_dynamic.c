@@ -854,7 +854,7 @@ dom_lookup_thread(void *priv)
 }
 
 static void
-dom_free(struct dynamic_domain **domp, const char *why)
+dom_delete(struct dynamic_domain **domp, const char *why)
 {
 	struct dynamic_domain *dom;
 
@@ -878,7 +878,7 @@ dynamic_gc_expired(struct vmod_dynamic_director *obj)
 		CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 		VTAILQ_REMOVE(&obj->unref_domains, dom, link.list);
 		Lck_Unlock(&obj->domains_mtx);
-		dom_free(&dom, "expired");
+		dom_delete(&dom, "expired");
 		Lck_Lock(&obj->domains_mtx);
 	}
 	Lck_Unlock(&obj->domains_mtx);
@@ -1105,7 +1105,7 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	Lck_Unlock(&obj->domains_mtx);
 
 	if (raced) {
-		dom_free(&dom, "raced");
+		dom_delete(&dom, "raced");
 		return (raced);
 	}
 	dom_event(dom->dir, VCL_EVENT_WARM);
@@ -1352,7 +1352,7 @@ vmod_director__fini(struct vmod_dynamic_director **objp)
 
 	while ((dom = VRBT_ROOT(&obj->ref_domains)) != NULL) {
 		VRBT_REMOVE(dom_tree_head, &obj->ref_domains, dom);
-		dom_free(&dom, "fini");
+		dom_delete(&dom, "fini");
 	}
 
 	assert(VRBT_EMPTY(&obj->ref_domains));
