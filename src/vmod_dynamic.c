@@ -664,10 +664,11 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 
 		/* search this domain's backends */
 		VTAILQ_FOREACH(r, &dom->oldrefs, list) {
-			if (! ref_compare_ip(r, info->sa))
+			if (r->dir != NULL && ! ref_compare_ip(r, info->sa))
 				break;
 		}
 		if (r != NULL) {
+			assert(r->dir != creating);
 			VTAILQ_REMOVE(&dom->oldrefs, r, list);
 			VTAILQ_INSERT_TAIL(&dom->refs, r, list);
 			r->keep = dom->obj->keep;
