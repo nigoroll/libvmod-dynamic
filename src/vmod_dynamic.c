@@ -854,13 +854,18 @@ dom_lookup_thread(void *priv)
 }
 
 static void
+dom_free(struct dynamic_domain **domp);
+
+static void
 dom_delete(struct dynamic_domain **domp, const char *why)
 {
 	struct dynamic_domain *dom;
 
 	TAKE_OBJ_NOTNULL(dom, domp, DYNAMIC_DOMAIN_MAGIC);
-	if (dom->dir == NULL)
+	if (dom->dir == NULL) {
+		dom_free(&dom);
 		return;
+	}
 
 	LOG(NULL, SLT_VCL_Log, dom, "deleted (%s)", why);
 	VRT_DelDirector(&dom->dir);
@@ -979,17 +984,12 @@ dom_release(VCL_BACKEND dir)
 	}
 }
 
-static void v_matchproto_(vdi_destroy_f)
-dom_destroy(VCL_BACKEND dir)
+static void
+dom_free(struct dynamic_domain **domp)
 {
 	struct dynamic_domain *dom;
 
-	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
-	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
-
-	DBG(NULL, dom, "%s", "destroy");
-
-	dom_release(dir);
+	TAKE_OBJ_NOTNULL(dom, domp, DYNAMIC_DOMAIN_MAGIC);
 
 	AZ(dom->thread);
 	assert(dom->status == DYNAMIC_ST_READY);
@@ -1003,6 +1003,20 @@ dom_destroy(VCL_BACKEND dir)
 	REPLACE(dom->authority, NULL);
 	REPLACE(dom->port, NULL);
 	FREE_OBJ(dom);
+}
+
+static void v_matchproto_(vdi_destroy_f)
+dom_destroy(VCL_BACKEND dir)
+{
+	struct dynamic_domain *dom;
+
+	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
+
+	DBG(NULL, dom, "%s", "destroy");
+
+	dom_release(dir);
+	dom_free(&dom);
 }
 
 static void v_matchproto_(vdi_event_f)
