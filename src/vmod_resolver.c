@@ -137,14 +137,14 @@ vmod_resolver__init(VRT_CTX,
 	for (i = 0; i < parallel; i++) {
 		c = &rctx[i];
 		INIT_OBJ(c, DYNAMIC_RESOLVER_CONTEXT_MAGIC);
-		err = getdns_context_create(&rctx[i].context, set_from_os);
+		err = getdns_context_create(&c->context, set_from_os);
 		if (err != GETDNS_RETURN_GOOD) {
 			VRT_fail(ctx, "dynamic.resolver context init failed "
 			    "error %d (%s)", err, dyn_getdns_strerror(err));
 			break;
 		}
-		VSLIST_INSERT_HEAD(&r->contexts, &rctx[i], list);
-		rctx[i].resolver = r;
+		VSLIST_INSERT_HEAD(&r->contexts, c, list);
+		c->resolver = r;
 	}
 
 	if (i < parallel)
@@ -177,7 +177,7 @@ vmod_resolver__fini(struct VPFX(dynamic_resolver) **rp)
 {
 	int i = 0;
 	struct VPFX(dynamic_resolver) *r;
-	struct VPFX(dynamic_resolver_context) *rctx;
+	struct VPFX(dynamic_resolver_context) *c;
 
 	r = *rp;
 	*rp = NULL;
@@ -190,11 +190,11 @@ vmod_resolver__fini(struct VPFX(dynamic_resolver) **rp)
 	AZ(pthread_cond_destroy(&r->cond));
 	AZ(pthread_mutex_destroy(&r->mtx));
 
-	VSLIST_FOREACH(rctx, &r->contexts, list) {
+	VSLIST_FOREACH(c, &r->contexts, list) {
 		i++;
-		CHECK_OBJ_NOTNULL(rctx, DYNAMIC_RESOLVER_CONTEXT_MAGIC);
-		assert(rctx->resolver == r);
-		getdns_context_destroy(rctx->context);
+		CHECK_OBJ_NOTNULL(c, DYNAMIC_RESOLVER_CONTEXT_MAGIC);
+		assert(c->resolver == r);
+		getdns_context_destroy(c->context);
 	}
 
 	assert(i == r->n_contexts);
@@ -242,11 +242,11 @@ static const char * const funcpfx = "vmod_resolver_";
 #define context_apply(ctx, res, func, ...)				\
 	do {								\
 		getdns_return_t ret;					\
-		struct VPFX(dynamic_resolver_context) *rctx;		\
-		VSLIST_FOREACH(rctx, &(res)->contexts, list) {		\
-			CHECK_OBJ_NOTNULL(rctx, DYNAMIC_RESOLVER_CONTEXT_MAGIC); \
-			assert(rctx->resolver == (res));		\
-			ret = func(rctx->context, __VA_ARGS__);		\
+		struct VPFX(dynamic_resolver_context) *c;		\
+		VSLIST_FOREACH(c, &(res)->contexts, list) {		\
+			CHECK_OBJ_NOTNULL(c, DYNAMIC_RESOLVER_CONTEXT_MAGIC); \
+			assert(c->resolver == (res));			\
+			ret = func(c->context, __VA_ARGS__);		\
 			check_err((ctx), ret);				\
 		}							\
 	} while(0)
