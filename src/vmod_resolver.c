@@ -153,8 +153,14 @@ vmod_resolver__init(VRT_CTX,
 	AZ(pthread_mutex_init(&r->mtx, NULL));
 	AZ(pthread_cond_init(&r->cond, NULL));
 
-	VSLIST_FOREACH(c, &r->contexts, list)
-		CHECK_OBJ_NOTNULL(rctx, DYNAMIC_RESOLVER_CONTEXT_MAGIC);
+	i = 0;
+	VSLIST_FOREACH(c, &r->contexts, list) {
+		CHECK_OBJ_NOTNULL(c, DYNAMIC_RESOLVER_CONTEXT_MAGIC);
+		assert(c->resolver == r);
+		i++;
+	}
+
+	assert(parallel == i);
 
 	r->n_contexts = parallel;
 	r->freeptr = rctx;
