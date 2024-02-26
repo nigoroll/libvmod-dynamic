@@ -426,7 +426,6 @@ ref_del(VRT_CTX, struct dynamic_ref *r)
 		CHECK_OBJ(r->dir, DIRECTOR_MAGIC);
 		CAST_OBJ_NOTNULL(be, r->dir->priv, BACKEND_MAGIC);
 
-		DBG(ctx, r->dom, "unref-backend %s", be->vcl_name);
 		VRT_Assign_Backend(&r->dir, NULL);
 	}
 	if (r->sa != NULL)
@@ -868,7 +867,6 @@ dom_delete(struct dynamic_domain **domp, const char *why)
 		return;
 	}
 
-	LOG(NULL, SLT_VCL_Log, dom, "deleted (%s)", why);
 	VRT_DelDirector(&dom->dir);
 }
 
@@ -1014,8 +1012,6 @@ dom_destroy(VCL_BACKEND dir)
 	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
 
-	DBG(NULL, dom, "%s", "destroy");
-
 	dom_release(dir);
 	dom_free(&dom);
 }
@@ -1027,8 +1023,6 @@ dom_event(VCL_BACKEND dir, enum vcl_event_e ev)
 
 	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
-
-	DBG(NULL, dom, "event %d", ev);
 
 	switch (ev) {
 	case VCL_EVENT_WARM:

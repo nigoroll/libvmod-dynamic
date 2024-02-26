@@ -50,8 +50,6 @@ shell {
 
 logexpect l1 -v v1 -d 1 -g raw {
 	expect *    0 VCL_Log "Resolve: d1"
-	# director remains usable after dynamic deleted its reference
-	expect *    0 VCL_Log "vmod-dynamic vclX1 d1.*deleted .expired"
 } -start
 
 logexpect l2 -v v1 -q "vxid == 1001" {
