@@ -1287,9 +1287,9 @@ vmod_director__init(VRT_CTX,
 	assert(ttl > 0);
 	assert(domain_usage_timeout > 0);
 	assert(first_lookup_timeout > 0);
-	assert(connect_timeout >= 0);
-	assert(first_byte_timeout >= 0);
-	assert(between_bytes_timeout >= 0);
+	assert(connect_timeout >= 0 || connect_timeout == -1);
+	assert(first_byte_timeout >= 0 || connect_timeout == -1);
+	assert(between_bytes_timeout >= 0 || connect_timeout == -1);
 	assert(max_connections >= 0);
 	assert(proxy_header >= 0);
 
