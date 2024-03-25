@@ -46,11 +46,11 @@ AS_IF([test "x$with_getdns" != xno],
 		echo tests/*.vtc tests/{resolver,service}/*.vtc)")],
 	[AC_MSG_WARN([extended resolver functions will not be available])
 	 AM_CONDITIONAL([HAVE_GETDNS], [false])
-	 AC_SUBST([VTC_TESTS], "$(cd $srcdir/src && echo tests/*.vtc)")])
+	 AC_SUBST([VTC_TESTS], "$(cd $srcdir/src && echo tests/*.vtc tests/nogetdns/*.vtc)")])
   ],
   [AS_MESSAGE([extended resolver functions will not be available])
    AM_CONDITIONAL([HAVE_GETDNS], [false])
-   AC_SUBST([VTC_TESTS], "$(cd $srcdir/src && echo tests/*.vtc)")
+   AC_SUBST([VTC_TESTS], "$(cd $srcdir/src && echo tests/*.vtc tests/nogetdns/*.vtc)")
   ])
 
 AC_CONFIG_FILES([

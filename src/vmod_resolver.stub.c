@@ -27,7 +27,9 @@ vmod_resolver__init(VRT_CTX,
     struct VPFX(dynamic_resolver) **rp, const char *vcl_name,
     VCL_BOOL set_from_os, VCL_INT parallel)
 {
-	(void) ctx;
+
+	VRT_fail(ctx, "dynamic.resolver() not available, vmod was "
+	   "built without getdns support");
 	*rp = NULL;
 	(void) vcl_name;
 	(void) set_from_os;
