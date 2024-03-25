@@ -14,8 +14,7 @@ shell {
 
 	sub vcl_init {
 		new dir = directors.fallback();
-		new res = dynamic.resolver();
-		new dyn = dynamic.director(domain_usage_timeout = 0.1s, resolver = res.use());
+		new dyn = dynamic.director(domain_usage_timeout = 0.1s);
 		dir.add_backend(dyn.backend(host={"example.com"}, port={"80"}) );
 	}
 	EOF
