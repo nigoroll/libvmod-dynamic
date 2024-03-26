@@ -1,0 +1,27 @@
+varnishtest "falling back from a resolver to getaddrinfo"
+
+server s1 {
+       rxreq
+       txresp
+} -start
+
+varnish v1 -vcl+backend {
+	import ${vmod_dynamic};
+
+	sub vcl_init {
+		new r1 = dynamic.resolver();
+		new d1 = dynamic.director(
+		    resolver = r1.use());
+		d1.debug(true);
+	}
+
+	sub vcl_recv {
+	    set req.backend_hint = d1.backend(host = "img.localhost", port = "${s1_port}");
+	}
+} -start
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+} -run
