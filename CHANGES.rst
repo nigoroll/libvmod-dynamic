@@ -7,6 +7,9 @@ version 2.8.0.
 vmod_dynamic NEXT
 =================
 
+7.5 branch
+----------
+
 * Improved error reporting if getdns is not available (`114`_)
 
 .. _114: https://github.com/nigoroll/libvmod-dynamic/issues/114
