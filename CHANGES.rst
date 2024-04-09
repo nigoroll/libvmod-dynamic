@@ -7,7 +7,14 @@ version 2.8.0.
 vmod_dynamic NEXT
 =================
 
-.. UP TO: eefe4a5f10d984f3f98df90b70edeffbb1209644
+* Improved error reporting if getdns is not available (`114`_)
+
+.. _114: https://github.com/nigoroll/libvmod-dynamic/issues/114
+
+* Fix an insignificant use-after-free race when destroying domains
+  (`112`_)
+
+.. _112: https://github.com/nigoroll/libvmod-dynamic/issues/112
 
 7.4 branch
 ----------
