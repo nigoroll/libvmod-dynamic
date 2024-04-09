@@ -24,7 +24,7 @@ AC_ARG_WITH([rst2man],
 
 m4_ifndef([VARNISH_PREREQ], AC_MSG_ERROR([Need varnish.m4 -- see README.rst]))
 
-VARNISH_PREREQ([7.5],[trunk])
+VARNISH_PREREQ([7.5.0], [7.5.9])
 VARNISH_VMODS([dynamic])
 
 PKG_CHECK_VAR([LIBVARNISHAPI_LIBDIR], [varnishapi], [libdir])
