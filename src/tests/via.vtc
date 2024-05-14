@@ -2,7 +2,7 @@ varnishtest "via and authority"
 
 feature cmd "getent hosts localhost www.localhost img.localhost"
 
-server s1 -repeat 6 {
+server s1 -repeat 7 {
 	rxreq
 	txresp
 } -start
@@ -49,7 +49,11 @@ varnish v1 -vcl {
 	}
 
 	sub vcl_recv {
-		set req.backend_hint = d1.backend("localhost");
+		if (req.http.host == "localhost") {
+			set req.backend_hint = d1.backend();
+		} else {
+			set req.backend_hint = d1.backend("localhost");
+		}
 	}
 
 	sub vcl_backend_error {
@@ -59,6 +63,11 @@ varnish v1 -vcl {
 } -start
 
 client c1 {
+	txreq -hdr "Host: localhost"
+	rxresp
+	expect resp.status == 200
+	expect resp.http.Authority == "localhost"
+
 	txreq
 	rxresp
 	expect resp.status == 200
