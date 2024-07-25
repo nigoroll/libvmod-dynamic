@@ -310,8 +310,12 @@ dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 
 	if (ctx->method != 0)
 		Lck_Lock(&dom->mtx);
-	else if (Lck_Trylock(&dom->mtx)) {
-		/* avoid deadlock when in cli context */
+	else if (IS_CLI() || Lck_Trylock(&dom->mtx)) {
+		/* in CLI context, only ever return cached health state becuase
+		 * we are holding the VCL mtx and can not afford to run into a
+		 * condition wait. For regular use on the backend side, we
+		 * return cached if we can not acquire the lock immediately.
+		 */
 		if (changed != NULL)
 			*changed = dom->changed_cached;
 		return (dom->healthy_cached);
