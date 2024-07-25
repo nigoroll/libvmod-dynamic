@@ -866,6 +866,7 @@ dom_delete(struct dynamic_domain **domp, const char *why)
 	struct dynamic_domain *dom;
 
 	TAKE_OBJ_NOTNULL(dom, domp, DYNAMIC_DOMAIN_MAGIC);
+	(void)why;
 	if (dom->dir == NULL) {
 		dom_free(&dom);
 		return;
