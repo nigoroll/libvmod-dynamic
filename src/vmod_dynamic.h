@@ -195,8 +195,9 @@ struct vmod_dynamic_director {
 	struct srv_tree_head			ref_services;
 	struct dynamic_service_head		unref_services;
 
+	// only to hold ctx pointer
+	struct vrt_ctx				ctx[1];
 	const char				*vcl_conf;
-	struct vcl				*vcl;
 	struct vclref				*vclref;
 	const struct res_cb			*resolver;
 	struct VPFX(dynamic_resolver)		*resolver_inst;

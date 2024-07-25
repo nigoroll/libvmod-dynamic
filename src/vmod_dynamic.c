@@ -633,9 +633,9 @@ static void
 dom_update(struct dynamic_domain *dom, const struct res_cb *res,
     void *priv, vtim_real now)
 {
+	struct vrt_ctx *ctx;
 	struct dynamic_domain *dom2;
 	struct dynamic_ref *r, *r2;
-	struct vrt_ctx ctx;
 	uint8_t suckbuf[vsa_suckaddr_len];
 	struct res_info ibuf[1] = {{ .suckbuf = suckbuf }};
 	struct res_info *info;
@@ -644,8 +644,8 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 	vtim_dur ttl = NAN;
 	unsigned added = 0;
 
-	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-	ctx.vcl = dom->obj->vcl;
+	CHECK_OBJ_NOTNULL(dom->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
+	ctx = dom->obj->ctx;
 
 	share = dom->obj->share;
 
@@ -659,7 +659,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 	assert(VTAILQ_EMPTY(&dom->refs));
 
 	while ((info = res->result(ibuf, priv, &state)) != NULL) {
-		if (! dom_whitelisted(&ctx, dom, info->sa))
+		if (! dom_whitelisted(ctx, dom, info->sa))
 			continue;
 
 		if (info->ttl != 0 && (isnan(ttl) || info->ttl < ttl))
@@ -698,7 +698,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 					break;
 			}
 			if (r != NULL)
-				r = ref_clone(&ctx, dom, r);
+				r = ref_clone(ctx, dom, r);
 			Lck_Unlock(&dom2->mtx);
 			if (r != NULL)
 				break;
@@ -729,7 +729,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 		VTAILQ_FOREACH(r, &dom->refs, list) {
 			if (r->dir != creating)
 				continue;
-			ref_add(&ctx, r);
+			ref_add(ctx, r);
 			assert(r->dir != creating);
 		}
 		Lck_Lock(&dom->mtx);
@@ -742,7 +742,7 @@ dom_update(struct dynamic_domain *dom, const struct res_cb *res,
 		if (r->keep--)
 			continue;
 		VTAILQ_REMOVE(&dom->oldrefs, r, list);
-		ref_del(&ctx, r);
+		ref_del(ctx, r);
 	}
 
 	// deadline only used by this thread - safe outside lock
@@ -775,18 +775,18 @@ dynamic_timestamp(struct dynamic_domain *dom, const char *event, double start,
 static void*
 dom_lookup_thread(void *priv)
 {
+	struct vrt_ctx *ctx;
 	struct vmod_dynamic_director *obj;
 	struct dynamic_domain *dom;
-	struct vrt_ctx ctx;
 	vtim_real lookup, results, update;
 	const struct res_cb *res;
 	void *res_priv = NULL;
 	int ret;
 
 	CAST_OBJ_NOTNULL(dom, priv, DYNAMIC_DOMAIN_MAGIC);
-	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-
 	obj = dom->obj;
+	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
+	ctx = obj->ctx;
 	res = obj->resolver;
 
 	Lck_Lock(&dom->mtx);
@@ -825,7 +825,7 @@ dom_lookup_thread(void *priv)
 			dynamic_timestamp(dom, "Update", update,
 			    update - lookup, update - results);
 		} else {
-			LOG(&ctx, SLT_Error, dom, "%s %d (%s)",
+			LOG(ctx, SLT_Error, dom, "%s %d (%s)",
 			    res->name, ret, res->strerror(ret));
 			dom->deadline = results + obj->retry_after;
 			dbg_res_details(NULL, dom->obj, res, res_priv);
@@ -1175,7 +1175,7 @@ vmod_event(VRT_CTX, struct vmod_priv *priv, enum vcl_event_e e)
 
 	/* no locking: guaranteed to happen in the CLI thread */
 	VTAILQ_FOREACH(obj, &objects, list) {
-		if (obj->vcl != ctx->vcl)
+		if (obj->ctx->vcl != ctx->vcl)
 			continue;
 
 		if (active)
@@ -1303,8 +1303,9 @@ vmod_director__init(VRT_CTX,
 	if (via)
 		REPLACE(obj->authority, authority);
 
+	INIT_OBJ(obj->ctx, VRT_CTX_MAGIC);
+	obj->ctx->vcl = ctx->vcl;
 	obj->vcl_conf = VCL_Name(ctx->vcl);
-	obj->vcl = ctx->vcl;
 	obj->share = dynamic_share_parse(share_arg);
 	obj->probe = probe;
 	obj->whitelist = whitelist;

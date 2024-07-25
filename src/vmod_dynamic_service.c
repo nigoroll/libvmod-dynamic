@@ -424,7 +424,7 @@ static void
 service_update(struct dynamic_service *srv, const struct res_cb *res,
     void **res_privp, vtim_real now)
 {
-	struct vrt_ctx ctx;
+	struct vrt_ctx *ctx;
 	struct srv_info ibuf[1] = {{ 0 }};
 	struct srv_info *info;
 	void *state = NULL;
@@ -434,9 +434,10 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 	struct service_target *target;
 	void *res_priv;
 
-	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
-	ctx.vcl = srv->obj->vcl;
-	ctx.now = now;
+	CHECK_OBJ_NOTNULL(srv->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
+	ctx = srv->obj->ctx;
+	if (now > ctx->now)
+		ctx->now = now;
 
 	AN(res_privp);
 	res_priv = *res_privp;
@@ -454,7 +455,7 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 	AN(prios);
 	VTAILQ_INIT(&prios->head);
 	while ((info = res->srv_result(ibuf, res_priv, &state)) != NULL) {
-		DBG(&ctx, srv, "DNS SRV %s:%d priority %d weight %d ttl %d",
+		DBG(ctx, srv, "DNS SRV %s:%d priority %d weight %d ttl %d",
 		    info->target, info->port, info->priority,
 		    info->weight, info->ttl);
 
@@ -482,7 +483,7 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 		if (info->ttl != 0 && (isnan(ttl) || info->ttl < ttl))
 			ttl = info->ttl;
 
-		DBG(&ctx, srv, "target %s:%d priority %d weight %d ttl %f",
+		DBG(ctx, srv, "target %s:%d priority %d weight %d ttl %f",
 		    target->target, target->port, prio->priority,
 		    target->weight, ttl);
 	}
@@ -490,7 +491,7 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 	res->srv_fini(&res_priv);
 	AZ(res_priv);
 
-	service_doms(&ctx, srv->obj, prios);
+	service_doms(ctx, srv->obj, prios);
 
 	if (srv->prios_cold != NULL)
 		service_prios_free(&srv->prios_cold);
@@ -515,7 +516,7 @@ service_update(struct dynamic_service *srv, const struct res_cb *res,
 	}
 	srv->deadline = now + ttl;
 
-	DBG(&ctx, srv, "deadline %f ttl %f", srv->deadline, ttl);
+	DBG(ctx, srv, "deadline %f ttl %f", srv->deadline, ttl);
 }
 
 static void
@@ -532,16 +533,17 @@ service_timestamp(struct dynamic_service *srv, const char *event, double start,
 static void*
 service_lookup_thread(void *priv)
 {
+	struct vrt_ctx *ctx;
 	struct vmod_dynamic_director *obj;
 	struct dynamic_service *srv;
-	struct vrt_ctx ctx;
 	vtim_real lookup, results, update;
 	const struct res_cb *res;
 	void *res_priv = NULL;
 	int ret;
 
 	CAST_OBJ_NOTNULL(srv, priv, DYNAMIC_SERVICE_MAGIC);
-	INIT_OBJ(&ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(srv->obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
+	ctx = srv->obj->ctx;
 
 	obj = srv->obj;
 	res = obj->resolver;
@@ -589,7 +591,7 @@ service_lookup_thread(void *priv)
 			if (srv->deadline < update)
 				srv->deadline = update;
 		} else {
-			LOG(&ctx, SLT_Error, srv, "%s %d (%s)",
+			LOG(ctx, SLT_Error, srv, "%s %d (%s)",
 			    res->name, ret, res->strerror(ret));
 			srv->deadline = results + obj->retry_after;
 			dbg_res_details(NULL, srv->obj, res, res_priv);
