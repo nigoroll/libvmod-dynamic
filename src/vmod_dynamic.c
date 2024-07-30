@@ -177,6 +177,47 @@ VRBT_GENERATE_NEEDED(dom_tree_head, dynamic_domain,
     link.tree, dynamic_domain_cmp, static)
 
 /*--------------------------------------------------------------------
+ * Reference directors for the duration of the VCL, because of
+ * https://github.com/varnishcache/varnish-cache/issues/3949
+ */
+
+static void
+dynamic_task_deref(VRT_CTX, void *p)
+{
+	VCL_BACKEND d;
+
+	CAST_OBJ_NOTNULL(d, p, DIRECTOR_MAGIC);
+	VRT_Assign_Backend(&d, NULL);
+	AZ(d);
+}
+
+static const struct vmod_priv_methods dynamic_task_deref_methods = {
+	.magic =	VMOD_PRIV_METHODS_MAGIC,
+	.type =		"dynamic_task_deref",
+	.fini =		dynamic_task_deref
+};
+
+static void
+dynamic_task_ref(VRT_CTX, VCL_BACKEND d)
+{
+	struct vmod_priv *task;
+	VCL_BACKEND t = NULL;
+
+	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
+	task = VRT_priv_task(ctx, d);
+	AN(task);
+	if (task->priv == NULL) {
+		VRT_Assign_Backend(&t, d);
+		task->priv = TRUST_ME(t);
+		task->methods = &dynamic_task_deref_methods;
+	} else {
+		assert(task->priv == d);
+		assert(task->methods == &dynamic_task_deref_methods);
+	}
+}
+
+
+/*--------------------------------------------------------------------
  * Director implementation
  */
 
@@ -288,6 +329,8 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 	while (r != NULL && r->dir == creating)
 		AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
 	dom->current = r;
+	if (r != NULL)
+		dynamic_task_ref(ctx, r->dir);
 	Lck_Unlock(&dom->mtx);
 
 	if (r == NULL)
@@ -1072,9 +1115,13 @@ static const struct vdi_methods vmod_dynamic_methods[1] = {{
 	.list =	dom_list
 }};
 
+/* if assign != NULL, assign the backend there, otherwise create a reference
+ * for the duration of the vcl
+ */
+
 struct dynamic_domain *
 dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
-    const char *authority, const char *port)
+    const char *authority, const char *port, VCL_BACKEND *assign)
 {
 	struct dynamic_domain *dom, *raced;
 	VCL_TIME t;
@@ -1086,8 +1133,14 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 
 	Lck_Lock(&obj->domains_mtx);
 	dom = dynamic_search(obj, addr, authority, port);
-	if (dom != NULL && t > dom->expires)
-		dom->expires = t;
+	if (dom != NULL) {
+		if (t > dom->expires)
+			dom->expires = t;
+		if (assign != NULL)
+			VRT_Assign_Backend(assign, dom->dir);
+		else
+			dynamic_task_ref(ctx, dom->dir);
+	}
 	Lck_Unlock(&obj->domains_mtx);
 
 	if (dom != NULL)
@@ -1111,6 +1164,11 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	dom->dir = VRT_AddDirector(ctx, vmod_dynamic_methods, dom,
 	    "%s(%s:%s%s%s)", obj->vcl_name, addr, port,
 	    authority ? "/" : "", authority ? authority : "");
+
+	if (assign != NULL)
+		VRT_Assign_Backend(assign, dom->dir);
+	else
+		dynamic_task_ref(ctx, dom->dir);
 
 	Lck_Lock(&obj->domains_mtx);
 	raced = VRBT_INSERT(dom_tree_head, &obj->ref_domains, dom);
@@ -1407,7 +1465,7 @@ vmod_director_backend(VRT_CTX, struct vmod_dynamic_director *obj,
 	if (authority == NULL)
 		authority = obj->authority;
 
-	dom = dynamic_get(ctx, obj, host, authority, port);
+	dom = dynamic_get(ctx, obj, host, authority, port, NULL);
 	AN(dom);
 	assert(dom->dir != creating);
 

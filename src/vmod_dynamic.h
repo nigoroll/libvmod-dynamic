@@ -213,7 +213,7 @@ void
 dom_wait_active(struct dynamic_domain *dom);
 struct dynamic_domain *
 dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
-    const char *authority, const char *port);
+    const char *authority, const char *port, VCL_BACKEND *assign);
 
 // vmod_dynamic_service.c
 struct dynamic_service;
