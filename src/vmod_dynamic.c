@@ -200,23 +200,27 @@ static const struct vmod_priv_methods dynamic_task_deref_methods = {
 	.fini =		dynamic_task_deref
 };
 
+// reference the backend for the duration of this task
+// d must come with a reference already taken
 static void
-dynamic_task_ref(VRT_CTX, VCL_BACKEND d)
+dynamic_task_ref(VRT_CTX, VCL_BACKEND *d)
 {
 	struct vmod_priv *task;
-	VCL_BACKEND t = NULL;
 
-	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
-	task = VRT_priv_task(ctx, d);
+	AN(d);
+	CHECK_OBJ_NOTNULL(*d, DIRECTOR_MAGIC);
+	task = VRT_priv_task(ctx, *d);
 	AN(task);
 	if (task->priv == NULL) {
-		VRT_Assign_Backend(&t, d);
-		task->priv = TRUST_ME(t);
+		task->priv = TRUST_ME(*d);
+		*d = NULL;
 		task->methods = &dynamic_task_deref_methods;
 	} else {
-		assert(task->priv == d);
+		assert(task->priv == *d);
+		VRT_Assign_Backend(d, NULL);
 		assert(task->methods == &dynamic_task_deref_methods);
 	}
+	AZ(*d);
 }
 
 
@@ -327,6 +331,7 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
 	struct dynamic_ref *r;
+	VCL_BACKEND n = NULL;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
@@ -346,8 +351,12 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 	r = dom_find(ctx, dom, dom->current, NULL, NULL, 1);
 	dom->current = r;
 	if (r != NULL)
-		dynamic_task_ref(ctx, r->dir);
+		VRT_Assign_Backend(&n, r->dir);
 	Lck_Unlock(&dom->mtx);
+
+	if (n)
+		dynamic_task_ref(ctx, &n);
+	AZ(n);
 
 	if (r == NULL)
 		return (NULL);
@@ -1133,10 +1142,14 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
     const char *authority, const char *port, VCL_BACKEND *assign)
 {
 	struct dynamic_domain *dom, *raced;
+	VCL_BACKEND d = NULL;
 	VCL_TIME t;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
 	AN(addr);
+
+	if (assign == NULL)
+		assign = &d;
 
 	t = ctx->now + obj->domain_usage_tmo;
 
@@ -1145,15 +1158,12 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	if (dom != NULL) {
 		if (t > dom->expires)
 			dom->expires = t;
-		if (assign != NULL)
-			VRT_Assign_Backend(assign, dom->dir);
-		else
-			dynamic_task_ref(ctx, dom->dir);
+		VRT_Assign_Backend(assign, dom->dir);
 	}
 	Lck_Unlock(&obj->domains_mtx);
 
 	if (dom != NULL)
-		return (dom);
+		goto out;
 
 	ALLOC_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
 	AN(dom);
@@ -1174,11 +1184,6 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	    "%s(%s:%s%s%s)", obj->vcl_name, addr, port,
 	    authority ? "/" : "", authority ? authority : "");
 
-	if (assign != NULL)
-		VRT_Assign_Backend(assign, dom->dir);
-	else
-		dynamic_task_ref(ctx, dom->dir);
-
 	Lck_Lock(&obj->domains_mtx);
 	raced = VRBT_INSERT(dom_tree_head, &obj->ref_domains, dom);
 	Lck_Unlock(&obj->domains_mtx);
@@ -1187,7 +1192,13 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 		dom_delete(&dom, "raced");
 		return (raced);
 	}
+
+	VRT_Assign_Backend(assign, dom->dir);
 	dom_event(dom->dir, VCL_EVENT_WARM);
+
+    out:
+	if (assign == &d)
+		dynamic_task_ref(ctx, assign);
 	return (dom);
 }
 
