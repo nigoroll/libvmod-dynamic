@@ -250,7 +250,7 @@ dom_wait_active(struct dynamic_domain *dom)
 /* find a healthy dynamic_ref */
 static struct dynamic_ref *
 dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start,
-    VCL_BOOL *healthy, VCL_TIME *changed)
+    VCL_BOOL *healthy, VCL_TIME *changed, unsigned wait)
 {
 	struct dynamic_ref *next, *alt;
 	VCL_TIME c, cc;
@@ -273,6 +273,7 @@ dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start,
 	next = start;
 	alt = NULL;
 
+	//lint -e{506} Constant value boolean
 	do {
 		CHECK_OBJ_ORNULL(next, DYNAMIC_REF_MAGIC);
 		if (next != NULL)
@@ -294,7 +295,21 @@ dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start,
 		if (alt == NULL ||
 		    (alt->dir == creating && next->dir != creating))
 			alt = next;
-	} while (next != start);
+		if (next != start)
+			continue;
+
+		// we have iterated the list once
+
+		if (alt->dir != creating) {
+			next = alt;
+			break;
+		}
+		if (wait == 0)
+			break;
+
+		assert(alt->dir == creating);
+		AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
+	} while (1);
 
 	dom->healthy_cached = h;
 	dom->changed_cached = cc;
@@ -304,7 +319,7 @@ dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start,
 	if (changed)
 		*changed = cc;
 
-	return (next != NULL ? next : alt);
+	return (next);
 }
 
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
@@ -328,9 +343,7 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 		dynamic_gc_expired(dom->obj);
 
 	Lck_Lock(&dom->mtx);
-	r = dom_find(ctx, dom, dom->current, NULL, NULL);
-	while (r != NULL && r->dir == creating)
-		AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
+	r = dom_find(ctx, dom, dom->current, NULL, NULL, 1);
 	dom->current = r;
 	if (r != NULL)
 		dynamic_task_ref(ctx, r->dir);
@@ -367,13 +380,9 @@ dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 		return (dom->healthy_cached);
 	}
 
-	r = dom_find(ctx, dom, NULL, &retval, changed);
-	if (! IS_CLI() && ! retval && r != NULL && r->dir == creating) {
-		while (r->dir == creating)
-			AZ(Lck_CondWait(&dom->resolve, &dom->mtx));
-		if (r->dir != NULL)
-			retval = VRT_Healthy(ctx, r->dir, NULL);
-	}
+	r = dom_find(ctx, dom, NULL, &retval, changed, ! IS_CLI() && ! retval);
+	if (r != NULL && r->dir != NULL && r->dir != creating)
+		retval = VRT_Healthy(ctx, r->dir, NULL);
 	Lck_Unlock(&dom->mtx);
 
 	return (retval);
