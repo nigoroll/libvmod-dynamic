@@ -361,7 +361,6 @@ static VCL_BOOL v_matchproto_(vdi_healthy_f)
 dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 {
 	struct dynamic_domain *dom;
-	struct dynamic_ref *r;
 	VCL_BOOL retval = 0;
 
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
@@ -380,9 +379,7 @@ dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 		return (dom->healthy_cached);
 	}
 
-	r = dom_find(ctx, dom, NULL, &retval, changed, ! IS_CLI() && ! retval);
-	if (r != NULL && r->dir != NULL && r->dir != creating)
-		retval = VRT_Healthy(ctx, r->dir, NULL);
+	(void) dom_find(ctx, dom, NULL, &retval, changed, IS_CLI() ? 0 : 1);
 	Lck_Unlock(&dom->mtx);
 
 	return (retval);
