@@ -1080,20 +1080,18 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	VCL_TIME t;
 
 	CHECK_OBJ_NOTNULL(obj, VMOD_DYNAMIC_DIRECTOR_MAGIC);
-	Lck_Lock(&obj->domains_mtx);
 	AN(addr);
 
 	t = ctx->now + obj->domain_usage_tmo;
 
+	Lck_Lock(&obj->domains_mtx);
 	dom = dynamic_search(obj, addr, authority, port);
-	if (dom != NULL) {
-		if (t > dom->expires)
-			dom->expires = t;
-		Lck_Unlock(&obj->domains_mtx);
-		return (dom);
-	}
-
+	if (dom != NULL && t > dom->expires)
+		dom->expires = t;
 	Lck_Unlock(&obj->domains_mtx);
+
+	if (dom != NULL)
+		return (dom);
 
 	ALLOC_OBJ(dom, DYNAMIC_DOMAIN_MAGIC);
 	AN(dom);
