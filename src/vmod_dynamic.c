@@ -186,6 +186,9 @@ dynamic_task_deref(VRT_CTX, void *p)
 {
 	VCL_BACKEND d;
 
+	(void)ctx;
+	(void)p;
+
 	CAST_OBJ_NOTNULL(d, p, DIRECTOR_MAGIC);
 	VRT_Assign_Backend(&d, NULL);
 	AZ(d);
