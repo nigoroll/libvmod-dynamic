@@ -1089,6 +1089,7 @@ dom_event(VCL_BACKEND dir, enum vcl_event_e ev)
 
 	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
 	CAST_OBJ_NOTNULL(dom, dir->priv, DYNAMIC_DOMAIN_MAGIC);
+	dom->last_event = ev;
 
 	switch (ev) {
 	case VCL_EVENT_WARM:

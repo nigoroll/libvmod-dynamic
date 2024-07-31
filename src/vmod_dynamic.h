@@ -80,6 +80,7 @@ struct dynamic_domain {
 	unsigned			magic;
 #define DYNAMIC_DOMAIN_MAGIC		0x1bfe1345
 	enum dynamic_status_e		status;
+	enum vcl_event_e		last_event;
 	union {
 		VTAILQ_ENTRY(dynamic_domain)	list;
 		VRBT_ENTRY(dynamic_domain)	tree;
