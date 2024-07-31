@@ -1184,6 +1184,11 @@ dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
 	dom->dir = VRT_AddDirector(ctx, vmod_dynamic_methods, dom,
 	    "%s(%s:%s%s%s)", obj->vcl_name, addr, port,
 	    authority ? "/" : "", authority ? authority : "");
+	/* VRT_AddDirector can return NULL while VCL_TEMP_COOLING, but
+	 * we are called via the .backend() method, which should only happen
+	 * from vcl, and thus only if the vcl is busy
+	 */
+	AN(dom->dir);
 
 	Lck_Lock(&obj->domains_mtx);
 	raced = VRBT_INSERT(dom_tree_head, &obj->ref_domains, dom);
