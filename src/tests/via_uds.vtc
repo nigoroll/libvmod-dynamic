@@ -7,7 +7,7 @@ server s1 -repeat 7 {
 	txresp
 } -start
 
-varnish v2 -arg "-a uds=${tmpdir}/v2.sock,PROXY" -vcl {
+varnish v2 -arg "-a uds=${tmpdir}/v2.sock,PROXY,mode=666" -vcl {
 	import ${vmod_dynamic};
 	import std;
 	import proxy;
