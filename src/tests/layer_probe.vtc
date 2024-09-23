@@ -5,7 +5,7 @@ varnishtest "layered config with probe"
 varnish v1 -vcl {
 	vcl 4.1;
 	import std;
-	import dynamic;
+	import ${vmod_dynamic};
 	import directors;
 
 	backend foo none;
