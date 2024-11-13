@@ -251,6 +251,54 @@ dom_wait_active(struct dynamic_domain *dom)
 	DBG(NULL, dom, "wait-active ret %d", ret);
 }
 
+/* find a healthy dynamic_ref with the least connections */
+static struct dynamic_ref *
+dom_find_leastconn(VRT_CTX, struct dynamic_domain *dom)
+{
+	struct dynamic_ref *next, *best_next;
+	unsigned most_connections_available;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
+
+	dom_wait_active(dom);
+
+	if (dom->status > DYNAMIC_ST_ACTIVE)
+		return (NULL);
+	
+	next = VTAILQ_FIRST(&dom->refs);
+	best_next = NULL;
+	most_connections_available = 0;
+
+	do {
+		CHECK_OBJ_ORNULL(next, DYNAMIC_REF_MAGIC);
+		if (next != NULL)
+			next = VTAILQ_NEXT(next, list);
+		if (next == NULL)
+			break;
+
+		if (next->dir != creating && next->dir != NULL && VRT_Healthy(ctx, next->dir, NULL)) {
+			if (VALID_OBJ((struct backend *)next->dir->priv, BACKEND_MAGIC)) {
+				struct backend *be;
+				unsigned connections_available;
+
+				CAST_OBJ_NOTNULL(be, next->dir->priv, BACKEND_MAGIC);
+				connections_available = be->max_connections > 0 ? be->max_connections - be->n_conn : - be->n_conn;
+				if (connections_available > most_connections_available) {
+					best_next = next;
+					most_connections_available = connections_available;
+				}
+			}
+		}
+	} while (1);
+
+	if (best_next != NULL) {
+		return best_next;
+	} else {
+		return NULL;
+	}
+}
+
 /* find a healthy dynamic_ref */
 static struct dynamic_ref *
 dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start,
@@ -330,7 +378,7 @@ static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 dom_resolve(VRT_CTX, VCL_BACKEND d)
 {
 	struct dynamic_domain *dom;
-	struct dynamic_ref *r;
+	struct dynamic_ref *r = NULL;
 	VCL_BACKEND n = NULL;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -348,7 +396,12 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 		dynamic_gc_expired(dom->obj);
 
 	Lck_Lock(&dom->mtx);
-	r = dom_find(ctx, dom, dom->current, NULL, NULL, 1);
+	if (dom->obj->algorithm == LEAST) {
+		r = dom_find_leastconn(ctx, dom);
+	}
+	if (r == NULL) {
+		r = dom_find(ctx, dom, dom->current, NULL, NULL, 1);
+	}
 	dom->current = r;
 	if (r != NULL)
 		VRT_Assign_Backend(&n, r->dir);
@@ -1308,6 +1361,18 @@ dynamic_ttl_parse(const char *s)
 	INCOMPL();
 }
 
+static inline enum dynamic_algorithm_e
+dynamic_algorithm_parse(const char *algorithm_s)
+{
+	switch (algorithm_s[0]) {
+	case 'R':	return RR; break;
+	case 'L':	return LEAST; break;
+	default:	INCOMPL();
+	}
+	INCOMPL();
+	NEEDLESS(return(0));
+}
+
 
 VCL_VOID v_matchproto_()
 vmod_director__init(VRT_CTX,
@@ -1333,7 +1398,8 @@ vmod_director__init(VRT_CTX,
     VCL_INT keep,
     VCL_STRING authority,
     VCL_DURATION wait_timeout,
-    VCL_INT wait_limit)
+    VCL_INT wait_limit,
+    VCL_ENUM algorithm_arg)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -1406,6 +1472,7 @@ vmod_director__init(VRT_CTX,
 	obj->max_connections = (unsigned)max_connections;
 	obj->proxy_header = (unsigned)proxy_header;
 	obj->ttl_from = dynamic_ttl_parse(ttl_from_arg);
+	obj->algorithm = dynamic_algorithm_parse(algorithm_arg);
 	obj->keep = (unsigned)keep;
 	obj->wait_timeout = wait_timeout;
 	obj->wait_limit = wait_limit;
