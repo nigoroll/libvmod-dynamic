@@ -250,7 +250,9 @@ $Object director(
 	DURATION retry_after			= 30,
 	BACKEND via				= NULL,
 	INT keep				= 3,
-	STRING authority			= NULL)
+	STRING authority			= NULL,
+	DURATION wait_timeout = -1,
+	INT wait_limit = 0)
 
 Description
 	Create a DNS director.
@@ -382,6 +384,8 @@ Parameters to set attributes of backends
 	  argument. The main use case for this argument to
 	  `dynamic.director()`_ is to disable SNI by default by
 	  setting it to the empty string as ``authority = ""``.
+	- *wait_timeout* (defaults to global *backend_wait_timeout*)
+	- *wait_limit* (defaults to global *backend_wait_limit*)
 
 .. raw:: pdf
 
