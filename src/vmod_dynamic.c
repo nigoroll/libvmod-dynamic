@@ -662,6 +662,8 @@ ref_add(VRT_CTX, struct dynamic_ref *r)
 	vrt.between_bytes_timeout = dom->obj->between_bytes_tmo;
 	vrt.max_connections = dom->obj->max_connections;
 	vrt.proxy_header = dom->obj->proxy_header;
+	vrt.backend_wait_timeout = dom->obj->wait_timeout;
+	vrt.backend_wait_limit = dom->obj->wait_limit;
 	assert(vrt.proxy_header <= 2);
 	INIT_OBJ(&ep, VRT_ENDPOINT_MAGIC);
 
@@ -1329,7 +1331,9 @@ vmod_director__init(VRT_CTX,
     VCL_DURATION retry_after,
     VCL_BACKEND via,
     VCL_INT keep,
-    VCL_STRING authority)
+    VCL_STRING authority,
+    VCL_DURATION wait_timeout,
+    VCL_INT wait_limit)
 {
 	struct vmod_dynamic_director *obj;
 
@@ -1403,6 +1407,8 @@ vmod_director__init(VRT_CTX,
 	obj->proxy_header = (unsigned)proxy_header;
 	obj->ttl_from = dynamic_ttl_parse(ttl_from_arg);
 	obj->keep = (unsigned)keep;
+	obj->wait_timeout = wait_timeout;
+	obj->wait_limit = wait_limit;
 
 	if (resolver != NULL) {
 		obj->resolver = &res_getdns;

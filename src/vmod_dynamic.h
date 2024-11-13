@@ -181,7 +181,9 @@ struct vmod_dynamic_director {
 	VCL_DURATION				between_bytes_tmo;
 	VCL_DURATION				domain_usage_tmo;
 	VCL_DURATION				first_lookup_tmo;
+	VCL_DURATION				wait_timeout;
 	unsigned				max_connections;
+	unsigned				wait_limit;
 	unsigned				proxy_header;
 	VCL_BACKEND				via;
 	VTAILQ_ENTRY(vmod_dynamic_director)	list;
