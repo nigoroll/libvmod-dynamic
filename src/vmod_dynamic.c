@@ -256,7 +256,7 @@ static struct dynamic_ref *
 dom_find_leastconn(VRT_CTX, struct dynamic_domain *dom)
 {
 	struct dynamic_ref *next, *best_next;
-	unsigned most_connections_available;
+	int most_connections_available;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
@@ -268,7 +268,7 @@ dom_find_leastconn(VRT_CTX, struct dynamic_domain *dom)
 	
 	next = VTAILQ_FIRST(&dom->refs);
 	best_next = NULL;
-	most_connections_available = 0;
+	most_connections_available = INT_MIN;
 
 	do {
 		CHECK_OBJ_ORNULL(next, DYNAMIC_REF_MAGIC);
@@ -280,7 +280,7 @@ dom_find_leastconn(VRT_CTX, struct dynamic_domain *dom)
 		if (next->dir != creating && next->dir != NULL && VRT_Healthy(ctx, next->dir, NULL)) {
 			if (VALID_OBJ((struct backend *)next->dir->priv, BACKEND_MAGIC)) {
 				struct backend *be;
-				unsigned connections_available;
+				int connections_available;
 
 				CAST_OBJ_NOTNULL(be, next->dir->priv, BACKEND_MAGIC);
 				connections_available = be->max_connections > 0 ? be->max_connections - be->n_conn : - be->n_conn;
