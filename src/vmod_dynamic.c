@@ -272,8 +272,6 @@ dom_find_leastconn(VRT_CTX, struct dynamic_domain *dom)
 
 	do {
 		CHECK_OBJ_ORNULL(next, DYNAMIC_REF_MAGIC);
-		if (next != NULL)
-			next = VTAILQ_NEXT(next, list);
 		if (next == NULL)
 			break;
 
@@ -290,6 +288,8 @@ dom_find_leastconn(VRT_CTX, struct dynamic_domain *dom)
 				}
 			}
 		}
+
+		next = VTAILQ_NEXT(next, list);
 	} while (1);
 
 	if (best_next != NULL) {
