@@ -10,7 +10,7 @@ This branch is for **Varnish-Cache 7.6 and later**.
 .. _4186: https://github.com/varnishcache/varnish-cache/issues/4186
 
 Notice that as of Release 7.6.0, issue `4183`_ causes panics when this VMOD is
-used. A fix is available in PR `4186`_.
+used. This has been fixed in 7.6.1 via PR `4186`_.
 
 .. _7.5: https://github.com/nigoroll/libvmod-dynamic/tree/7.5
 
