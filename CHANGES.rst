@@ -4,8 +4,23 @@ vmod_dynamic CHANGELOG
 This file contains a summary of relevant changes to this vmod after
 version 2.8.0.
 
-vmod_dynamic NEXT
-=================
+NEXT (no release branch)
+------------------------
+
+7.6 branch
+----------
+
+* Added the new ``wait_timeout`` and ``wait_limit`` backend paramters (`127`_)
+
+* Worked around an inherent but unlikely race condition in Varnish-Cache
+  (`VC3949`_) which could lead to a panic if backends were destroyed in the
+  middle of an assignment from VCL.
+
+* Fixed an error handling glitch with the getdns integration (`116`_).
+
+.. _127: https://github.com/nigoroll/libvmod-dynamic/pull/127
+.. _VC3949: https://github.com/varnishcache/varnish-cache/issues/3949
+.. _116: https://github.com/nigoroll/libvmod-dynamic/pull/116
 
 7.5 branch
 ----------
