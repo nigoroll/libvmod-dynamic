@@ -1,0 +1,21 @@
+varnishtest "panic"
+
+server s1 {
+} -start
+
+varnish v1 -vcl {
+	vcl 4.1;
+	import std;
+	import directors;
+	import dynamic;
+
+	backend foo none;
+
+	sub vcl_init {
+    		new cluster_default = directors.fallback();
+    		new main = dynamic.director(port = {"${s1_port}"});
+    		cluster_default.add_backend(main.backend(host={"${s1_addr}"}, port={"${s1_port}"}));
+	}
+} -start
+
+varnish v1 -cliok "backend.set_health main(*) sick"

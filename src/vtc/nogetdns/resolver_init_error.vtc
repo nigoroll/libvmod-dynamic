@@ -1,0 +1,11 @@
+varnishtest "Error message if getdns support is missing but resolver used"
+
+varnish v1 -vcl {backend none none;} -start
+
+varnish v1 -errvcl "dynamic.resolver() not available, vmod was built without getdns support" {
+	import dynamic;
+	backend none none;
+	sub vcl_init {
+		new res = dynamic.resolver();
+	}
+}

@@ -1,7 +1,10 @@
 AM_CFLAGS = $(VARNISHAPI_CFLAGS) $(GETDNS_CFLAGS) -Wall -Werror
-AM_LDFLAGS = $(VARNISHAPI_LIBS) $(GETDNS_LIBS) $(VMOD_LDFLAGS)
+
+# Modules
 
 vmod_LTLIBRARIES = libvmod_dynamic.la
+
+libvmod_dynamic_la_LDFLAGS = $(VARNISHAPI_LIBS) $(GETDNS_LIBS) $(VMOD_LDFLAGS)
 
 libvmod_dynamic_la_SOURCES = \
 	vmod_dynamic.h \
@@ -31,13 +34,6 @@ nodist_libvmod_dynamic_la_SOURCES = \
 	vcc_dynamic_if.c \
 	vcc_dynamic_if.h
 
-dist_man_MANS = vmod_dynamic.3
-
-pdf-local: vmod_dynamic.pdf
-
-.rst.pdf:
-	rst2pdf $< $@
-
 $(srcdir)/dyn_getdns.c: vcc_dynamic_if.h
 $(srcdir)/dyn_resolver_gai.c: vcc_dynamic_if.h
 $(srcdir)/dyn_resolver_getdns.c: vcc_dynamic_if.h
@@ -49,14 +45,30 @@ $(srcdir)/vmod_resolver.stub.c: vcc_dynamic_if.h
 @BUILD_VMOD_DYNAMIC@
 
 AM_TESTS_ENVIRONMENT = \
-	PATH="$(VMOD_TEST_PATH)" \
+	PATH="$(abs_builddir):$(VARNISH_TEST_PATH):$(PATH)" \
 	LD_LIBRARY_PATH="$(VARNISH_LIBRARY_PATH)"
 TEST_EXTENSIONS = .vtc
 VTC_LOG_COMPILER = varnishtest -vl
-AM_VTC_LOG_FLAGS = -Dvmod_dynamic="$(VMOD_DYNAMIC)"
+AM_VTC_LOG_FLAGS = \
+	-p vcl_path="$(abs_top_srcdir)/vcl:$(VARNISHAPI_VCLDIR)" \
+	-p vmod_path="$(abs_builddir)/.libs:$(vmoddir):$(VARNISHAPI_VMODDIR)"
 
-TESTS = @VTC_TESTS@
-
-EXTRA_DIST = \
-	vmod_dynamic.vcc \
+TESTS = \
 	@VTC_TESTS@
+
+# Documentation
+
+dist_doc_DATA = \
+	vmod_dynamic.vcc \
+	$(TESTS)
+
+dist_man_MANS = \
+	vmod_dynamic.3
+
+pdf-local: vmod_dynamic.pdf
+
+.rst.pdf:
+	rst2pdf $< $@
+
+.rst.1:
+	$(AM_V_GEN) $(RST2MAN) $< $@

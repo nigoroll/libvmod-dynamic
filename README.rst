@@ -1,5 +1,5 @@
 ============
-vmod-dynamic
+vmod_dynamic
 ============
 
 .. role:: ref(emphasis)
@@ -15,6 +15,9 @@ versions.
 
 .. _`CHANGES.rst`: CHANGES.rst
 
+-------------------------------
+Varnish dynamic backends module
+-------------------------------
 
 Intro / Typical Usage Example
 =============================
@@ -82,6 +85,8 @@ and more.
 Description
 ===========
 
+.. _`getdns`: https://getdnsapi.net/
+
 This module provides a varnish director for dynamic creation of
 backends based on calls to
 
@@ -100,150 +105,29 @@ In contrast, for dynamic backends provided by this module,
 
 * name resolution information will be refreshed by background threads
   after a configurable time to live (ttl) or after the ttl from DNS
-  with a `getdns`_ `vmod_dynamic.resolver`.
+  with a `getdns`_ ``dynamic.resolver()``.
 
 * resolution to multiple network addresses is supported
 
-In addition, with a `getdns`_ `vmod_dynamic.resolver`, service
+In addition, with a `getdns`_ ``dynamic.resolver()``, service
 discovery by DNS SRV records is possible, in which case this module
 also allows to configure host names (*targets*), their ports, priority
 and weight though DNS. See https://en.wikipedia.org/wiki/SRV_record
-for a good basic explanation and `vmod_dynamic.director.service` for
+for a good basic explanation and ``xdirector.service()`` for
 details.
 
-Further documentation is available in the manual page ``vmod_dynamic(3)``.
+INSTALLATION AND FURTHER READING
+================================
 
-.. _getdns: https://getdnsapi.net/
+.. _`INSTALL.rst`: INSTALL.rst
 
-Supported Operating Systems
-===========================
+.. _`vmod_dynamic.man.rst`: src/vmod_dynamic.man.rst
 
-We encourage the use of open source operating systems and primarily
-support Linux and FreeBSD / OpenBSD.
+See `INSTALL.rst`_ for installation instructions.
 
-This vmod should also work on any other sane UNIX-ish platform like
-the Solaris Descendents and MacOS.
-
-We specifically do not support any Windows based environments, also
-not Docker on Windows. Feel free to use the VMOD, but do not expect us
-to support you, unless you are willing to put substantial amounts of
-money into a sponsorship.
-
-Installation
-============
-
-The source tree is based on autotools to configure the building, and
-does also have the necessary bits in place to do functional unit tests
-using the ``varnishtest`` tool.
-
-For extended resolver functionality, `getdns`_ is required both during
-installation and at runtime. Before building, install `getdns`_ from
-source or install developer packages, e.g.::
-
-	apt-get install libgetdns-dev
-
-At runtime, only the library itself is required, e.g.::
-
-	apt-get install libgetdns1
-
-.. getdns: https://getdnsapi.net/
-
-Building requires the Varnish header files and uses pkg-config to find
-the necessary paths.
-
-Usage::
-
- ./autogen.sh
- ./configure
-
-If you have installed Varnish to a non-standard directory, call
-``autogen.sh`` and ``configure`` with ``PKG_CONFIG_PATH`` pointing to
-the appropriate path. For instance, when varnishd configure was called
-with ``--prefix=$PREFIX``, use
-
-::
-
- export PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig
- export ACLOCAL_PATH=${PREFIX}/share/aclocal
-
-The module will inherit its prefix from Varnish, unless you specify a
-different ``--prefix`` when running the ``configure`` script for this
-module.
-
-Make targets:
-
-* make - builds the vmod.
-* make install - installs your vmod.
-* make check - runs the unit tests in ``src/tests/*.vtc``.
-* make distcheck - run check and prepare a tarball of the vmod.
-
-If you build a dist tarball, you don't need any of the autotools, only
-pkg-config and Varnish. You can build the module simply by running::
-
- ./configure
- make
-
-For the test suite to work, please add this line to your ``/etc/hosts``::
-
-	127.0.0.1 www.localhost img.localhost
-
-then run::
-
-	make check
-
-Also, the service tests require direct access to public DNS (for now).
-
-Alternatively, the ``make check`` can also be skipped.
-
-You can then proceed with the installation::
-
-    sudo make install
-
-Installation directories
-------------------------
-
-By default, the vmod ``configure`` script installs the built vmod in the
-directory relevant to the prefix. The vmod installation directory can be
-overridden by passing the ``vmoddir`` variable to ``make install``.
-
-FreeBSD
--------
-
-FreeBSD users may install from either the ports tree or via packages:
-
-* via the Ports Tree
-
-  ``cd /usr/ports/www/varnish-libvmod-dynamic/ && make install clean``
-
-* via the Package
-
-  ``pkg install varnish-libvmod-dynamic``
-
-RPMs
-----
-
-Binary, debuginfo and source RPMs for VMOD dynamic are available at::
-
-	https://pkg.uplex.de/
-
-The packages are built for Enterprise Linux 7 (el7), and hence will
-run on compatible distros (such as RHEL7, Fedora, CentOS 7 and Amazon
-Linux).
-
-To set up your YUM repository for the RPMs::
-
-	yum-config-manager --add-repo https://pkg.uplex.de/rpm/7/uplex-varnish/x86_64/
-
-The RPMs are compatible with Varnish versions 6.3.2 and 6.4.0. They
-also require the ``getdns`` library, as discussed above. The library
-is not necessarily available in the distributions' standard
-repositories, but can be installed from EPEL7::
-
-	yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-
-If you have problems or questions concerning the RPMs, post an issue
-to one of the source repository web sites, or contact
-<varnish-support@uplex.de>.
+For detailed usage documentation, see `vmod_dynamic.man.rst`_, which
+is also available as the :ref:`vmod_dynamic(3)` manual after
+installation.
 
 SUPPORT
 =======
@@ -278,8 +162,18 @@ several options:
 * Contact info@uplex.de to receive a commercial invoice for SWIFT
   payment.
 
-See also
+SEE ALSO
 ========
+
+* :ref:`vcl(7)`
+* :ref:`vsl(7)`
+* :ref:`vsl-query(7)`
+* :ref:`varnish-cli(7)`
+* :ref:`varnish-counters(7)`
+* :ref:`varnishstat(1)`
+* :ref:`getaddrinfo(3)`
+* :ref:`nscd(8)`
+* :ref:`nsswitch.conf(5)`
 
 If you want to learn more about DNS, you can start with `RFC 1034`_ and other
 RFCs that updated it over time. You may also have DNS already in place, or may
@@ -324,12 +218,47 @@ vmod_dynamic is based upon vmod_named developed and maintained from
 2015 to 2017 by Dridi Boukelmoune (github @dridi) and supported by
 Varnish Software.
 
-Maintenance and improvements 2017 - 2019 were sponsored by various
-unnamed UPLEX clients and authored by Geoffrey Simmons and Nils Goroll
-from UPLEX.
+Maintenance and improvements 2017 - 2019:
+
+Generally sponsored by Spring Media and various unnamed UPLEX clients.
 
 SRV record support and getdns integration in 2019 was supported by
 GOG.com
 
-vmod_dynamic also contains contributions by: Ricardo Nabinger Sanchez,
-Ryan Steinmetz
+Code was written mostly by Geoffrey Simmons and Nils Goroll from UPLEX
+with additional contributions by: Ricardo Nabinger Sanchez and
+Ryan Steinmetz.
+
+Thank you to all!
+
+COPYRIGHT
+=========
+
+::
+
+  Copyright (c) 2015-2016 Dridi Boukelmoune
+  Copyright 2017-2023 UPLEX - Nils Goroll Systemoptimierung
+ 
+  Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
+ 	   Nils Goroll <nils.goroll@uplex.de>
+ 
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions
+  are met:
+  1. Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+ 
+  THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+  SUCH DAMAGE.

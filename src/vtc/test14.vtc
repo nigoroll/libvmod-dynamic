@@ -1,0 +1,51 @@
+varnishtest "layer dynamic with another director"
+
+# This also tests the use of .backend() in vcl_init, which can be used
+# by other VMODs that initialize with a backend.
+
+feature cmd "getent hosts www.localhost img.localhost"
+
+server s1 {
+	rxreq
+	txresp
+
+	rxreq
+	txresp
+} -start
+
+varnish v1 -vcl {
+	import dynamic;
+	import directors;
+
+	backend proforma none;
+
+	sub vcl_init {
+		new d1 = dynamic.director(port = "${s1_port}");
+
+		new rr = directors.round_robin();
+		rr.add_backend(d1.backend("www.localhost"));
+		rr.add_backend(d1.backend("img.localhost"));
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = rr.backend();
+		return(pass);
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+} -start
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+
+	txreq -hdr "Connection: close"
+	rxresp
+	expect resp.status == 200
+} -run
+
+server s1 -wait

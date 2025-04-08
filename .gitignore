@@ -38,7 +38,7 @@ vcc_*_if.h
 # manual
 # ------
 
-*.rst
+vmod_dynamic.rst
 *.pdf
 *.3
 

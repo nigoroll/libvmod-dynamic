@@ -1,33 +1,62 @@
-#-
-# Copyright (c) 2015-2016 Dridi Boukelmoune
-# Copyright 2017-2023 UPLEX - Nils Goroll Systemoptimierung
-#
-# Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
-#	   Nils Goroll <nils.goroll@uplex.de>
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
+..
+.. NB:  This file is machine generated, DO NOT EDIT!
+..
+.. Edit ./vmod_dynamic.vcc and run make instead
+..
 
-$Module dynamic 3 "Varnish dynamic backends module"
-$ABI vrt
+.. role:: ref(emphasis)
+
+============
+vmod_dynamic
+============
+
+-------------------------------
+Varnish dynamic backends module
+-------------------------------
+
+:Manual section: 3
+
+SYNOPSIS
+========
+
+.. parsed-literal::
+
+  import dynamic [as name] [from "path"]
+  
+  new xdirector = dynamic.director(STRING port, STRING host_header, ENUM share, PROBE probe, ACL whitelist, DURATION ttl, DURATION connect_timeout, DURATION first_byte_timeout, DURATION between_bytes_timeout, DURATION domain_usage_timeout, DURATION first_lookup_timeout, INT max_connections, INT proxy_header, BLOB resolver, ENUM ttl_from, DURATION retry_after, BACKEND via, INT keep, STRING authority, DURATION wait_timeout, INT wait_limit)
+  
+      BACKEND xdirector.backend(STRING host, STRING port, STRING authority)
+   
+      BACKEND xdirector.service(STRING service)
+   
+      VOID xdirector.debug(BOOL)
+   
+  new xresolver = dynamic.resolver(BOOL set_from_os, INT parallel)
+  
+      BLOB xresolver.use()
+   
+      BOOL xresolver.set_resolution_type(ENUM)
+   
+      BOOL xresolver.clear_namespaces()
+   
+      BOOL xresolver.add_namespace(ENUM)
+   
+      BOOL xresolver.set_namespaces()
+   
+      BOOL xresolver.clear_transports()
+   
+      BOOL xresolver.add_transport(ENUM)
+   
+      BOOL xresolver.set_transports()
+   
+      BOOL xresolver.set_idle_timeout(DURATION)
+   
+      BOOL xresolver.set_limit_outstanding_queries(INT)
+   
+      BOOL xresolver.set_timeout(DURATION)
+   
+      BOOL xresolver.set_follow_redirects(ENUM)
+   
 
 .. role:: ref(emphasis)
 
@@ -229,30 +258,36 @@ logged with the following event::
 
    getaddrinfo <errno> (<reason>)
 
-$Event event
+.. _dynamic.director():
 
-$Object director(
-	STRING port				= "http",
-	STRING host_header			= 0,
-	ENUM { DEFAULT, DIRECTOR, HOST } share	= "DEFAULT",
-	PROBE probe				= 0,
-	ACL whitelist				= 0,
-	DURATION ttl				= 3600,
-	DURATION connect_timeout		= -1,
-	DURATION first_byte_timeout		= -1,
-	DURATION between_bytes_timeout		= -1,
-	DURATION domain_usage_timeout		= 7200,
-	DURATION first_lookup_timeout		= 10,
-	INT max_connections			= 0,
-	INT proxy_header			= 0,
-	BLOB resolver				= NULL,
-	ENUM { cfg, dns, min, max } ttl_from	= "cfg",
-	DURATION retry_after			= 30,
-	BACKEND via				= NULL,
-	INT keep				= 3,
-	STRING authority			= NULL,
-	DURATION wait_timeout = -1,
-	INT wait_limit = 0)
+new xdirector = dynamic.director(STRING port, STRING host_header, ENUM share, PROBE probe, ACL whitelist, DURATION ttl, DURATION connect_timeout, DURATION first_byte_timeout, DURATION between_bytes_timeout, DURATION domain_usage_timeout, DURATION first_lookup_timeout, INT max_connections, INT proxy_header, BLOB resolver, ENUM ttl_from, DURATION retry_after, BACKEND via, INT keep, STRING authority, DURATION wait_timeout, INT wait_limit)
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+::
+
+   new xdirector = dynamic.director(
+      STRING port="http",
+      STRING host_header=0,
+      ENUM {DEFAULT, DIRECTOR, HOST} share=DEFAULT,
+      PROBE probe=0,
+      ACL whitelist=0,
+      DURATION ttl=3600,
+      DURATION connect_timeout=-1,
+      DURATION first_byte_timeout=-1,
+      DURATION between_bytes_timeout=-1,
+      DURATION domain_usage_timeout=7200,
+      DURATION first_lookup_timeout=10,
+      INT max_connections=0,
+      INT proxy_header=0,
+      BLOB resolver=NULL,
+      ENUM {cfg, dns, min, max} ttl_from=cfg,
+      DURATION retry_after=30,
+      BACKEND via=NULL,
+      INT keep=3,
+      STRING authority=NULL,
+      DURATION wait_timeout=-1,
+      INT wait_limit=0
+   )
 
 Description
 	Create a DNS director.
@@ -421,8 +456,18 @@ Example
 
    PageBreak
 
-$Method BACKEND .backend(STRING host = "", STRING port = "",
-    STRING authority = NULL)
+.. _xdirector.backend():
+
+BACKEND xdirector.backend(STRING host, STRING port, STRING authority)
+---------------------------------------------------------------------
+
+::
+
+      BACKEND xdirector.backend(
+            STRING host="",
+            STRING port="",
+            STRING authority=NULL
+      )
 
 Description
 	Return a backend from the director for a given *host* name and,
@@ -453,7 +498,10 @@ Description
 	If *authority* is set to the empty string, or if *via* is not
 	set, then the TLV is not sent.
 
-$Method BACKEND .service(STRING service)
+.. _xdirector.service():
+
+BACKEND xdirector.service(STRING service)
+-----------------------------------------
 
 Description
 	Return a backend from the director for a service name (DNS SRV
@@ -482,15 +530,26 @@ Description
 	the `dynamic.director()`_ to avoid returning unresponsive
 	backends.
 
-$Method VOID .debug(BOOL)
+.. _xdirector.debug():
+
+VOID xdirector.debug(BOOL)
+--------------------------
 
 Description
 	Enable or disable debugging for a dynamic director, logging background
 	operations related to backends management.
 
-$Object resolver(
-	BOOL set_from_os=1,
-	INT parallel=16)
+.. _dynamic.resolver():
+
+new xresolver = dynamic.resolver(BOOL set_from_os, INT parallel)
+----------------------------------------------------------------
+
+::
+
+   new xresolver = dynamic.resolver(
+      BOOL set_from_os=1,
+      INT parallel=16
+   )
 
 Create *parallel* `getdns`_ contexts to be used with the
 `dynamic.director()`_ constructor - see
@@ -513,12 +572,18 @@ outside ``vcl_init{}`` will trigger a VCL failure.
 
 .. _getdns: https://getdnsapi.net/
 
-$Method BLOB .use()
+.. _xresolver.use():
+
+BLOB xresolver.use()
+--------------------
 
 return a reference to the `dynamic.resolver()`_ object for use as a
 parameter to the `dynamic.director()`_ constructor.
 
-$Method BOOL .set_resolution_type(ENUM {RECURSING, STUB})
+.. _xresolver.set_resolution_type():
+
+BOOL xresolver.set_resolution_type(ENUM {RECURSING, STUB})
+----------------------------------------------------------
 
 Specifies whether DNS queries are performed with nonrecurive lookups
 or as a stub resolver.
@@ -527,13 +592,25 @@ May only be called from ``vcl_init{}``
 
 See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 
-$Method BOOL .clear_namespaces()
+.. _xresolver.clear_namespaces():
+
+BOOL xresolver.clear_namespaces()
+---------------------------------
 
 Clear the list of namespaces to be configured, see below.
 
 May only be called from ``vcl_init{}``
 
-$Method BOOL .add_namespace(ENUM {DNS, LOCALNAMES, NETBIOS, MDNS, NIS})
+.. _xresolver.add_namespace():
+
+BOOL xresolver.add_namespace(ENUM)
+----------------------------------
+
+::
+
+      BOOL xresolver.add_namespace(
+            ENUM {DNS, LOCALNAMES, NETBIOS, MDNS, NIS}
+      )
 
 Add a namespace to the list of namespaces to be queried.
 
@@ -550,19 +627,28 @@ load will fail with error ``312`` (The library did not have the
 requested API feature implemented.) in this case when
 `xresolver.set_namespaces()`_ is called.
 
-$Method BOOL .set_namespaces()
+.. _xresolver.set_namespaces():
+
+BOOL xresolver.set_namespaces()
+-------------------------------
 
 Apply namespace configuration, see above.
 
 May only be called from ``vcl_init{}``
 
-$Method BOOL .clear_transports()
+.. _xresolver.clear_transports():
+
+BOOL xresolver.clear_transports()
+---------------------------------
 
 Clear the list of transports to be configured, see below.
 
 May only be called from ``vcl_init{}``
 
-$Method BOOL .add_transport(ENUM {UDP, TCP, TLS})
+.. _xresolver.add_transport():
+
+BOOL xresolver.add_transport(ENUM {UDP, TCP, TLS})
+--------------------------------------------------
 
 Add a transport to the list of transports to be tried.
 
@@ -574,13 +660,19 @@ May only be called from ``vcl_init{}``
 
 See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 
-$Method BOOL .set_transports()
+.. _xresolver.set_transports():
+
+BOOL xresolver.set_transports()
+-------------------------------
 
 Apply transport configuration, see above.
 
 May only be called from ``vcl_init{}``
 
-$Method BOOL .set_idle_timeout(DURATION)
+.. _xresolver.set_idle_timeout():
+
+BOOL xresolver.set_idle_timeout(DURATION)
+-----------------------------------------
 
 Specifies the duration the API will leave an idle TCP or TLS
 connection open for (idle means no outstanding responses and no
@@ -588,18 +680,30 @@ pending queries).
 
 May only be called from ``vcl_init{}``
 
-$Method BOOL .set_limit_outstanding_queries(INT)
+.. _xresolver.set_limit_outstanding_queries():
+
+BOOL xresolver.set_limit_outstanding_queries(INT)
+-------------------------------------------------
 
 May only be called from ``vcl_init{}``
 
+.. _xresolver.set_timeout():
 
-$Method BOOL .set_timeout(DURATION)
+BOOL xresolver.set_timeout(DURATION)
+------------------------------------
 
 May only be called from ``vcl_init{}``
 
+.. _xresolver.set_follow_redirects():
 
-$Method BOOL .set_follow_redirects(
-		ENUM {REDIRECTS_FOLLOW, REDIRECTS_DO_NOT_FOLLOW})
+BOOL xresolver.set_follow_redirects(ENUM)
+-----------------------------------------
+
+::
+
+      BOOL xresolver.set_follow_redirects(
+            ENUM {REDIRECTS_FOLLOW, REDIRECTS_DO_NOT_FOLLOW}
+      )
 
 May only be called from ``vcl_init{}``
 
@@ -885,3 +989,35 @@ DNS and containers (in alphabetic order):
 .. _DC/OS: https://docs.mesosphere.com/1.7/usage/service-discovery/mesos-dns/
 .. _Docker Machine: https://www.npmjs.com/package/docker-machine-dns
 .. _Kubernetes: http://kubernetes.io/docs/admin/dns/
+
+COPYRIGHT
+=========
+
+::
+
+  Copyright (c) 2015-2016 Dridi Boukelmoune
+  Copyright 2017-2023 UPLEX - Nils Goroll Systemoptimierung
+ 
+  Authors: Dridi Boukelmoune <dridi.boukelmoune@gmail.com>
+ 	   Nils Goroll <nils.goroll@uplex.de>
+ 
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions
+  are met:
+  1. Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+ 
+  THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+  SUCH DAMAGE.

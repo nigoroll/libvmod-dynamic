@@ -1,0 +1,46 @@
+varnishtest "Different host names can share backends"
+
+feature cmd "getent hosts www.localhost img.localhost"
+
+server s1 {
+	rxreq
+	expect req.http.host == www.localhost
+	txresp
+
+	rxreq
+	expect req.http.host == img.localhost
+	txresp
+} -start
+
+varnish v1 -vcl {
+	import dynamic;
+
+	backend proforma none;
+
+	sub vcl_init {
+		new d1 = dynamic.director(port = "${s1_port}");
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend(req.http.host);
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+} -start
+
+client c1 {
+	txreq -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+
+	txreq -hdr "Host: img.localhost" -hdr "Connection: close"
+	rxresp
+	expect resp.status == 200
+} -run
+
+delay 1
+
+varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
