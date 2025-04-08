@@ -1,0 +1,89 @@
+varnishtest "Implicit domain name on backend selection"
+
+feature cmd "getent hosts localhost"
+
+server s1 -listen 0.0.0.0 0 {
+	rxreq
+	expect req.method == GET
+	expect req.http.Host == "127.0.0.1"
+	txresp
+
+	close
+	accept
+
+	rxreq
+	expect req.method == POST
+	expect req.http.Host == "127.0.0.2"
+	txresp
+
+	close
+	accept
+
+	rxreq
+	expect req.method == PIPE
+	expect req.http.Host == "127.0.0.3"
+	txresp
+
+	close
+	accept
+
+	rxreq
+	expect req.method == BOTH
+	expect req.http.Host == "127.0.0.4"
+	txresp
+} -start
+
+varnish v1 -vcl {
+	import dynamic;
+
+	backend proforma none;
+
+	sub vcl_init {
+		new d1 = dynamic.director(port = "${s1_port}");
+	}
+
+	sub vcl_pipe {
+		if (req.http.X-Host) {
+			set bereq.http.Host = req.http.X-Host;
+		}
+		set bereq.backend = d1.backend();
+	}
+
+	sub vcl_pass {
+		set req.backend_hint = d1.backend();
+	}
+
+	sub vcl_backend_fetch {
+		if (bereq.method == "GET") {
+			set bereq.backend = d1.backend();
+		}
+	}
+} -start
+
+client c1 {
+	timeout 2
+	txreq -req HEAD -hdr "Host: 127.0.0.1"
+	rxresp
+	expect resp.status == 200
+
+	txreq -req POST -hdr "Host: 127.0.0.2"
+	rxresp
+	expect resp.status == 200
+
+	txreq -req PIPE -hdr "Host: 127.0.0.3"
+	rxresp
+	expect resp.status == 200
+	expect_close
+} -run
+
+client c1 {
+	txreq -req BOTH -hdr "Host: localhost" -hdr "X-Host: 127.0.0.4"
+	rxresp
+	expect resp.status == 200
+	expect_close
+} -run
+
+varnish v1 -expect VBE.vcl1.d1(127.0.0.1:${s1_port}).req == 1
+varnish v1 -expect VBE.vcl1.d1(127.0.0.2:${s1_port}).req == 1
+varnish v1 -expect VBE.vcl1.d1(127.0.0.3:${s1_port}).req == 1
+varnish v1 -expect VBE.vcl1.d1(127.0.0.4:${s1_port}).req == 1

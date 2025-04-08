@@ -1,0 +1,25 @@
+#!/bin/sh
+
+set -e
+set -u
+
+WORK_DIR=$(pwd)
+ROOT_DIR=$(dirname "$0")
+
+cd "$ROOT_DIR"
+
+if ! command -v libtoolize >/dev/null
+then
+	echo "libtoolize: command not found, falling back to glibtoolize" >&2
+	alias libtoolize=glibtoolize
+fi
+
+mkdir -p m4
+aclocal
+libtoolize --copy --force
+autoheader
+automake --add-missing --copy --foreign
+autoconf
+
+cd "$WORK_DIR"
+"$ROOT_DIR"/configure "$@"
