@@ -34,6 +34,10 @@ nodist_libvmod_dynamic_la_SOURCES = \
 	vcc_dynamic_if.c \
 	vcc_dynamic_if.h
 
+vmod_vcs_version.txt: vcc_dynamic_if.c
+
+DISTCLEANFILES = vmod_vcs_version.txt
+
 $(srcdir)/dyn_getdns.c: vcc_dynamic_if.h
 $(srcdir)/dyn_resolver_gai.c: vcc_dynamic_if.h
 $(srcdir)/dyn_resolver_getdns.c: vcc_dynamic_if.h
@@ -60,6 +64,7 @@ TESTS = \
 
 dist_doc_DATA = \
 	vmod_dynamic.vcc \
+	vmod_vcs_version.txt \
 	$(TESTS)
 
 dist_man_MANS = \
