@@ -49,3 +49,5 @@ vmod-querystring-*/
 
 vmod-*.tar.[gx]z
 *.spec
+
+src/vmod_vcs_version.txt
