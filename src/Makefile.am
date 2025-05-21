@@ -31,6 +31,10 @@ nodist_libvmod_dynamic_la_SOURCES = \
 	vcc_dynamic_if.c \
 	vcc_dynamic_if.h
 
+vmod_vcs_version.txt: vcc_dynamic_if.c
+
+DISTCLEANFILES = vmod_vcs_version.txt
+
 dist_man_MANS = vmod_dynamic.3
 
 pdf-local: vmod_dynamic.pdf
