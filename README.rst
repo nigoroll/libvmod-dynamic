@@ -4,24 +4,14 @@ vmod-dynamic
 
 .. role:: ref(emphasis)
 
-This branch is for **Varnish-Cache 7.6 and later**.
+This branch is for **Varnish-Cache after release 7.7**
 
-Notice that as of Release 7.6.0, issue `4183`_ causes panics when this VMOD is
-used. This has been fixed in 7.6.1 via PR `4186`_.
-
-There is also a `7.6`_ branch which will become relevant when we start breaking
-thing for 7.6 here.
-
-Use branch `7.5`_ with Varnish-Cache 7.5.x.
+Use branch `7.7`_ with Varnish-Cache 7.7.x.
 
 See `CHANGES.rst`_ to stay informed about important changes between
 versions.
 
-.. _4183: https://github.com/varnishcache/varnish-cache/issues/4183
-.. _4186: https://github.com/varnishcache/varnish-cache/issues/4186
-
-.. _7.5: https://github.com/nigoroll/libvmod-dynamic/tree/7.5
-.. _7.6: https://github.com/nigoroll/libvmod-dynamic/tree/7.6
+.. _7.7: https://github.com/nigoroll/libvmod-dynamic/tree/7.7
 
 .. _`CHANGES.rst`: CHANGES.rst
 
