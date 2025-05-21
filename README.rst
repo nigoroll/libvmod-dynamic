@@ -16,6 +16,69 @@ versions.
 .. _`CHANGES.rst`: CHANGES.rst
 
 
+Intro / Typical Usage Example
+=============================
+
+The typical use case for vmod_dynamic is to connect to TLS backends with
+multiple DNS records.
+
+.. _`haproxy`: https://www.haproxy.org/
+
+To achieve this, you need a *TLS onloader*, which turns clear text HTTP/1.1
+connections into TLS connections. For this purpose, we recommend `haproxy`_. A
+typical haproxy configuration snippet to provide an onloader service on a Unix
+Domain Socket (UDS) looks like this::
+
+    listen tls_onloader
+	mode tcp
+	maxconn 1000
+	bind /shared/varnish/tls_onloader.sock accept-proxy mode 777
+	balance roundrobin
+	stick-table type ip size 100
+	stick on dst
+	server s01 0.0.0.0:0 ssl ca-file /etc/ssl/certs/ca-bundle.crt alpn http/1.1 sni fc_pp_authority
+	server s02 0.0.0.0:0 ssl ca-file /etc/ssl/certs/ca-bundle.crt alpn http/1.1 sni fc_pp_authority
+	server s03 0.0.0.0:0 ssl ca-file /etc/ssl/certs/ca-bundle.crt alpn http/1.1 sni fc_pp_authority
+	server s04 0.0.0.0:0 ssl ca-file /etc/ssl/certs/ca-bundle.crt alpn http/1.1 sni fc_pp_authority
+	# ...approximately as many servers as expected peers for improved tls session caching
+
+In this snippet, ``/etc/ssl/certs/ca-bundle.crt`` should be replaced with a CA
+certificate bundle which you decide to trust. ``maxconn`` should be adjusted as
+needed. ``/shared/varnish/`` has to be a path which is also available to
+``varnishd`` (beware, for example, of systemd implicitly chrooting services).
+``mode 777`` is a fail-safe choice, but not optimal from a security perspective.
+Ideally, varnishd and haproxy should be added to the ``vcache`` group and have
+this mode set to ``770``. The stick table ``size`` and the number of repetitions
+of the ``server sXX`` line should roughly match the number of expected peers.
+**NB:** all of this is just broad advise for the purpose of this introduction,
+do your own research!
+
+On the varnish end, the following VCL snippet configures a dynamic director
+using the TLS onloader::
+
+    backend tls_onloader {
+        .path = "/shared/varnish/tls_onloader.sock";
+        ## consider setting:
+        # .connect_timeout = Xs;
+        # .first_byte_timeout = Xs;
+        # .between_bytes_timeout = Xs;
+    }
+
+    sub vcl_init {
+        new https = dynamic.director(via = tls_onloader, port = 443);
+    }
+
+Now https connections to backends can be initiated like this, for example::
+
+    sub vcl_backend_fetch {
+        set bereq.http.Host = "example.com";
+        set bereq.backend = https.backend();
+    }
+
+That's it for the basics. Read on for more details and additional topics like
+TTL control, SRV record support, connection sharing options, timeouts, probes
+and more.
+
 Description
 ===========
 
