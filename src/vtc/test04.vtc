@@ -1,0 +1,146 @@
+varnishtest "Domain timeout"
+
+feature cmd "getent hosts localhost www.localhost img.localhost"
+
+server s1 {
+       rxreq
+       expect req.http.Host == localhost
+       txresp
+
+       rxreq
+       expect req.http.Host == www.localhost
+       txresp
+
+       rxreq
+       expect req.http.Host == www.localhost
+       txresp
+} -start
+
+varnish v1 -vcl+backend {
+	import dynamic;
+
+	sub vcl_init {
+		new d1 = dynamic.director(
+			port = "${s1_port}",
+			ttl = 100ms,
+			domain_usage_timeout = 900ms);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend(req.http.Host);
+		return (pass);
+	}
+
+	sub vcl_backend_error {
+		# the director may resolve ::1 first
+		return (retry);
+	}
+} -start
+
+logexpect l1 -v v1 -g raw {
+	expect * * VCL_Log "vmod-dynamic vcl1 d1 localhost:[0-9]+ timeout"
+} -start
+
+client c1 {
+	txreq -hdr "Host: localhost"
+	rxresp
+	expect resp.status == 200
+
+	delay 1
+
+	txreq -url "/foo" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+
+	delay .1
+
+	txreq -url "/bar" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+} -run
+
+varnish v1 -cliok "backend.list"
+# the backend got recreated after the localhost domain went away
+varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
+
+logexpect l1 -wait
+
+# test race to create domain
+
+varnish v1 -vcl {
+	import dynamic;
+
+	backend proforma none;
+
+	sub vcl_init {
+		new d1 = dynamic.director(
+			port = "${s1_port}",
+			ttl = 100ms,
+			domain_usage_timeout = 100ms);
+	}
+
+	sub vcl_recv {
+		set req.backend_hint = d1.backend(req.http.Host);
+		return (synth(200));
+	}
+
+	sub vcl_synth {
+		set resp.body = "";
+		return (deliver);
+	}
+}
+
+varnish v1 -cliok "vcl.discard vcl1"
+
+client c1 {
+	txreq -hdr "Host: localhost"
+	rxresp
+	expect resp.status == 200
+	txreq -url "/foo" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+	txreq -url "/bar" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+} -start
+
+client c2 {
+	txreq -hdr "Host: localhost"
+	rxresp
+	expect resp.status == 200
+	txreq -url "/foo" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+	txreq -url "/bar" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+} -start
+
+client c3 {
+	txreq -hdr "Host: localhost"
+	rxresp
+	expect resp.status == 200
+	txreq -url "/foo" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+	txreq -url "/bar" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+} -start
+
+client c4 {
+	txreq -hdr "Host: localhost"
+	rxresp
+	expect resp.status == 200
+	txreq -url "/foo" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+	txreq -url "/bar" -hdr "Host: www.localhost"
+	rxresp
+	expect resp.status == 200
+} -start
+
+client c1 -wait
+client c2 -wait
+client c3 -wait
+client c4 -wait

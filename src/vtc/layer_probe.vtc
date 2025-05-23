@@ -1,0 +1,23 @@
+varnishtest "layered config with probe"
+
+# by delthas, from https://github.com/varnishcache/varnish-cache/issues/4189
+
+varnish v1 -vcl {
+	vcl 4.1;
+	import std;
+	import dynamic;
+	import directors;
+
+	backend foo none;
+
+	probe p {
+	}
+
+	sub vcl_init {
+    		new d = directors.fallback();
+    		new b = dynamic.director(probe=p);
+    		d.add_backend(b.backend(host="1.1.1.1"));
+	}
+} -start
+
+delay 5
