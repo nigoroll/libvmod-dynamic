@@ -100,8 +100,8 @@ static struct VSC_lck *lck_dir;
 
 static unsigned loadcnt = 0;
 
-static const struct gethdr_s HDR_REQ_HOST = { HDR_REQ, "\005Host:"};
-static const struct gethdr_s HDR_BEREQ_HOST = { HDR_BEREQ, "\005Host:"};
+static const struct gethdr_s HDR_REQ_HOST = { HDR_REQ, HDR("Host:")};
+static const struct gethdr_s HDR_BEREQ_HOST = { HDR_BEREQ, HDR("Host:")};
 
 static struct vsc_seg * vsc = NULL;
 
