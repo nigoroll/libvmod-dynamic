@@ -47,6 +47,13 @@ varnish v1 -vcl {
 			set bereq.http.Host = req.http.X-Host;
 		}
 		set bereq.backend = d1.backend();
+		return (pipe);
+	}
+
+	sub vcl_recv {
+		if (req.method == "PIPE" || req.method == "BOTH") {
+			return (pipe);
+		}
 	}
 
 	sub vcl_pass {
