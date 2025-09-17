@@ -228,6 +228,8 @@ varnish v1 -cli "vcl.discard vcl4"
 
 varnish v1 -expect VBE.vcl5.d1.localhost(${s1_addr}:${s1_port}/auth.com).req == 1
 varnish v1 -cliok "backend.list -p"
+# give vcls time to cool
+delay 3
 varnish v1 -expect MAIN.n_backend == 4
 
 varnish v3 -proto PROXY -vcl+backend {
