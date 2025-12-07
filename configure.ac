@@ -1,5 +1,5 @@
 AC_PREREQ([2.68])
-AC_INIT([libvmod-dynamic], [trunk], [varnish-support@uplex.de], [vmod-dynamic])
+AC_INIT([libvmod-dynamic], [8.0], [varnish-support@uplex.de], [vmod-dynamic])
 AC_COPYRIGHT([Copyright 2024 UPLEX - Nils Goroll Systemoptimierung])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -11,7 +11,7 @@ AM_SILENT_RULES([yes])
 AC_ARG_VAR([RST2MAN], [the program to build manuals from reStructuredText])
 AC_CHECK_PROGS(RST2MAN, [rst2man rst2man.py])
 
-VARNISH_PREREQ([7.5.0])
+VARNISH_PREREQ([8.0])
 VARNISH_VMODS([dynamic])
 
 AM_PROG_AR
