@@ -64,7 +64,6 @@ TESTS = \
 
 dist_doc_DATA = \
 	vmod_dynamic.vcc \
-	vmod_vcs_version.txt \
 	$(TESTS)
 
 if HAVE_VCS_VMOD_VERSION
