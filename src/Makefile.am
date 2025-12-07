@@ -67,6 +67,10 @@ dist_doc_DATA = \
 	vmod_vcs_version.txt \
 	$(TESTS)
 
+if HAVE_VCS_VMOD_VERSION
+dist_doc_DATA += vmod_vcs_version.txt
+endif
+
 dist_man_MANS = \
 	vmod_dynamic.3
 
