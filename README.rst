@@ -4,16 +4,26 @@ vmod_dynamic
 
 .. role:: ref(emphasis)
 
-This branch is for **Varnish-Cache after release 7.7**
+This branch is for **Vinyl-Cache** *after* Varnish-Cache release 8.0.
 
-Use branch `7.7`_ with Varnish-Cache 7.7.x.
+Use branch `8.0`_ with Varnish-Cache 8.0.x
 
 See `CHANGES.rst`_ to stay informed about important changes between
 versions.
 
-.. _7.7: https://github.com/nigoroll/libvmod-dynamic/tree/7.7
+.. _8.0: https://github.com/nigoroll/libvmod-dynamic/tree/8.0
 
 .. _`CHANGES.rst`: CHANGES.rst
+
+Note on Vinyl-Cache / Varnish-Cache
+-----------------------------------
+
+.. _`Vinyl-Cache Announcement`: https://vinyl-cache.org/#years-old-and-it-is-time-to-get-serious-er
+
+For now, we use the new and old name somehow interchangably and neither the
+documentation nor the code have been fully updated.
+
+See `Vinyl-Cache Announcement`_ for background.
 
 -------------------------------
 Varnish dynamic backends module
