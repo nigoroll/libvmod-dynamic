@@ -7,6 +7,11 @@ version 2.8.0.
 NEXT (no release branch)
 ------------------------
 
+8.0 branch
+----------
+
+No relevant changes from a user's perspective
+
 7.7 branch
 ----------
 
