@@ -52,6 +52,21 @@ AC_CONFIG_FILES([
 	src/Makefile
 ])
 
+AC_CHECK_PROG([HAVE_GIT], [git], [yes], [no])
+if test "x$HAVE_GIT" = "xyes"; then
+	if git rev-parse --git-dir >/dev/null 2>&1; then
+		HAVE_GIT_REPO=yes
+	else
+		HAVE_GIT_REPO=no
+	fi
+else
+	HAVE_GIT_REPO=no
+fi
+AM_CONDITIONAL([HAVE_VCS_VMOD_VERSION], [test -f "src/vmod_vcs_version.txt" || test "x$HAVE_GIT_REPO" = "xyes"])
+if test "x$HAVE_GIT_REPO" != "xyes" && test ! -f "src/vmod_vcs_version.txt"; then
+   AC_MSG_WARN([Building without version control metadata - vmod_vcs_version.txt will be unavailable])
+fi
+
 AC_OUTPUT
 
 AS_ECHO("
