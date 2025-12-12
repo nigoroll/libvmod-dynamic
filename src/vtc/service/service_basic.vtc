@@ -17,7 +17,7 @@ varnish v1 -vcl {
 	sub vcl_recv {
 		set req.backend_hint =
 		    d1.service("_test._tcp.vmod-dynamic.uplex.de");
-		set req.http.Host = "varnish-cache.org";
+		set req.http.Host = "vinyl-cache.org";
 	}
 
 	sub vcl_backend_fetch {
