@@ -1,6 +1,6 @@
 varnishtest "Smoke test"
 
-feature cmd "getent hosts varnish-cache.org"
+feature cmd "getent hosts vinyl-cache.org"
 
 server s1 {
        rxreq
@@ -22,8 +22,8 @@ varnish v1 -vcl+backend {
 	}
 
 	sub vcl_recv {
-		set req.backend_hint = d1.backend("varnish-cache.org");
-		set req.http.Host = "varnish-cache.org";
+		set req.backend_hint = d1.backend("vinyl-cache.org");
+		set req.http.Host = "vinyl-cache.org";
 	}
 
 	sub vcl_backend_error {
