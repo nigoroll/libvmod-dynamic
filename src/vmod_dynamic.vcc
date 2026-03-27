@@ -603,6 +603,77 @@ $Method BOOL .set_follow_redirects(
 
 May only be called from ``vcl_init{}``
 
+$Object custom_service(
+	STRING port				= "http",
+	STRING host_header			= 0,
+	PROBE probe				= 0,
+	ACL whitelist				= 0,
+	DURATION ttl				= 3600,
+	DURATION connect_timeout		= -1,
+	DURATION first_byte_timeout		= -1,
+	DURATION between_bytes_timeout		= -1,
+	DURATION domain_usage_timeout		= 7200,
+	DURATION first_lookup_timeout		= 10,
+	INT max_connections			= 0,
+	INT proxy_header			= 0,
+	BLOB resolver				= NULL,
+	ENUM { cfg, dns, min, max } ttl_from	= "cfg",
+	DURATION retry_after			= 30,
+	BACKEND via				= NULL,
+	INT keep				= 3,
+	STRING authority			= NULL,
+	DURATION wait_timeout = -1,
+	INT wait_limit = 0)
+
+Define a custom service, which behaves similarly to an `xdirector.service()`_,
+but is configured through explicitly added DNS names with A/AAAA/CNAME records
+rather than through an SRV record.
+
+If defined, *authority* is used for backends supporting an an authority. With
+this release, it is only used with a *via* backend as the authority TLV.
+
+.. XXX other parameters or reference common section
+
+$Method .add(STRING host,
+   STRING port = NULL, STRING authority = NULL, STRING host_header = NULL,
+   INT priority = 0, INT weight = 1, ACL acl = 0, ENUM {match, nomatch} if = "match")
+
+Add backends for DNS name *host* to the custom service with *priority* and
+*weight*.
+
+A lower *priority* has precedence over a higher *priority.
+
+If provided, DNS responses are filtered through *acl*.
+
+If the arguments *port*, *authority* and *host_header* are not specified, they
+are taken from the `dynamic.custom_service()`_ object.
+
+.. XXX more details
+
+$Method .add_preferred(STRING host, STRING port = "http", STRING authority = NULL,
+  INT weight = 1, ACL acl, INT priority_match = 0, INT priority_nomatch = 1)
+
+This method is a shortcut to add those A/AAAA records of a DNS name which match
+the given ACL with *priority_match* and those which do not match the ACL with
+*priority_nomatch*. The intended primary use case is to prefer IPv6 records like
+so::
+
+  acl ip6 { "::"/0; }
+
+  sub vcl_init {
+    new mysrv = dynamic.custom_service();
+    mysrv.add_preferred("my.backend.example.com", acl=ip6);
+  }
+
+This is equivalent to the following explicit configuration::
+
+  acl ip6 { "::"/0; }
+
+  sub vcl_init {
+    new mysrv = dynamic.custom_service();
+    mysrv.add("my.backend.example.com", acl=ip6, if=match, priority=0);
+    mysrv.add("my.backend.example.com", acl=ip6, if=nomatch, priority=1);
+  }
 
 FULL EXAMPLE: BEHAVE LIKE SQUID
 ===============================
