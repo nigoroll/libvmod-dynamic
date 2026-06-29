@@ -212,8 +212,8 @@ VTAILQ_HEAD(vmod_dynamic_head, vmod_dynamic_director);
 
 void
 dylog(VRT_CTX, enum VSL_tag_e slt, const char *fmt, ...) v_printflike_(3, 4);
-void
-dom_wait_active(struct dynamic_domain *dom);
+int
+dom_is_active(struct dynamic_domain *dom, unsigned wait);
 struct dynamic_domain *
 dynamic_get(VRT_CTX, struct vmod_dynamic_director *obj, const char *addr,
     const char *authority, const char *port, VCL_BACKEND *assign);

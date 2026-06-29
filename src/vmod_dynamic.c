@@ -231,24 +231,26 @@ dynamic_task_ref(VRT_CTX, VCL_BACKEND *d)
 /* placeholder for backends to be created */
 static const VCL_BACKEND creating = (void*)(uintptr_t)0xc3;
 
-void
-dom_wait_active(struct dynamic_domain *dom)
+int
+dom_is_active(struct dynamic_domain *dom, unsigned wait)
 {
 	int ret;
 
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 
 	if (dom->status >= DYNAMIC_ST_ACTIVE)
-		return;
+		goto out;
 
 	DBG(NULL, dom, "wait-active status %d", dom->status);
 
 	ret = 0;
-	while (ret == 0 && dom->status < DYNAMIC_ST_ACTIVE)
+	while (wait && ret == 0 && dom->status < DYNAMIC_ST_ACTIVE)
 		ret = Lck_CondWaitTimeout(&dom->resolve, &dom->mtx,
 		    dom->obj->first_lookup_tmo);
 	assert(ret == 0 || ret == ETIMEDOUT);
 	DBG(NULL, dom, "wait-active ret %d status %d", ret, dom->status);
+    out:
+	return (dom->status == DYNAMIC_ST_ACTIVE);
 }
 
 /* find a healthy dynamic_ref */
@@ -264,9 +266,7 @@ dom_find(VRT_CTX, struct dynamic_domain *dom, struct dynamic_ref *start,
 	CHECK_OBJ_NOTNULL(dom, DYNAMIC_DOMAIN_MAGIC);
 	CHECK_OBJ_ORNULL(start, DYNAMIC_REF_MAGIC);
 
-	dom_wait_active(dom);
-
-	if (dom->status > DYNAMIC_ST_ACTIVE)
+	if (! dom_is_active(dom, wait))
 		return (NULL);
 
 	if (start == NULL)
@@ -370,6 +370,7 @@ static VCL_BOOL v_matchproto_(vdi_healthy_f)
 dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 {
 	struct dynamic_domain *dom;
+	struct dynamic_ref *r;
 	VCL_BOOL retval = 0;
 
 	CHECK_OBJ_NOTNULL(d, DIRECTOR_MAGIC);
@@ -377,21 +378,18 @@ dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 
 	if (ctx->method != 0)
 		Lck_Lock(&dom->mtx);
-	else if (IS_CLI() || Lck_Trylock(&dom->mtx)) {
-		/* in CLI context, only ever return cached health state becuase
-		 * we are holding the VCL mtx and can not afford to run into a
-		 * condition wait. For regular use on the backend side, we
-		 * return cached if we can not acquire the lock immediately.
-		 */
-		if (changed != NULL)
-			*changed = dom->changed_cached;
-		return (dom->healthy_cached);
-	}
+	else if (Lck_Trylock(&dom->mtx))
+		goto cached;
 
-	(void) dom_find(ctx, dom, NULL, &retval, changed, IS_CLI() ? 0 : 1);
+	r = dom_find(ctx, dom, NULL, &retval, changed, ctx->method != 0);
 	Lck_Unlock(&dom->mtx);
 
-	return (retval);
+	if (r)
+		return (retval);
+    cached:
+	if (changed != NULL)
+		*changed = dom->changed_cached;
+	return (dom->healthy_cached);
 }
 
 static void v_matchproto_(vdi_list_f)
