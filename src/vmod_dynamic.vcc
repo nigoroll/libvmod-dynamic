@@ -252,7 +252,8 @@ $Object director(
 	INT keep				= 3,
 	STRING authority			= NULL,
 	DURATION wait_timeout = -1,
-	INT wait_limit = 0)
+	INT wait_limit = 0,
+	ENUM { RR, LEAST } algorithm = "RR")
 
 Description
 	Create a DNS director.
@@ -365,6 +366,16 @@ Parameters:
 	  The ``keep`` value must not be negative and it is capped to
 	  a high positive value (``UINT_MAX``, usually 4 294 967 295,
 	  see :ref:`limits.h(7POSIX)`).
+
+	- *algorithm* (default: RR)
+
+	  Load balancing algorithm to use.
+
+	  ``RR`` cycles between health backends.
+
+    ``LEAST`` chooses the healthy backend with the most number of connections available
+	  (i.e. the difference between ``max_connections`` and the backends current connections).
+	  The algorithm works in a similar way if ``max_connections`` isn't set.
 
 Parameters to set attributes of backends
 
