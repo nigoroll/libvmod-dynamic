@@ -241,14 +241,14 @@ dom_wait_active(struct dynamic_domain *dom)
 	if (dom->status >= DYNAMIC_ST_ACTIVE)
 		return;
 
-	DBG(NULL, dom, "%s", "wait-active");
+	DBG(NULL, dom, "wait-active status %d", dom->status);
 
 	ret = 0;
 	while (ret == 0 && dom->status < DYNAMIC_ST_ACTIVE)
 		ret = Lck_CondWaitTimeout(&dom->resolve, &dom->mtx,
 		    dom->obj->first_lookup_tmo);
 	assert(ret == 0 || ret == ETIMEDOUT);
-	DBG(NULL, dom, "wait-active ret %d", ret);
+	DBG(NULL, dom, "wait-active ret %d status %d", ret, dom->status);
 }
 
 /* find a healthy dynamic_ref */
