@@ -3,13 +3,30 @@ AC_INIT([libvmod-dynamic], [trunk], [vinyl-support@uplex.de], [vmod-dynamic])
 AC_COPYRIGHT([Copyright 2024 UPLEX - Nils Goroll Systemoptimierung])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
+AC_CONFIG_SRCDIR([src/vmod_dynamic.vcc])
 AC_CONFIG_HEADERS([config.h])
 
-AM_INIT_AUTOMAKE([1.11 -Wall -Werror foreign parallel-tests])
+AM_INIT_AUTOMAKE([1.12 -Wall -Werror foreign parallel-tests])
 AM_SILENT_RULES([yes])
 
 AC_ARG_VAR([RST2MAN], [the program to build manuals from reStructuredText])
 AC_CHECK_PROGS(RST2MAN, [rst2man rst2man.py])
+
+AC_ARG_WITH([lcov],
+    AS_HELP_STRING(
+        [--with-lcov=PATH],
+        [Location of lcov to generate coverage data (auto)]),
+    [LCOV="$withval"],
+    [AC_CHECK_PROGS(LCOV, [lcov], [])])
+AM_CONDITIONAL(HAVE_LCOV, [test -n "$LCOV"])
+
+AC_ARG_WITH([genhtml],
+    AS_HELP_STRING(
+        [--with-genhtml=PATH],
+        [Location of genhtml to generate coverage reports (auto)]),
+    [GENHTML="$withval"],
+    [AC_CHECK_PROGS(GENHTML, [genhtml], [])])
+AM_CONDITIONAL(HAVE_GENHTML, [test -n "$GENHTML"])
 
 VINYL_PREREQ([9.0.0])
 VINYL_VMODS([dynamic])
