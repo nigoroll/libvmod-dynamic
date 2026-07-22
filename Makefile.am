@@ -5,3 +5,6 @@ DISTCHECK_CONFIGURE_FLAGS = RST2MAN=:
 SUBDIRS = src
 
 dist_doc_DATA = README.rst LICENSE
+
+coverage:
+	$(MAKE) $(AM_MAKEFLAGS) -C src coverage
