@@ -1,11 +1,11 @@
-varnishtest proxy_header
+vtest proxy_header
 
 server s1 {
 	rxreq
 	txresp
 } -start
 
-varnish v1 -proto PROXY -vcl+backend {
+vinyl v1 -proto PROXY -vcl+backend {
 	import std;
 
 	sub vcl_deliver {
@@ -14,7 +14,7 @@ varnish v1 -proto PROXY -vcl+backend {
 	}
 } -start
 
-varnish v2 -vcl+backend {
+vinyl v2 -vcl+backend {
 	import dynamic;
 
 	sub vcl_init {

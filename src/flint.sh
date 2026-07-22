@@ -6,19 +6,19 @@ if [ "x$1" = "x-ok" -a -f _.fl ] ; then
 	exit 0
 fi
 
-if [ "x${VARNISHSRC}" = "x" ] ; then
-	echo >&2 VARNISHSRC needs to point to varnish-cache sources
+if [ "x${VINYLSRC}" = "x" ] ; then
+	echo >&2 VINYLSRC needs to point to vinyl-cache sources
 	exit 9
 fi
 
 flexelint \
 	-D__FLEXELINT__ \
-	${VARNISHSRC}/flint.lnt \
+	${VINYLSRC}/flint.lnt \
 	flint.lnt \
 	-zero \
 	-I.. \
-	-I${VARNISHSRC}/include \
-	-I${VARNISHSRC}/bin/varnishd \
+	-I${VINYLSRC}/include \
+	-I${VINYLSRC}/bin/vinyld \
 	$(ls *.c | grep -v .stub) \
 	2>&1 | tee _.fl
 

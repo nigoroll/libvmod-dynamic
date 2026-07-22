@@ -1,4 +1,4 @@
-varnishtest "regression test issue #107 dom_release() from unref_domains"
+vtest "regression test issue #107 dom_release() from unref_domains"
 
 feature cmd "getent hosts localhost www.localhost img.localhost"
 
@@ -16,7 +16,7 @@ server s1 {
        txresp
 } -start
 
-varnish v1 -vcl+backend {
+vinyl v1 -vcl+backend {
 	import dynamic;
 
 	sub vcl_init {
@@ -45,6 +45,6 @@ client c1 {
 
 delay 1
 
-varnish v1 -vcl {backend proforma none;}
+vinyl v1 -vcl {backend proforma none;}
 
-varnish v1 -cliok "vcl.state vcl1 cold"
+vinyl v1 -cliok "vcl.state vcl1 cold"

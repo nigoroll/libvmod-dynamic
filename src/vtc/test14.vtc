@@ -1,4 +1,4 @@
-varnishtest "layer dynamic with another director"
+vtest "layer dynamic with another director"
 
 # This also tests the use of .backend() in vcl_init, which can be used
 # by other VMODs that initialize with a backend.
@@ -13,7 +13,7 @@ server s1 {
 	txresp
 } -start
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	import dynamic;
 	import directors;
 

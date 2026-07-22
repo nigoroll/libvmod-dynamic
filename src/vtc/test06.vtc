@@ -1,4 +1,4 @@
-varnishtest "White-listing"
+vtest "White-listing"
 
 feature cmd "getent hosts localhost"
 
@@ -7,7 +7,7 @@ server s1 {
 	txresp
 } -start
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	import dynamic;
 
 	backend proforma none;

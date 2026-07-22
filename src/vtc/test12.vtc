@@ -1,4 +1,4 @@
-varnishtest "Host header per backend"
+vtest "Host header per backend"
 
 feature cmd "getent hosts www.localhost img.localhost"
 
@@ -12,7 +12,7 @@ server s1 {
 	txresp
 } -start
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	import dynamic;
 
 	backend proforma none;
@@ -48,5 +48,5 @@ client c1 {
 
 delay 1
 
-varnish v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}:${s1_port}).req == 1
-varnish v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}:${s1_port}).req == 1
+vinyl v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}:${s1_port}).req == 1
+vinyl v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}:${s1_port}).req == 1

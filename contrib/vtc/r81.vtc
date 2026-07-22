@@ -1,4 +1,4 @@
-varnishtest "bug #81 Assertion error on dynamic_domain"
+vtest "bug #81 Assertion error on dynamic_domain"
 
 # this test case is in the contrib/vtc directory because of the additional requirements
 #
@@ -22,7 +22,7 @@ varnishtest "bug #81 Assertion error on dynamic_domain"
 #
 # 3. Start dnsmasq "dnsmasq -C /etc/dnsmasq.conf"
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	import ${vmod_dynamic};
 
 	backend dummy { .host = "${bad_backend}"; }

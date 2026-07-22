@@ -1,8 +1,8 @@
-varnishtest "bug #51 regression: port=0 in SRV record"
+vtest "bug #51 regression: port=0 in SRV record"
 
 # depends on external DNS
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	import dynamic;
 
 	backend proforma none;
@@ -34,7 +34,7 @@ varnish v1 -vcl {
 	}
 } -start
 
-varnish v1 -cli "backend.list"
+vinyl v1 -cli "backend.list"
 
 client c1 {
 	txreq

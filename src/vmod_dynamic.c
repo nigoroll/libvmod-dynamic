@@ -342,7 +342,7 @@ dom_resolve(VRT_CTX, VCL_BACKEND d)
 	 * runs outside the update thread in order to be able to
 	 * call pthread_join().
 	 *
-	 * other options: extra thread, pool_task (needs cache_varnishd.h)
+	 * other options: extra thread, pool_task (needs cache_vinyld.h)
 	 */
 	if (VTAILQ_FIRST(&dom->obj->unref_domains))
 		dynamic_gc_expired(dom->obj);

@@ -1,9 +1,9 @@
-varnishtest "panic"
+vtest "panic"
 
 server s1 {
 } -start
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	vcl 4.1;
 	import std;
 	import directors;
@@ -18,4 +18,4 @@ varnish v1 -vcl {
 	}
 } -start
 
-varnish v1 -cliok "backend.set_health main(*) sick"
+vinyl v1 -cliok "backend.set_health main(*) sick"

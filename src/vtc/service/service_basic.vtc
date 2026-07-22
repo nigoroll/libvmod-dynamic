@@ -1,8 +1,8 @@
-varnishtest "service smoke test"
+vtest "service smoke test"
 
 feature cmd {dig @b.root-servers.net. a.root-servers.net. >/dev/null}
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	import dynamic;
 
 	backend proforma none;
@@ -38,7 +38,7 @@ varnish v1 -vcl {
 # vcl1 d1 _test._tcp.vmod-dynamic.uplex.de -> two-a.test.uplex.de.:81 priority 2 weight 25 ttl 3600
 # vcl1 d1 _test._tcp.vmod-dynamic.uplex.de -> two-b.test.uplex.de.:82 priority 2 weight 50 ttl 3600
 
-varnish v1 -cli "backend.list"
+vinyl v1 -cli "backend.list"
 
 # we do not care about failing backend requests here, we only care
 # about the right backend being used
@@ -58,8 +58,8 @@ client c1 {
 #       6 d1(212.12.63.113:81)
 #      14 d1(212.12.63.113:82)
 
-varnish v1 -cliok "backend.set_health *.d1(212.12.63.113:80) sick"
-varnish v1 -cliok "debug.srandom"
+vinyl v1 -cliok "backend.set_health *.d1(212.12.63.113:80) sick"
+vinyl v1 -cliok "debug.srandom"
 
 client c2 {
 	txreq
@@ -124,7 +124,7 @@ client c2 {
 	expect resp.http.backend == d1(212.12.63.113:82)
 } -run
 
-varnish v1 -cliok "backend.set_health *.d1(212.12.63.113:81) sick"
+vinyl v1 -cliok "backend.set_health *.d1(212.12.63.113:81) sick"
 
 client c2 -repeat 5 -keepalive {
 	txreq
@@ -132,7 +132,7 @@ client c2 -repeat 5 -keepalive {
 	expect resp.http.backend == d1(212.12.63.113:82)
 }
 
-varnish v1 -cliok "backend.set_health *.d1(212.12.63.113:80) healthy"
+vinyl v1 -cliok "backend.set_health *.d1(212.12.63.113:80) healthy"
 client c2 {
 	txreq
 	rxresp

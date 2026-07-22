@@ -1,4 +1,4 @@
-varnishtest "Different host names can share backends"
+vtest "Different host names can share backends"
 
 feature cmd "getent hosts www.localhost img.localhost"
 
@@ -12,7 +12,7 @@ server s1 {
 	txresp
 } -start
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	import dynamic;
 
 	backend proforma none;
@@ -43,4 +43,4 @@ client c1 {
 
 delay 1
 
-varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
+vinyl v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2

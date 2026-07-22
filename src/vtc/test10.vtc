@@ -1,4 +1,4 @@
-varnishtest "max_connections"
+vtest "max_connections"
 
 barrier b1 cond 2
 barrier b2 cond 2
@@ -10,7 +10,7 @@ server s1 {
 	txresp
 } -start
 
-varnish v1 -vcl+backend {
+vinyl v1 -vcl+backend {
 	import dynamic;
 
 	sub vcl_init {
