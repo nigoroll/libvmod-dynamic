@@ -1,4 +1,4 @@
-varnishtest "debugging"
+vtest "debugging"
 
 feature cmd "getent hosts localhost www.localhost img.localhost"
 
@@ -15,7 +15,7 @@ server s1 {
 	txresp
 } -start
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	import dynamic;
 
 	backend proforma none;

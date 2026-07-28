@@ -10,9 +10,9 @@
 vmod_dynamic
 ============
 
--------------------------------
-Varnish dynamic backends module
--------------------------------
+-----------------------------
+Vinyl dynamic backends module
+-----------------------------
 
 :Manual section: 3
 
@@ -63,7 +63,7 @@ SYNOPSIS
 DESCRIPTION
 ===========
 
-This module provides a varnish director for dynamic creation of
+This module provides a vinyl director for dynamic creation of
 backends based on calls to
 
 * the system's network address resolution service which, in turn,
@@ -73,7 +73,7 @@ backends based on calls to
 
 * or more advanced DNS resolution where `getdns`_ is available.
 
-While standard varnish backends defined in VCL may also be defined in
+While standard vinyl backends defined in VCL may also be defined in
 terms of host names, changes of the name service information will only
 be picked up with a VCL reload.
 
@@ -136,7 +136,7 @@ With ``share = DIRECTOR``, the probe is not specific to any particular
 host. If the probe has the ``.request`` attribute set, it will be used
 as the probe request. Otherwise, if a ``host_header`` argument was
 given to `dynamic.director()`_, it will be used for the probe's
-``Host`` header, otherwise Varnish-Cache core code will send the
+``Host`` header, otherwise Vinyl-Cache core code will send the
 backend's IP Address as the ``Host`` header.
 
 Consider setting the ``initial`` attribute of probes at least as high
@@ -211,7 +211,7 @@ STATISTICS
 
 Dynamic backends are created and deleted on demand and can be
 monitored just like VCL-defined backends. Their statistics will appear
-in VSM-tools like ``varnishstat`` as::
+in VSM-tools like ``vinylstat`` as::
 
   VBE.<configname>.<name>.*
 
@@ -242,9 +242,9 @@ with the event::
 
 Not all logs belong to HTTP transactions, especially since DNS lookups happen
 in the background. In order to capture all logs from this module the simplest
-way with varnishlog is the following::
+way with vinyllog is the following::
 
-    varnishlog -g raw -q '* ~ vmod-dynamic'
+    vinyllog -g raw -q '* ~ vmod-dynamic'
 
 It displays any individual record that contains the string ``vmod-dynamic``
 whether it belongs to a transaction or not.
@@ -403,7 +403,7 @@ Parameters:
 
 Parameters to set attributes of backends
 
-	See varnish documentation for details
+	See vinyl documentation for details
 
 	- *connect_timeout* (defaults to global *connect_timeout*)
 	- *first_byte_timeout* (defaults to global *first_byte_timeout*)
@@ -711,7 +711,7 @@ May only be called from ``vcl_init{}``
 FULL EXAMPLE: BEHAVE LIKE SQUID
 ===============================
 
-For illustrative purposes, here is an example to turn Varnish into a
+For illustrative purposes, here is an example to turn Vinyl into a
 caching forward proxy for any host. This example is for http only, for
 https support, *via* support from the ``proxy_via_6`` branch is
 required.
@@ -759,7 +759,7 @@ STATUS DETAILS
 ==============
 
 Status about dynamic backends can be queried using the
-``backend.list`` :ref:`varnish-cli(7)` command. There are four
+``backend.list`` :ref:`vinyl-cli(7)` command. There are four
 variants of the output, explained as examples with a vcl named ``vcl``
 and a dynamic director named ``dyn`` with a probe definition, having
 resolved ``www.****.de`` (some actual domain hosted by Akamai). All
@@ -838,7 +838,7 @@ examples are abbreviated.
 
   Shows detailed information in JSON format. The dynamic domain object
   contains as ``probe_details`` most properties of the dynamic
-  director VCL object. Note that, due to Varnish-Cache API
+  director VCL object. Note that, due to Vinyl-Cache API
   limitations, for ``probe`` and ``whitelist``, only a boolean value
   can be returned. The list of backends represents the active
   backends::
@@ -950,9 +950,9 @@ SEE ALSO
 * :ref:`vcl(7)`
 * :ref:`vsl(7)`
 * :ref:`vsl-query(7)`
-* :ref:`varnish-cli(7)`
-* :ref:`varnish-counters(7)`
-* :ref:`varnishstat(1)`
+* :ref:`vinyl-cli(7)`
+* :ref:`vinyl-counters(7)`
+* :ref:`vinylstat(1)`
 * :ref:`getaddrinfo(3)`
 * :ref:`nscd(8)`
 * :ref:`nsswitch.conf(5)`

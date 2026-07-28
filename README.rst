@@ -4,7 +4,7 @@ vmod_dynamic
 
 .. role:: ref(emphasis)
 
-This branch is for **Vinyl-Cache** *after* Varnish-Cache release 8.0.
+This branch is for **Vinyl Cache** *after* Varnish-Cache release 8.0.
 
 Use branch `8.0`_ with Varnish-Cache 8.0.x
 
@@ -15,18 +15,18 @@ versions.
 
 .. _`CHANGES.rst`: CHANGES.rst
 
-Note on Vinyl-Cache / Varnish-Cache
+Note on Vinyl Cache / Varnish-Cache
 -----------------------------------
 
-.. _`Vinyl-Cache Announcement`: https://vinyl-cache.org/#years-old-and-it-is-time-to-get-serious-er
+.. _`Vinyl Cache Announcement`: https://vinyl-cache.org/#years-old-and-it-is-time-to-get-serious-er
 
 For now, we use the new and old name somehow interchangably and neither the
 documentation nor the code have been fully updated.
 
-See `Vinyl-Cache Announcement`_ for background.
+See `Vinyl Cache Announcement`_ for background.
 
 -------------------------------
-Varnish dynamic backends module
+Vinyl dynamic backends module
 -------------------------------
 
 Intro / Typical Usage Example
@@ -45,7 +45,7 @@ Domain Socket (UDS) looks like this::
     listen tls_onloader
 	mode tcp
 	maxconn 1000
-	bind /shared/varnish/tls_onloader.sock accept-proxy mode 777
+	bind /shared/vinyl/tls_onloader.sock accept-proxy mode 777
 	balance roundrobin
 	stick-table type ip size 100
 	stick on dst
@@ -57,20 +57,20 @@ Domain Socket (UDS) looks like this::
 
 In this snippet, ``/etc/ssl/certs/ca-bundle.crt`` should be replaced with a CA
 certificate bundle which you decide to trust. ``maxconn`` should be adjusted as
-needed. ``/shared/varnish/`` has to be a path which is also available to
-``varnishd`` (beware, for example, of systemd implicitly chrooting services).
+needed. ``/shared/vinyl/`` has to be a path which is also available to
+``vinyld`` (beware, for example, of systemd implicitly chrooting services).
 ``mode 777`` is a fail-safe choice, but not optimal from a security perspective.
-Ideally, varnishd and haproxy should be added to the ``vcache`` group and have
+Ideally, vinyld and haproxy should be added to the ``vcache`` group and have
 this mode set to ``770``. The stick table ``size`` and the number of repetitions
 of the ``server sXX`` line should roughly match the number of expected peers.
 **NB:** all of this is just broad advise for the purpose of this introduction,
 do your own research!
 
-On the varnish end, the following VCL snippet configures a dynamic director
+On the vinyl end, the following VCL snippet configures a dynamic director
 using the TLS onloader::
 
     backend tls_onloader {
-        .path = "/shared/varnish/tls_onloader.sock";
+        .path = "/shared/vinyl/tls_onloader.sock";
         ## consider setting:
         # .connect_timeout = Xs;
         # .first_byte_timeout = Xs;
@@ -97,7 +97,7 @@ Description
 
 .. _`getdns`: https://getdnsapi.net/
 
-This module provides a varnish director for dynamic creation of
+This module provides a vinyl director for dynamic creation of
 backends based on calls to
 
 * the system's network address resolution service which, in turn,
@@ -107,7 +107,7 @@ backends based on calls to
 
 * or more advanced DNS resolution where `getdns`_ is available.
 
-While standard varnish backends defined in VCL may also be defined in
+While standard vinyl backends defined in VCL may also be defined in
 terms of host names, changes of the name service information will only
 be picked up with a VCL reload.
 
@@ -178,9 +178,9 @@ SEE ALSO
 * :ref:`vcl(7)`
 * :ref:`vsl(7)`
 * :ref:`vsl-query(7)`
-* :ref:`varnish-cli(7)`
-* :ref:`varnish-counters(7)`
-* :ref:`varnishstat(1)`
+* :ref:`vinyl-cli(7)`
+* :ref:`vinyl-counters(7)`
+* :ref:`vinylstat(1)`
 * :ref:`getaddrinfo(3)`
 * :ref:`nscd(8)`
 * :ref:`nsswitch.conf(5)`

@@ -1,4 +1,4 @@
-varnishtest "Domain timeout"
+vtest "Domain timeout"
 
 feature cmd "getent hosts localhost www.localhost img.localhost"
 
@@ -16,7 +16,7 @@ server s1 {
        txresp
 } -start
 
-varnish v1 -vcl+backend {
+vinyl v1 -vcl+backend {
 	import dynamic;
 
 	sub vcl_init {
@@ -59,15 +59,15 @@ client c1 {
 	expect resp.status == 200
 } -run
 
-varnish v1 -cliok "backend.list"
+vinyl v1 -cliok "backend.list"
 # the backend got recreated after the localhost domain went away
-varnish v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
+vinyl v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
 
 logexpect l1 -wait
 
 # test race to create domain
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	import dynamic;
 
 	backend proforma none;
@@ -90,7 +90,7 @@ varnish v1 -vcl {
 	}
 }
 
-varnish v1 -cliok "vcl.discard vcl1"
+vinyl v1 -cliok "vcl.discard vcl1"
 
 client c1 {
 	txreq -hdr "Host: localhost"

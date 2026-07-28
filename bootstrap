@@ -3,23 +3,14 @@
 set -e
 set -u
 
-WORK_DIR=$(pwd)
 ROOT_DIR=$(dirname "$0")
 
-cd "$ROOT_DIR"
+pkg-config --exists --print-errors vinylapi
 
-if ! command -v libtoolize >/dev/null
-then
-	echo "libtoolize: command not found, falling back to glibtoolize" >&2
-	alias libtoolize=glibtoolize
-fi
+VINYLAPI_DATAROOTDIR=$(pkg-config --variable=datarootdir vinylapi)
+export VINYLAPI_DATAROOTDIR
 
 mkdir -p m4
-aclocal
-libtoolize --copy --force
-autoheader
-automake --add-missing --copy --foreign
-autoconf
+autoreconf -i "$ROOT_DIR"
 
-cd "$WORK_DIR"
 "$ROOT_DIR"/configure "$@"

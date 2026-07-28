@@ -1,6 +1,6 @@
-varnishtest "dynamic.resolver basic"
+vtest "dynamic.resolver basic"
 
-varnish v1 -vcl {
+vinyl v1 -vcl {
 	import dynamic;
 
 	backend proforma none;

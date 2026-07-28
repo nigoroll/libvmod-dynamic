@@ -1,10 +1,10 @@
-varnishtest "Ipv4- or IPv6-only"
+vtest "Ipv4- or IPv6-only"
 
 feature cmd "getent services http"
 
 server s1 { } -start
 
-varnish v1 -vcl+backend {
+vinyl v1 -vcl+backend {
 	import dynamic;
 
 	acl ipv4_only { "0.0.0.0"/0; }
@@ -36,8 +36,8 @@ client c1 {
 logexpect l4 -wait
 logexpect l6 -wait
 
-varnish v1 -expect VBE.vcl1.d4(127.0.0.1:http).req == 0
-varnish v1 -expect VBE.vcl1.d6(::1:http).req == 0
+vinyl v1 -expect VBE.vcl1.d4(127.0.0.1:http).req == 0
+vinyl v1 -expect VBE.vcl1.d6(::1:http).req == 0
 
-varnish v1 -expect !VBE.vcl1.d4(::1:http).req
-varnish v1 -expect !VBE.vcl1.d6(127.0.0.1:http).req
+vinyl v1 -expect !VBE.vcl1.d4(::1:http).req
+vinyl v1 -expect !VBE.vcl1.d6(127.0.0.1:http).req

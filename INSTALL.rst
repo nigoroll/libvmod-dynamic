@@ -27,7 +27,7 @@ Installation
 
 The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
-using the ``varnishtest`` tool.
+using the ``vinyltest`` tool.
 
 For extended resolver functionality, `getdns`_ is required both during
 installation and at runtime. Before building, install `getdns`_ from
@@ -39,16 +39,16 @@ At runtime, only the library itself is required, e.g.::
 
     apt-get install libgetdns1
 
-Building requires the Varnish header files and uses pkg-config to find
+Building requires the Vinyl header files and uses pkg-config to find
 the necessary paths.
 
 Usage::
 
  ./bootstrap
 
-If you have installed Varnish to a non-standard directory, call
+If you have installed Vinyl to a non-standard directory, call
 ``bootstrap`` with ``PKG_CONFIG_PATH`` pointing to
-the appropriate path. For instance, when varnishd configure was called
+the appropriate path. For instance, when vinyld configure was called
 with ``--prefix=$PREFIX``, use
 
 ::
@@ -56,7 +56,7 @@ with ``--prefix=$PREFIX``, use
  export PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig
  export ACLOCAL_PATH=${PREFIX}/share/aclocal
 
-The module will inherit its prefix from Varnish, unless you specify a
+The module will inherit its prefix from Vinyl, unless you specify a
 different ``--prefix`` when running the ``configure`` script for this
 module.
 
@@ -68,7 +68,7 @@ Make targets:
 * make distcheck - run check and prepare a tarball of the vmod.
 
 If you build a dist tarball, you don't need any of the autotools, only
-pkg-config and Varnish. You can build the module simply by running::
+pkg-config and Vinyl. You can build the module simply by running::
 
  ./configure
  make
@@ -117,4 +117,4 @@ repositories, but can be installed from EPEL7::
 
 If you have problems or questions concerning the RPMs, post an issue
 to one of the source repository web sites, or contact
-<varnish-support@uplex.de>.
+<vinyl-support@uplex.de>.
