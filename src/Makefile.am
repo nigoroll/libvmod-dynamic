@@ -1,10 +1,10 @@
-AM_CFLAGS = $(VINYLAPI_CFLAGS) $(GETDNS_CFLAGS) -Wall -Werror
+AM_CFLAGS = $(VCACHEAPI_CFLAGS) $(GETDNS_CFLAGS) -Wall -Werror
 
 # Modules
 
 vmod_LTLIBRARIES = libvmod_dynamic.la
 
-libvmod_dynamic_la_LDFLAGS = $(VINYLAPI_LIBS) $(GETDNS_LIBS) $(VMOD_LDFLAGS)
+libvmod_dynamic_la_LDFLAGS = $(VCACHEAPI_LIBS) $(GETDNS_LIBS) $(VMOD_LDFLAGS)
 
 libvmod_dynamic_la_SOURCES = \
 	vmod_dynamic.h \
@@ -49,13 +49,13 @@ $(srcdir)/vmod_resolver.stub.c: vcc_dynamic_if.h
 @BUILD_VMOD_DYNAMIC@
 
 AM_TESTS_ENVIRONMENT = \
-	PATH="$(abs_builddir):$(VINYL_TEST_PATH):$(PATH)" \
-	LD_LIBRARY_PATH="$(VINYL_LIBRARY_PATH)"
+	PATH="$(abs_builddir):$(VCACHE_TEST_PATH):$(PATH)" \
+	LD_LIBRARY_PATH="$(VCACHE_LIBRARY_PATH)"
 TEST_EXTENSIONS = .vtc
-VTC_LOG_COMPILER = vinyltest -vl
+VTC_LOG_COMPILER = vtest -E@VTESTEXT@ -vl
 AM_VTC_LOG_FLAGS = \
-	-p vcl_path="$(abs_top_srcdir)/vcl:$(VINYLAPI_VCLDIR)" \
-	-p vmod_path="$(abs_builddir)/.libs:$(vmoddir):$(VINYLAPI_VMODDIR)"
+	-p vcl_path="$(abs_top_srcdir)/vcl:$(VCACHEAPI_VCLDIR)" \
+	-p vmod_path="$(abs_builddir)/.libs:$(vmoddir):$(VCACHEAPI_VMODDIR)"
 
 TESTS = \
 	@VTC_TESTS@

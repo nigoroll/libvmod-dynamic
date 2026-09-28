@@ -7,7 +7,7 @@ if [ "x$1" = "x-ok" -a -f _.fl ] ; then
 fi
 
 if [ "x${VINYLSRC}" = "x" ] ; then
-	echo >&2 VINYLSRC needs to point to vinyl-cache sources
+	echo >&2 VINYLSRC needs to point to Vinyl Cache sources
 	exit 9
 fi
 

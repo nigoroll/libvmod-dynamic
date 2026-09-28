@@ -16,7 +16,7 @@ server s1 {
        txresp
 } -start
 
-vinyl v1 -vcl+backend {
+vcache v1 -vcl+backend {
 	import dynamic;
 
 	sub vcl_init {
@@ -45,6 +45,6 @@ client c1 {
 
 delay 1
 
-vinyl v1 -vcl {backend proforma none;}
+vcache v1 -vcl {backend proforma none;}
 
-vinyl v1 -cliok "vcl.state vcl1 cold"
+vcache v1 -cliok "vcl.state vcl1 cold"

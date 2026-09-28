@@ -7,7 +7,7 @@ server s1 -repeat 7 {
 	txresp
 } -start
 
-vinyl v2 -proto PROXY -vcl {
+vcache v2 -proto PROXY -vcl {
 	import dynamic;
 	import std;
 	import proxy;
@@ -32,7 +32,7 @@ vinyl v2 -proto PROXY -vcl {
 	}
 } -start
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
@@ -74,9 +74,9 @@ client c1 {
 	expect resp.http.Authority == "localhost"
 } -run
 
-vinyl v1 -cliok "backend.list -p"
+vcache v1 -cliok "backend.list -p"
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
@@ -110,9 +110,9 @@ client c1 {
 	expect resp.http.Authority == "authority.com"
 } -run
 
-vinyl v1 -cliok "backend.list -p"
+vcache v1 -cliok "backend.list -p"
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
@@ -146,9 +146,9 @@ client c1 {
 	expect resp.http.Authority == "host.com"
 } -run
 
-vinyl v1 -cliok "backend.list -p"
+vcache v1 -cliok "backend.list -p"
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
@@ -182,9 +182,9 @@ client c1 {
 	expect resp.http.Authority == ""
 } -run
 
-vinyl v1 -cliok "backend.list -p"
+vcache v1 -cliok "backend.list -p"
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend v2 { .host = "${v2_addr}"; .port = "${v2_port}"; }
@@ -221,18 +221,18 @@ client c1 {
 	expect resp.http.Authority == "auth.com"
 } -run
 
-vinyl v1 -cli "vcl.discard vcl1"
-vinyl v1 -cli "vcl.discard vcl2"
-vinyl v1 -cli "vcl.discard vcl3"
-vinyl v1 -cli "vcl.discard vcl4"
+vcache v1 -cli "vcl.discard vcl1"
+vcache v1 -cli "vcl.discard vcl2"
+vcache v1 -cli "vcl.discard vcl3"
+vcache v1 -cli "vcl.discard vcl4"
 
-vinyl v1 -expect VBE.vcl5.d1.localhost(${s1_addr}:${s1_port}/auth.com).req == 1
-vinyl v1 -cliok "backend.list -p"
+vcache v1 -expect VBE.vcl5.d1.localhost(${s1_addr}:${s1_port}/auth.com).req == 1
+vcache v1 -cliok "backend.list -p"
 # give vcls time to cool
 delay 3
-vinyl v1 -expect MAIN.n_backend == 4
+vcache v1 -expect MAIN.n_backend == 4
 
-vinyl v3 -proto PROXY -vcl+backend {
+vcache v3 -proto PROXY -vcl+backend {
 	import std;
 	import proxy;
 
@@ -245,7 +245,7 @@ vinyl v3 -proto PROXY -vcl+backend {
 	}
 } -start
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend b None;
@@ -274,10 +274,7 @@ client c1 -connect ${v1_sock} {
 	expect resp.http.Authority == ""
 } -run
 
-vinyl v1 -cliok "backend.list -p"
+vcache v1 -cliok "backend.list -p"
 
-# vtc diag only
-shell "vinylstat -1 -n ${v1_name} -f VBE.*"
-
-vinyl v1 -expect LCK.dynamic.director.creat > 0
-vinyl v1 -expect LCK.dynamic.backend.creat > 0
+vcache v1 -expect LCK.dynamic.director.creat > 0
+vcache v1 -expect LCK.dynamic.backend.creat > 0

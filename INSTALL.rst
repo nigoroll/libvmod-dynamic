@@ -27,7 +27,7 @@ Installation
 
 The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
-using the ``vinyltest`` tool.
+using the ``vtest`` tool.
 
 For extended resolver functionality, `getdns`_ is required both during
 installation and at runtime. Before building, install `getdns`_ from
@@ -39,16 +39,16 @@ At runtime, only the library itself is required, e.g.::
 
     apt-get install libgetdns1
 
-Building requires the Vinyl header files and uses pkg-config to find
-the necessary paths.
+Building requires the Vinyl Cache header files and uses pkg-config to find the
+necessary paths.
 
 Usage::
 
  ./bootstrap
 
-If you have installed Vinyl to a non-standard directory, call
+If you have installed Vinyl Cache to a non-standard directory, call
 ``bootstrap`` with ``PKG_CONFIG_PATH`` pointing to
-the appropriate path. For instance, when vinyld configure was called
+the appropriate path. For instance, when Vinyl Cache configure was called
 with ``--prefix=$PREFIX``, use
 
 ::
@@ -56,7 +56,7 @@ with ``--prefix=$PREFIX``, use
  export PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig
  export ACLOCAL_PATH=${PREFIX}/share/aclocal
 
-The module will inherit its prefix from Vinyl, unless you specify a
+The module will inherit its prefix from Vinyl Cache, unless you specify a
 different ``--prefix`` when running the ``configure`` script for this
 module.
 
@@ -68,7 +68,7 @@ Make targets:
 * make distcheck - run check and prepare a tarball of the vmod.
 
 If you build a dist tarball, you don't need any of the autotools, only
-pkg-config and Vinyl. You can build the module simply by running::
+pkg-config and Vinyl Cache. You can build the module simply by running::
 
  ./configure
  make
@@ -83,6 +83,8 @@ overridden by passing the ``vmoddir`` variable to ``make install``.
 FreeBSD
 -------
 
+*This section is outdated and needs updates for Vinyl Cache*
+
 FreeBSD users may install from either the ports tree or via packages:
 
 * via the Ports Tree
@@ -95,6 +97,8 @@ FreeBSD users may install from either the ports tree or via packages:
 
 RPMs
 ----
+
+*This section is outdated and needs updates for Vinyl Cache*
 
 Binary, debuginfo and source RPMs for VMOD dynamic are available at::
 

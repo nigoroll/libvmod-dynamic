@@ -2,7 +2,7 @@ vtest "bug #51 regression: port=0 in SRV record"
 
 # depends on external DNS
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend proforma none;
@@ -34,7 +34,7 @@ vinyl v1 -vcl {
 	}
 } -start
 
-vinyl v1 -cli "backend.list"
+vcache v1 -cli "backend.list"
 
 client c1 {
 	txreq

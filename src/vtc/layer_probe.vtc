@@ -2,7 +2,7 @@ vtest "layered config with probe"
 
 # by delthas, from https://github.com/varnishcache/varnish-cache/issues/4189
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	vcl 4.1;
 	import std;
 	import dynamic;

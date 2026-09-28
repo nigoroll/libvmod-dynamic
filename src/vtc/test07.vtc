@@ -15,7 +15,7 @@ server s1 {
 	txresp
 } -start
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend proforma none;

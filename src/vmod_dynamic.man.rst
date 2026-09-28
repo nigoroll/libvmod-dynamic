@@ -10,9 +10,9 @@
 vmod_dynamic
 ============
 
------------------------------
-Vinyl dynamic backends module
------------------------------
+-----------------------------------
+Vinyl Cache dynamic backends module
+-----------------------------------
 
 :Manual section: 3
 
@@ -63,8 +63,8 @@ SYNOPSIS
 DESCRIPTION
 ===========
 
-This module provides a vinyl director for dynamic creation of
-backends based on calls to
+This module provides a vinyl Cache director for dynamic creation of backends
+based on calls to
 
 * the system's network address resolution service which, in turn,
   typically use information from the ``/etc/hosts`` file and the
@@ -73,7 +73,7 @@ backends based on calls to
 
 * or more advanced DNS resolution where `getdns`_ is available.
 
-While standard vinyl backends defined in VCL may also be defined in
+While standard Vinyl Cache backends defined in VCL may also be defined in
 terms of host names, changes of the name service information will only
 be picked up with a VCL reload.
 
@@ -136,7 +136,7 @@ With ``share = DIRECTOR``, the probe is not specific to any particular
 host. If the probe has the ``.request`` attribute set, it will be used
 as the probe request. Otherwise, if a ``host_header`` argument was
 given to `dynamic.director()`_, it will be used for the probe's
-``Host`` header, otherwise Vinyl cache core code will send the
+``Host`` header, otherwise Vinyl Cache core code will send the
 backend's IP Address as the ``Host`` header.
 
 Consider setting the ``initial`` attribute of probes at least as high
@@ -403,7 +403,7 @@ Parameters:
 
 Parameters to set attributes of backends
 
-	See vinyl documentation for details
+	See Vinyl Cache documentation for details
 
 	- *connect_timeout* (defaults to global *connect_timeout*)
 	- *first_byte_timeout* (defaults to global *first_byte_timeout*)
@@ -838,7 +838,7 @@ examples are abbreviated.
 
   Shows detailed information in JSON format. The dynamic domain object
   contains as ``probe_details`` most properties of the dynamic
-  director VCL object. Note that, due to Vinyl cache API
+  director VCL object. Note that, due to Vinyl Cache API
   limitations, for ``probe`` and ``whitelist``, only a boolean value
   can be returned. The list of backends represents the active
   backends::

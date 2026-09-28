@@ -16,7 +16,7 @@ server s1 {
        txresp
 } -start
 
-vinyl v1 -vcl+backend {
+vcache v1 -vcl+backend {
 	import dynamic;
 
 	sub vcl_init {
@@ -59,15 +59,15 @@ client c1 {
 	expect resp.status == 200
 } -run
 
-vinyl v1 -cliok "backend.list"
+vcache v1 -cliok "backend.list"
 # the backend got recreated after the localhost domain went away
-vinyl v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
+vcache v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
 
 logexpect l1 -wait
 
 # test race to create domain
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend proforma none;
@@ -90,7 +90,7 @@ vinyl v1 -vcl {
 	}
 }
 
-vinyl v1 -cliok "vcl.discard vcl1"
+vcache v1 -cliok "vcl.discard vcl1"
 
 client c1 {
 	txreq -hdr "Host: localhost"

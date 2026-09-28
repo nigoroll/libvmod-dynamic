@@ -10,7 +10,7 @@ server s1 {
 	txresp
 } -start
 
-vinyl v1 -vcl+backend {
+vcache v1 -vcl+backend {
 	import dynamic;
 
 	sub vcl_init {

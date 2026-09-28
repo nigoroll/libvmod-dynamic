@@ -4,30 +4,17 @@ vmod_dynamic
 
 .. role:: ref(emphasis)
 
-This branch is for **Vinyl Cache** *after* Varnish-Cache release 8.0.
-
-Use branch `8.0`_ with Varnish-Cache 8.0.x
+Primary development target is Vinyl Cache, but this VMOD should also work with
+Varnish Cache. This branch is for version 9.1.0 and upwards.
 
 See `CHANGES.rst`_ to stay informed about important changes between
 versions.
 
-.. _8.0: https://github.com/nigoroll/libvmod-dynamic/tree/8.0
-
 .. _`CHANGES.rst`: CHANGES.rst
 
-Note on Vinyl Cache / Varnish-Cache
 -----------------------------------
-
-.. _`Vinyl Cache Announcement`: https://vinyl-cache.org/#years-old-and-it-is-time-to-get-serious-er
-
-For now, we use the new and old name somehow interchangably and neither the
-documentation nor the code have been fully updated.
-
-See `Vinyl Cache Announcement`_ for background.
-
--------------------------------
-Vinyl dynamic backends module
--------------------------------
+Vinyl Cache dynamic backends module
+-----------------------------------
 
 Intro / Typical Usage Example
 =============================
@@ -97,7 +84,7 @@ Description
 
 .. _`getdns`: https://getdnsapi.net/
 
-This module provides a vinyl director for dynamic creation of
+This module provides a Vinyl Cache director for dynamic creation of
 backends based on calls to
 
 * the system's network address resolution service which, in turn,
@@ -107,7 +94,7 @@ backends based on calls to
 
 * or more advanced DNS resolution where `getdns`_ is available.
 
-While standard vinyl backends defined in VCL may also be defined in
+While standard Vinyl Cache backends defined in VCL may also be defined in
 terms of host names, changes of the name service information will only
 be picked up with a VCL reload.
 

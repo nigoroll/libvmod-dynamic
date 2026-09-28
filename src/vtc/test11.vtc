@@ -5,7 +5,7 @@ server s1 {
 	txresp
 } -start
 
-vinyl v1 -proto PROXY -vcl+backend {
+vcache v1 -proto PROXY -vcl+backend {
 	import std;
 
 	sub vcl_deliver {
@@ -14,7 +14,7 @@ vinyl v1 -proto PROXY -vcl+backend {
 	}
 } -start
 
-vinyl v2 -vcl+backend {
+vcache v2 -vcl+backend {
 	import dynamic;
 
 	sub vcl_init {

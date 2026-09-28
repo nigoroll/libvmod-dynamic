@@ -11,7 +11,7 @@ server s1 {
        txresp
 } -start
 
-vinyl v1 -vcl {backend none none;} -start
+vcache v1 -vcl {backend none none;} -start
 
 shell {
 	cat >${tmpdir}/layer.vcl <<-EOF
@@ -56,11 +56,11 @@ logexpect l2 -v v1 -q "vxid == 1001" {
 	expect * 1001 VCL_Log "Resolve: d1"
 } -start
 
-vinyl v1 -cliok "vcl.load vclX1 ${tmpdir}/layer.vcl"
-vinyl v1 -cliok "vcl.use vclX1"
-vinyl v1 -cliok "vcl.discard vcl1"
+vcache v1 -cliok "vcl.load vclX1 ${tmpdir}/layer.vcl"
+vcache v1 -cliok "vcl.use vclX1"
+vcache v1 -cliok "vcl.discard vcl1"
 
-vinyl v1 -cliok "backend.list"
+vcache v1 -cliok "backend.list"
 
 client c1 {
 	txreq
@@ -76,17 +76,17 @@ client c1 {
 	expect resp.status == 200
 } -run
 
-vinyl v1 -expect VBE.vclX1.d1(${s1_addr}:${s1_port}).req == 3
-vinyl v1 -expect LCK.dynamic.director.creat > 0
-vinyl v1 -expect LCK.dynamic.backend.creat > 0
+vcache v1 -expect VBE.vclX1.d1(${s1_addr}:${s1_port}).req == 3
+vcache v1 -expect LCK.dynamic.director.creat > 0
+vcache v1 -expect LCK.dynamic.backend.creat > 0
 
 logexpect l1 -wait
 logexpect l2 -wait
 
 # load as cold and discard
-vinyl v1 -cliok "vcl.load vclX2 ${tmpdir}/layer.vcl cold"
-vinyl v1 -cliok "vcl.discard vclX2"
+vcache v1 -cliok "vcl.load vclX2 ${tmpdir}/layer.vcl cold"
+vcache v1 -cliok "vcl.discard vclX2"
 
-vinyl v1 -vcl { backend none none; }
-vinyl v1 -cliok "vcl.discard vclX1"
-vinyl v1 -vsl_catchup
+vcache v1 -vcl { backend none none; }
+vcache v1 -cliok "vcl.discard vclX1"
+vcache v1 -vsl_catchup

@@ -7,6 +7,12 @@ version 2.8.0.
 NEXT (no release branch)
 ------------------------
 
+9.1 branch
+----------
+
+Update to Vinyl Cache 9.1 and vcache, the common VMOD build for Vinyl Cache and
+Varnish Cache.
+
 8.0 branch
 ----------
 

@@ -1,6 +1,6 @@
 vtest "dynamic.resolver basic"
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend proforma none;

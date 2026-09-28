@@ -7,7 +7,7 @@ server s1 -keepalive -repeat 2 {
 	txresp
 } -start
 
-vinyl v1 -vcl+backend {
+vcache v1 -vcl+backend {
 	import dynamic;
 
 	sub vcl_init {
@@ -31,18 +31,18 @@ client c1 {
 	expect resp.status == 200
 } -run
 
-vinyl v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 1
-vinyl v1 -expect LCK.dynamic.director.creat > 0
-vinyl v1 -expect LCK.dynamic.backend.creat > 0
-vinyl v1 -cliok "backend.list"
-vinyl v1 -cliok "backend.list -p"
-vinyl v1 -cliok "backend.list -j"
-vinyl v1 -cliok "backend.list -jp"
+vcache v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 1
+vcache v1 -expect LCK.dynamic.director.creat > 0
+vcache v1 -expect LCK.dynamic.backend.creat > 0
+vcache v1 -cliok "backend.list"
+vcache v1 -cliok "backend.list -p"
+vcache v1 -cliok "backend.list -j"
+vcache v1 -cliok "backend.list -jp"
 
 # cold/warm keeps backend in place
 
-vinyl v1 -vcl {backend foo none;}
-vinyl v1 -cliok "vcl.state vcl1 cold"
+vcache v1 -vcl {backend foo none;}
+vcache v1 -cliok "vcl.state vcl1 cold"
 
 client c1 {
 	txreq
@@ -50,8 +50,8 @@ client c1 {
 	expect resp.status == 503
 } -run
 
-vinyl v1 -cliok "vcl.state vcl1 warm"
-vinyl v1 -cliok "vcl.use vcl1"
+vcache v1 -cliok "vcl.state vcl1 warm"
+vcache v1 -cliok "vcl.use vcl1"
 
 client c1 {
 	txreq
@@ -59,4 +59,4 @@ client c1 {
 	expect resp.status == 200
 } -run
 
-vinyl v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
+vcache v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2

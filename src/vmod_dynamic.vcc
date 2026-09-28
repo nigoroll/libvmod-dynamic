@@ -26,7 +26,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-$Module dynamic 3 "Vinyl dynamic backends module"
+$Module dynamic 3 "Vinyl Cache dynamic backends module"
 $ABI vrt
 
 .. role:: ref(emphasis)
@@ -34,8 +34,8 @@ $ABI vrt
 DESCRIPTION
 ===========
 
-This module provides a vinyl director for dynamic creation of
-backends based on calls to
+This module provides a vinyl Cache director for dynamic creation of backends
+based on calls to
 
 * the system's network address resolution service which, in turn,
   typically use information from the ``/etc/hosts`` file and the
@@ -44,7 +44,7 @@ backends based on calls to
 
 * or more advanced DNS resolution where `getdns`_ is available.
 
-While standard vinyl backends defined in VCL may also be defined in
+While standard Vinyl Cache backends defined in VCL may also be defined in
 terms of host names, changes of the name service information will only
 be picked up with a VCL reload.
 
@@ -368,7 +368,7 @@ Parameters:
 
 Parameters to set attributes of backends
 
-	See vinyl documentation for details
+	See Vinyl Cache documentation for details
 
 	- *connect_timeout* (defaults to global *connect_timeout*)
 	- *first_byte_timeout* (defaults to global *first_byte_timeout*)

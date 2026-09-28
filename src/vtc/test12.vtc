@@ -12,7 +12,7 @@ server s1 {
 	txresp
 } -start
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend proforma none;
@@ -48,5 +48,5 @@ client c1 {
 
 delay 1
 
-vinyl v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}:${s1_port}).req == 1
-vinyl v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}:${s1_port}).req == 1
+vcache v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}:${s1_port}).req == 1
+vcache v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}:${s1_port}).req == 1

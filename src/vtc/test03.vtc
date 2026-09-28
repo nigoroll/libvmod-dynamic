@@ -19,7 +19,7 @@ server s1 {
 	txresp
 } -start
 
-vinyl v1 -arg "-p thread_pools=1" -vcl {
+vcache v1 -arg "-p thread_pools=1" -vcl {
 	import dynamic;
 
 	backend proforma none;
@@ -49,13 +49,13 @@ client c1 {
 } -run
 
 delay 0.1
-vinyl v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
+vcache v1 -expect VBE.vcl1.d1(${s1_addr}:${s1_port}).req == 2
 
 delay 2
 
-vinyl v1 -vcl+backend ""
-vinyl v1 -cli "vcl.discard vcl1"
-vinyl v1 -expect n_vcl_avail == 1
+vcache v1 -vcl+backend ""
+vcache v1 -cli "vcl.discard vcl1"
+vcache v1 -expect n_vcl_avail == 1
 
 client c2 {
 	txreq -hdr "Host: s1"
@@ -68,9 +68,9 @@ server s1 -wait
 # Tickle the CLI twice, in case the first gets the VCL in a cooling state
 # and delays the VCL poll to the next CLI operation. Ensuring a proper
 # discard despite the use of dynamic backends.
-vinyl v1 -cli "vcl.list"
-vinyl v1 -cli "vcl.list"
+vcache v1 -cli "vcl.list"
+vcache v1 -cli "vcl.list"
 
-vinyl v1 -expect n_vcl == 1
-vinyl v1 -expect n_vcl_avail == 1
-vinyl v1 -expect n_vcl_discard == 0
+vcache v1 -expect n_vcl == 1
+vcache v1 -expect n_vcl_avail == 1
+vcache v1 -expect n_vcl_discard == 0

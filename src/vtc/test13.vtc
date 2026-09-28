@@ -18,7 +18,7 @@ server s1 {
 
 	# req
 	rxreq
-	expect req.http.X-Vinyl == 1002
+	expect req.http.X-Vcache == 1002
 	expect req.http.host == www.localhost
 	txresp
 
@@ -36,14 +36,14 @@ server s1 {
 
 	# req
 	rxreq
-	expect req.http.X-Vinyl == 1004
+	expect req.http.X-Vcache == 1004
 	expect req.http.host == img.localhost
 	txresp
 
 	barrier b1 sync
 } -start
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 	import vtc;
 
@@ -71,6 +71,10 @@ vinyl v1 -vcl {
 	    return (pass);
 	}
 
+	sub vcl_backend_fetch {
+	    set bereq.http.X-VCache = bereq.xid;
+	}
+
 	sub vcl_backend_error {
 	    # the director may resolve ::1 first
 	    return (retry);
@@ -89,17 +93,17 @@ client c1 {
 
 barrier b1 sync
 
-vinyl v1 -cliexpect "d1\\.www\\.localhost.*4/8" "backend.list"
-vinyl v1 -cliexpect "d1\\.img\\.localhost.*4/8" "backend.list"
+vcache v1 -cliexpect "d1\\.www\\.localhost.*4/8" "backend.list"
+vcache v1 -cliexpect "d1\\.img\\.localhost.*4/8" "backend.list"
 
-vinyl v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}:${s1_port}).req == 1
-vinyl v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}:${s1_port}).req == 1
+vcache v1 -expect VBE.vcl1.d1.www.localhost(${s1_addr}:${s1_port}).req == 1
+vcache v1 -expect VBE.vcl1.d1.img.localhost(${s1_addr}:${s1_port}).req == 1
 
-vinyl v1 -expect MAIN.backend_unhealthy == 0
+vcache v1 -expect MAIN.backend_unhealthy == 0
 
-vinyl v1 -cliok "backend.set_health d1*${s1_port}* sick"
+vcache v1 -cliok "backend.set_health d1*${s1_port}* sick"
 
-vinyl v1 -cliok "backend.list"
+vcache v1 -cliok "backend.list"
 
 client c1 {
 	txreq -hdr "Host: www.localhost"
@@ -107,4 +111,4 @@ client c1 {
 	expect resp.status == 503
 } -run
 
-vinyl v1 -expect MAIN.backend_unhealthy >= 2
+vcache v1 -expect MAIN.backend_unhealthy >= 2

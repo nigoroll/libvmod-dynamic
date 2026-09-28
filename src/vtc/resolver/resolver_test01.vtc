@@ -7,7 +7,7 @@ server s1 {
        txresp
 } -start
 
-vinyl v1 -vcl+backend {
+vcache v1 -vcl+backend {
 	import dynamic;
 
 	acl ipv4_only { "0.0.0.0"/0; }
@@ -38,6 +38,6 @@ client c1 {
 	expect resp.status == 200
 } -run
 
-vinyl v1 -expect VBE.vcl1.d1(176.58.90.154:http).req == 1
-vinyl v1 -expect LCK.dynamic.director.creat > 0
-vinyl v1 -expect LCK.dynamic.backend.creat > 0
+vcache v1 -expect VBE.vcl1.d1(176.58.90.154:http).req == 1
+vcache v1 -expect LCK.dynamic.director.creat > 0
+vcache v1 -expect LCK.dynamic.backend.creat > 0

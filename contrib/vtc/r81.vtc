@@ -22,7 +22,7 @@ vtest "bug #81 Assertion error on dynamic_domain"
 #
 # 3. Start dnsmasq "dnsmasq -C /etc/dnsmasq.conf"
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import ${vmod_dynamic};
 
 	backend dummy { .host = "${bad_backend}"; }

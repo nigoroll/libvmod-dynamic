@@ -1,6 +1,6 @@
 vtest "dynamic.resolver configuration"
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	import dynamic;
 
 	backend proforma none;
@@ -74,7 +74,7 @@ client c1 {
 
 logexpect l1 -wait
 
-vinyl v1 -errvcl "tried to add namespace DNS twice" {
+vcache v1 -errvcl "tried to add namespace DNS twice" {
 	import dynamic;
 
 	backend proforma none;
@@ -87,7 +87,7 @@ vinyl v1 -errvcl "tried to add namespace DNS twice" {
 	}
 }
 
-vinyl v1 -errvcl "tried to add transport UDP twice" {
+vcache v1 -errvcl "tried to add transport UDP twice" {
 	import dynamic;
 
 	backend proforma none;
@@ -100,7 +100,7 @@ vinyl v1 -errvcl "tried to add transport UDP twice" {
 	}
 }
 
-vinyl v1 -errvcl "error 311 (A required parameter had an invalid value.)" {
+vcache v1 -errvcl "error 311 (A required parameter had an invalid value.)" {
 	import dynamic;
 
 	backend proforma none;

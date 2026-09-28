@@ -3,7 +3,7 @@ vtest "panic"
 server s1 {
 } -start
 
-vinyl v1 -vcl {
+vcache v1 -vcl {
 	vcl 4.1;
 	import std;
 	import directors;
@@ -18,4 +18,4 @@ vinyl v1 -vcl {
 	}
 } -start
 
-vinyl v1 -cliok "backend.set_health main(*) sick"
+vcache v1 -cliok "backend.set_health main(*) sick"
