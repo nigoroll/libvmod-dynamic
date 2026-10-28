@@ -76,6 +76,11 @@ enum dynamic_ttl_e {
 	TTL_E_MAX
 };
 
+enum dynamic_algorithm_e {
+	RR,
+	LEAST
+};
+
 struct dynamic_domain {
 	unsigned			magic;
 #define DYNAMIC_DOMAIN_MAGIC		0x1bfe1345
@@ -205,6 +210,7 @@ struct vmod_dynamic_director {
 	const struct res_cb			*resolver;
 	struct VPFX(dynamic_resolver)		*resolver_inst;
 	enum dynamic_ttl_e			ttl_from;
+	enum dynamic_algorithm_e	algorithm;
 	unsigned				debug;
 };
 
