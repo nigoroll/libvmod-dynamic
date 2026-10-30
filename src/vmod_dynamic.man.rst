@@ -577,6 +577,10 @@ outside ``vcl_init{}`` will trigger a VCL failure.
 BLOB xresolver.use()
 --------------------
 
+
+
+Restricted to: ``vcl_init``.
+
 return a reference to the `dynamic.resolver()`_ object for use as a
 parameter to the `dynamic.director()`_ constructor.
 
@@ -585,10 +589,12 @@ parameter to the `dynamic.director()`_ constructor.
 BOOL xresolver.set_resolution_type(ENUM {RECURSING, STUB})
 ----------------------------------------------------------
 
+
+
+Restricted to: ``vcl_init``.
+
 Specifies whether DNS queries are performed with nonrecurive lookups
 or as a stub resolver.
-
-May only be called from ``vcl_init{}``
 
 See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 
@@ -597,9 +603,11 @@ See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 BOOL xresolver.clear_namespaces()
 ---------------------------------
 
-Clear the list of namespaces to be configured, see below.
 
-May only be called from ``vcl_init{}``
+
+Restricted to: ``vcl_init``.
+
+Clear the list of namespaces to be configured, see below.
 
 .. _xresolver.add_namespace():
 
@@ -612,13 +620,15 @@ BOOL xresolver.add_namespace(ENUM)
             ENUM {DNS, LOCALNAMES, NETBIOS, MDNS, NIS}
       )
 
+
+
+Restricted to: ``vcl_init``.
+
 Add a namespace to the list of namespaces to be queried.
 
 This method only adds the namespace to an internal list, The actual
 configuration is only done once
 `xresolver.set_namespaces()`_ is called.
-
-May only be called from ``vcl_init{}``
 
 See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 
@@ -632,31 +642,37 @@ requested API feature implemented.) in this case when
 BOOL xresolver.set_namespaces()
 -------------------------------
 
-Apply namespace configuration, see above.
 
-May only be called from ``vcl_init{}``
+
+Restricted to: ``vcl_init``.
+
+Apply namespace configuration, see above.
 
 .. _xresolver.clear_transports():
 
 BOOL xresolver.clear_transports()
 ---------------------------------
 
-Clear the list of transports to be configured, see below.
 
-May only be called from ``vcl_init{}``
+
+Restricted to: ``vcl_init``.
+
+Clear the list of transports to be configured, see below.
 
 .. _xresolver.add_transport():
 
 BOOL xresolver.add_transport(ENUM {UDP, TCP, TLS})
 --------------------------------------------------
 
+
+
+Restricted to: ``vcl_init``.
+
 Add a transport to the list of transports to be tried.
 
 This method only adds the transport to an internal list, The actual
 configuration is only done once
 `xresolver.set_transports()`_ is called.
-
-May only be called from ``vcl_init{}``
 
 See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 
@@ -665,34 +681,46 @@ See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 BOOL xresolver.set_transports()
 -------------------------------
 
-Apply transport configuration, see above.
 
-May only be called from ``vcl_init{}``
+
+Restricted to: ``vcl_init``.
+
+Apply transport configuration, see above.
 
 .. _xresolver.set_idle_timeout():
 
 BOOL xresolver.set_idle_timeout(DURATION)
 -----------------------------------------
 
+
+
+Restricted to: ``vcl_init``.
+
 Specifies the duration the API will leave an idle TCP or TLS
 connection open for (idle means no outstanding responses and no
 pending queries).
-
-May only be called from ``vcl_init{}``
 
 .. _xresolver.set_limit_outstanding_queries():
 
 BOOL xresolver.set_limit_outstanding_queries(INT)
 -------------------------------------------------
 
-May only be called from ``vcl_init{}``
+
+
+Restricted to: ``vcl_init``.
+
+
 
 .. _xresolver.set_timeout():
 
 BOOL xresolver.set_timeout(DURATION)
 ------------------------------------
 
-May only be called from ``vcl_init{}``
+
+
+Restricted to: ``vcl_init``.
+
+
 
 .. _xresolver.set_follow_redirects():
 
@@ -705,8 +733,9 @@ BOOL xresolver.set_follow_redirects(ENUM)
             ENUM {REDIRECTS_FOLLOW, REDIRECTS_DO_NOT_FOLLOW}
       )
 
-May only be called from ``vcl_init{}``
 
+
+Restricted to: ``vcl_init``.
 
 FULL EXAMPLE: BEHAVE LIKE SQUID
 ===============================

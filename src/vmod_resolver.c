@@ -227,15 +227,6 @@ static const char * const funcpfx = "vmod_resolver_";
 	assert(strlen(var) > strlen(funcpfx));	\
 	var += strlen(funcpfx)
 
-#define check_met_init(ctx)						\
-	if (((ctx)->method & VCL_MET_INIT) == 0) {			\
-		met_name(name);						\
-		VRT_fail((ctx), "xresolver.%s"				\
-		    " may only be called from vcl_init{}",		\
-		    name);						\
-		return (0);						\
-	}
-
 #define check_err(ctx, ret)						\
 	if ((ret) != GETDNS_RETURN_GOOD) {				\
 		met_name(name);						\
@@ -265,7 +256,7 @@ vmod_resolver_set_resolution_type(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	type= parse_res_resolution_type_e(type_s);
 
@@ -291,7 +282,7 @@ res_cfg(VRT_CTX, const struct VPFX(dynamic_resolver) *r)
 	struct res_cfg *cfg;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	task = VRT_priv_task(ctx, r);
 
@@ -323,7 +314,7 @@ vmod_resolver_clear_namespaces(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	cfg = res_cfg(ctx, r);
 	if (cfg == NULL)
@@ -344,7 +335,7 @@ vmod_resolver_add_namespace(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	namespace = parse_res_namespace_e(namespace_s);
 
@@ -373,7 +364,7 @@ vmod_resolver_set_namespaces(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	cfg = res_cfg(ctx, r);
 	if (cfg == NULL)
@@ -394,7 +385,7 @@ vmod_resolver_clear_transports(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	cfg = res_cfg(ctx, r);
 	if (cfg == NULL)
@@ -416,7 +407,7 @@ vmod_resolver_add_transport(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	transport = parse_res_transport_e(transport_s);
 
@@ -445,7 +436,7 @@ vmod_resolver_set_transports(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	cfg = res_cfg(ctx, r);
 	if (cfg == NULL)
@@ -466,7 +457,7 @@ vmod_resolver_set_idle_timeout(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	context_apply(ctx, r,
 	    getdns_context_set_idle_timeout, idle_timeout);
@@ -482,7 +473,7 @@ vmod_resolver_set_limit_outstanding_queries(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	if (l < 0 || l > UINT16_MAX)
 		check_err(ctx, GETDNS_RETURN_INVALID_PARAMETER);
@@ -503,7 +494,7 @@ vmod_resolver_set_timeout(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	context_apply(ctx, r,
 	    getdns_context_set_timeout, timeout);
@@ -519,7 +510,7 @@ vmod_resolver_set_follow_redirects(VRT_CTX,
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
-	check_met_init(ctx);
+	assert(ctx->method == VCL_MET_INIT);
 
 	redirect = parse_res_redirects_e(redirect_s);
 

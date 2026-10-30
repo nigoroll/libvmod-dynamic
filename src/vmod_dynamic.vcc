@@ -515,33 +515,35 @@ outside ``vcl_init{}`` will trigger a VCL failure.
 
 $Method BLOB .use()
 
+$Restrict vcl_init
+
 return a reference to the `dynamic.resolver()`_ object for use as a
 parameter to the `dynamic.director()`_ constructor.
 
 $Method BOOL .set_resolution_type(ENUM {RECURSING, STUB})
 
+$Restrict vcl_init
+
 Specifies whether DNS queries are performed with nonrecurive lookups
 or as a stub resolver.
-
-May only be called from ``vcl_init{}``
 
 See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 
 $Method BOOL .clear_namespaces()
 
+$Restrict vcl_init
+
 Clear the list of namespaces to be configured, see below.
 
-May only be called from ``vcl_init{}``
-
 $Method BOOL .add_namespace(ENUM {DNS, LOCALNAMES, NETBIOS, MDNS, NIS})
+
+$Restrict vcl_init
 
 Add a namespace to the list of namespaces to be queried.
 
 This method only adds the namespace to an internal list, The actual
 configuration is only done once
 `xresolver.set_namespaces()`_ is called.
-
-May only be called from ``vcl_init{}``
 
 See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 
@@ -552,17 +554,19 @@ requested API feature implemented.) in this case when
 
 $Method BOOL .set_namespaces()
 
-Apply namespace configuration, see above.
+$Restrict vcl_init
 
-May only be called from ``vcl_init{}``
+Apply namespace configuration, see above.
 
 $Method BOOL .clear_transports()
 
+$Restrict vcl_init
+
 Clear the list of transports to be configured, see below.
 
-May only be called from ``vcl_init{}``
-
 $Method BOOL .add_transport(ENUM {UDP, TCP, TLS})
+
+$Restrict vcl_init
 
 Add a transport to the list of transports to be tried.
 
@@ -570,38 +574,35 @@ This method only adds the transport to an internal list, The actual
 configuration is only done once
 `xresolver.set_transports()`_ is called.
 
-May only be called from ``vcl_init{}``
-
 See https://getdnsapi.net/documentation/spec/#83-contexts-for-basic-resolution
 
 $Method BOOL .set_transports()
 
+$Restrict vcl_init
+
 Apply transport configuration, see above.
 
-May only be called from ``vcl_init{}``
-
 $Method BOOL .set_idle_timeout(DURATION)
+
+$Restrict vcl_init
 
 Specifies the duration the API will leave an idle TCP or TLS
 connection open for (idle means no outstanding responses and no
 pending queries).
 
-May only be called from ``vcl_init{}``
-
 $Method BOOL .set_limit_outstanding_queries(INT)
 
-May only be called from ``vcl_init{}``
-
+$Restrict vcl_init
 
 $Method BOOL .set_timeout(DURATION)
 
-May only be called from ``vcl_init{}``
+$Restrict vcl_init
 
 
 $Method BOOL .set_follow_redirects(
 		ENUM {REDIRECTS_FOLLOW, REDIRECTS_DO_NOT_FOLLOW})
 
-May only be called from ``vcl_init{}``
+$Restrict vcl_init
 
 
 FULL EXAMPLE: BEHAVE LIKE SQUID
