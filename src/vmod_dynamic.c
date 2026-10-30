@@ -381,7 +381,7 @@ dom_healthy(VRT_CTX, VCL_BACKEND d, VCL_TIME *changed)
 	else if (Lck_Trylock(&dom->mtx))
 		goto cached;
 
-	r = dom_find(ctx, dom, NULL, &retval, changed, ctx->method != 0);
+	r = dom_find(ctx, dom, NULL, &retval, changed, ctx->method ? 1 : 0);
 	Lck_Unlock(&dom->mtx);
 
 	if (r)

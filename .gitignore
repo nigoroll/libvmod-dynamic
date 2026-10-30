@@ -52,3 +52,7 @@ vmod-*.tar.[gx]z
 *.spec
 
 src/vmod_vcs_version.txt
+
+# flexelint
+# ---------
+src/_.fl
