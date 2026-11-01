@@ -28,10 +28,14 @@
 
 #include "config.h"
 
+#include <netinet/in.h>
+#include <string.h>	// miniobj.h
+#include <sys/socket.h>
+
 #include <cache/cache.h>
 #include <vcl.h>
-
-#include <string.h>	// miniobj.h
+#include <vtcp.h>
+#include <vsa.h>
 
 #include "vcc_dynamic_if.h"
 
@@ -273,7 +277,14 @@ struct res_cfg {
 	getdns_namespace_t	namespaces[GETDNS_NAMESPACE_COUNT];
 	size_t			transport_count;
 	getdns_transport_list_t transports[GETDNS_TRANSPORT_COUNT];
+	size_t			upstream_recursive_servers_count;
+	getdns_list		*upstream_recursive_servers;
+	size_t			dnssec_trust_anchors_count;
+	getdns_list		*dnssec_trust_anchors;
+
 };
+
+static struct vmod_priv_methods fini_cfg;
 
 static struct res_cfg *
 res_cfg(VRT_CTX, const struct VPFX(dynamic_resolver) *r)
@@ -302,6 +313,7 @@ res_cfg(VRT_CTX, const struct VPFX(dynamic_resolver) *r)
 		return (NULL);
 	}
 	task->priv = cfg;
+	task->methods = &fini_cfg;
 	INIT_OBJ(cfg, RES_CFG_MAGIC);
 	return (cfg);
 }
@@ -520,3 +532,180 @@ vmod_resolver_set_follow_redirects(VRT_CTX,
 
 	return (1);
 }
+
+#define cfglist_add(err, cfg, name, what, item) do {	\
+	if ((cfg)->name == NULL) {			\
+		(cfg)->name = getdns_list_create();	\
+		(cfg)->name ## _count = 0;		\
+	}						\
+	err = getdns_list_set_ ## what((cfg)->name,	\
+	    (cfg)->name ## _count++, item);		\
+} while (0)
+
+#define cfglist_clear(cfg, name) do {			\
+	if ((cfg)->name)				\
+		getdns_list_destroy((cfg)->name);	\
+	(cfg)->name = NULL;				\
+} while (0)
+	
+#define bindata(sz, ptr) (getdns_bindata[1]){{sz, ptr}}
+
+static void vmod_resolver_cfg_fini(VRT_CTX, void *priv)
+{
+	struct res_cfg *cfg;
+
+	CAST_OBJ_NOTNULL(cfg, priv, RES_CFG_MAGIC);
+	cfglist_clear(cfg, dnssec_trust_anchors);
+	cfglist_clear(cfg, upstream_recursive_servers);
+}
+	
+static struct vmod_priv_methods fini_cfg = {
+	.magic = VMOD_PRIV_METHODS_MAGIC,
+	.type = "vmod_dynamic resolver cfg",
+	.fini = vmod_resolver_cfg_fini
+};
+
+VCL_VOID 
+vmod_resolver_clear_dnssec_trust_anchors(VRT_CTX,
+    struct VPFX(dynamic_resolver) *r)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	assert(ctx->method == VCL_MET_INIT);
+
+	struct res_cfg *cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return;
+	cfglist_clear(cfg, dnssec_trust_anchors);
+}
+
+VCL_BOOL 
+vmod_resolver_add_dnssec_trust_anchor(VRT_CTX,
+    struct VPFX(dynamic_resolver) *r, VCL_BLOB b)
+{
+	getdns_return_t ret;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	assert(ctx->method == VCL_MET_INIT);
+
+	struct res_cfg *cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return (0);
+	cfglist_add(ret, cfg, dnssec_trust_anchors,
+	     bindata, bindata(b->len, TRUST_ME(b->blob)));
+	check_err(ctx, ret);
+	return (1);
+}
+
+VCL_BOOL 
+vmod_resolver_set_dnssec_trust_anchors(VRT_CTX,
+    struct VPFX(dynamic_resolver) *r)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	assert(ctx->method == VCL_MET_INIT);
+
+	struct res_cfg *cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return (0);
+	context_apply(ctx, r,
+	    getdns_context_set_dnssec_trust_anchors,
+	    cfg->dnssec_trust_anchors);
+	return (1);
+}
+
+VCL_VOID 
+vmod_resolver_clear_upstream_recursive_servers(VRT_CTX,
+    struct VPFX(dynamic_resolver) *r)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	assert(ctx->method == VCL_MET_INIT);
+
+	struct res_cfg *cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return;
+	cfglist_clear(cfg, upstream_recursive_servers);
+}
+
+VCL_BOOL 
+vmod_resolver_add_upstream_recursive_server(VRT_CTX,
+    struct VPFX(dynamic_resolver) *r,
+    VCL_IP ip, VCL_STRING scope, VCL_STRING port)
+{
+	getdns_return_t ret;
+	const uint8_t *addr;
+	size_t al;
+	int proto;
+
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	assert(ctx->method == VCL_MET_INIT);
+
+	struct res_cfg *cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return (0);
+
+	if (ip == NULL) {
+		met_name(name);
+		VRT_fail(ctx, "xresolver.%s ip argument must not be NULL",
+		    name);
+		return (0);
+	}
+
+	proto = VSA_GetPtr(ip, &addr);
+	switch (proto) {
+	case PF_INET:
+		al = 4;
+		break;
+	case PF_INET6:
+		al = 16;
+		break;
+	default: {
+		met_name(name);
+		VRT_fail(ctx, "xresolver.%s ip argument unsupported proto %d",
+		    name, proto);
+		return (0);
+		}
+	}
+
+	getdns_dict *s = getdns_dict_create();
+	check_err(ctx, getdns_dict_set_bindata(s,
+	   "address_data", bindata(al, TRUST_ME(addr))));
+	check_err(ctx, getdns_dict_set_bindata(s,
+	   "address_type", bindata(5,
+		proto == AF_INET ? (uint8_t *)"IPv4" : (uint8_t *)"IPv6")));
+	if (scope != NULL) {
+		check_err(ctx, getdns_dict_set_bindata(s,
+		    "scope", bindata(strlen(scope), (uint8_t *)scope)));
+	}
+	if (port != NULL) {
+		check_err(ctx, getdns_dict_set_bindata(s,
+		    "port", bindata(strlen(port), (uint8_t *)port)));
+	}
+	cfglist_add(ret, cfg, upstream_recursive_servers,
+	     dict, s);
+	check_err(ctx, ret);
+	getdns_dict_destroy(s);
+
+	return (1);
+}
+
+VCL_BOOL 
+vmod_resolver_set_upstream_recursive_servers(VRT_CTX,
+    struct VPFX(dynamic_resolver) *r)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	CHECK_OBJ_NOTNULL(r, DYNAMIC_RESOLVER_MAGIC);
+	assert(ctx->method == VCL_MET_INIT);
+
+	struct res_cfg *cfg = res_cfg(ctx, r);
+	if (cfg == NULL)
+		return (0);
+	context_apply(ctx, r,
+	       getdns_context_set_upstream_recursive_servers,
+	       cfg->upstream_recursive_servers);
+	return (1);
+}
+

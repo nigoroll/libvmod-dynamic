@@ -57,6 +57,18 @@ SYNOPSIS
    
       BOOL xresolver.set_follow_redirects(ENUM)
    
+      VOID xresolver.clear_dnssec_trust_anchors()
+   
+      BOOL xresolver.add_dnssec_trust_anchor(BLOB)
+   
+      BOOL xresolver.set_dnssec_trust_anchors()
+   
+      VOID xresolver.clear_upstream_recursive_servers()
+   
+      BOOL xresolver.add_upstream_recursive_server(IP, STRING scope_id, STRING port)
+   
+      BOOL xresolver.set_upstream_recursive_servers()
+   
 
 .. role:: ref(emphasis)
 
@@ -736,6 +748,102 @@ BOOL xresolver.set_follow_redirects(ENUM)
 
 
 Restricted to: ``vcl_init``.
+
+
+
+.. _xresolver.clear_dnssec_trust_anchors():
+
+VOID xresolver.clear_dnssec_trust_anchors()
+-------------------------------------------
+
+Clear the list of trust anchors to be added.
+
+Restricted to: ``vcl_init``.
+
+
+
+.. _xresolver.add_dnssec_trust_anchor():
+
+BOOL xresolver.add_dnssec_trust_anchor(BLOB)
+--------------------------------------------
+
+Add a trust anchor to be added.
+
+Restricted to: ``vcl_init``.
+
+
+
+.. _xresolver.set_dnssec_trust_anchors():
+
+BOOL xresolver.set_dnssec_trust_anchors()
+-----------------------------------------
+
+Set trust anchors after a series of `xresolver.add_dnssec_trust_anchor()`_
+calls. If none have been added, the built-in trust anchors are configured.
+
+Restricted to: ``vcl_init``.
+
+
+
+.. _xresolver.clear_upstream_recursive_servers():
+
+VOID xresolver.clear_upstream_recursive_servers()
+-------------------------------------------------
+
+Clear the list of upstream recursive servers to be added.
+
+Restricted to: ``vcl_init``.
+
+
+
+.. _xresolver.add_upstream_recursive_server():
+
+BOOL xresolver.add_upstream_recursive_server(IP, STRING scope_id, STRING port)
+------------------------------------------------------------------------------
+
+::
+
+      BOOL xresolver.add_upstream_recursive_server(
+            IP,
+            STRING scope_id=0,
+            STRING port="53"
+      )
+
+Add an upstream recursive server to the list of servers to be added.
+
+See below for a full example.
+
+Restricted to: ``vcl_init``.
+
+
+
+.. _xresolver.set_upstream_recursive_servers():
+
+BOOL xresolver.set_upstream_recursive_servers()
+-----------------------------------------------
+
+Set upstream recursive servers after a series of `xresolver.add_upstream_recursive_server()` calls.
+
+Restricted to: ``vcl_init``.
+
+Example::
+
+	sub vcl_init {
+		new r1 = dynamic.resolver();
+		r1.set_resolution_type(STUB);
+		r1.add_upstream_recursive_server("2620:fe::fe");
+		r1.add_upstream_recursive_server("2620:fe::9");
+		r1.add_upstream_recursive_server("9.9.9.9");
+		r1.add_upstream_recursive_server("149.112.112.112");
+		r1.set_upstream_recursive_servers();
+		new d1 = dynamic.director(
+		    resolver = r1.use());
+	}
+
+
+# XXX upstream tsig
+
+
 
 FULL EXAMPLE: BEHAVE LIKE SQUID
 ===============================

@@ -604,6 +604,63 @@ $Method BOOL .set_follow_redirects(
 
 $Restrict vcl_init
 
+$Method VOID .clear_dnssec_trust_anchors()
+
+Clear the list of trust anchors to be added.
+
+$Restrict vcl_init
+
+$Method BOOL .add_dnssec_trust_anchor(BLOB)
+
+Add a trust anchor to be added.
+
+$Restrict vcl_init
+
+$Method BOOL .set_dnssec_trust_anchors()
+
+Set trust anchors after a series of `xresolver.add_dnssec_trust_anchor()`_
+calls. If none have been added, the built-in trust anchors are configured.
+
+$Restrict vcl_init
+
+$Method VOID .clear_upstream_recursive_servers()
+
+Clear the list of upstream recursive servers to be added.
+
+$Restrict vcl_init
+
+$Method BOOL .add_upstream_recursive_server(IP, STRING scope_id=0, STRING port="53")
+
+Add an upstream recursive server to the list of servers to be added.
+
+See below for a full example.
+
+$Restrict vcl_init
+
+$Method BOOL .set_upstream_recursive_servers()
+
+Set upstream recursive servers after a series of `xresolver.add_upstream_recursive_server()` calls.
+
+$Restrict vcl_init
+
+Example::
+
+	sub vcl_init {
+		new r1 = dynamic.resolver();
+		r1.set_resolution_type(STUB);
+		r1.add_upstream_recursive_server("2620:fe::fe");
+		r1.add_upstream_recursive_server("2620:fe::9");
+		r1.add_upstream_recursive_server("9.9.9.9");
+		r1.add_upstream_recursive_server("149.112.112.112");
+		r1.set_upstream_recursive_servers();
+		new d1 = dynamic.director(
+		    resolver = r1.use());
+	}
+
+
+# XXX upstream tsig
+
+
 
 FULL EXAMPLE: BEHAVE LIKE SQUID
 ===============================
