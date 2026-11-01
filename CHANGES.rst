@@ -7,6 +7,10 @@ version 2.8.0.
 NEXT (no release branch)
 ------------------------
 
+Upstream DNS servers can now be explicitly configured with the getdns resolver,
+see xresolver.add_upstream_recursive_server() and
+xresolver.add_upstream_recursive_server().
+
 9.1 branch
 ----------
 
